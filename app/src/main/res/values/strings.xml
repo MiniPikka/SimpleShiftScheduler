@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">倒班助手</string>
+    <string name="shift_label_morning">早</string>
+    <string name="shift_label_afternoon">中</string>
+    <string name="shift_label_rest">休</string>
+    <string name="shift_label_night">夜</string>
+    <string name="shift_label_study">学</string>
+</resources>
