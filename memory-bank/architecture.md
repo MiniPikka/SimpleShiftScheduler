@@ -298,3 +298,92 @@
 - `CalendarViewModel.kt` — `customCycle` 字段 + 动态 `teamPhaseStep()`
 - `MainActivity.kt` — NavHost 双路由 + SettingsRepository 集成 + 状态共享
 - `ShiftCalculatorTest.kt` — 追加 customCycle 测试用例
+
+---
+
+## 7. 阶段 10 架构更新：闹钟改为日历日程（已完成）
+
+阶段 9 原有的 AlarmManager 方案已替换为 Calendar Provider 方案。
+
+### 迁移原因
+
+- AlarmManager 在国产手机上被各厂商杀后台机制严重影响，闹钟延迟或丢失
+- Calendar Provider 是 AOSP 标准 API（API 14+），所有 Android 品牌必须支持，提醒由系统日历同步适配器管理，优先级高于普通闹钟
+- 日历日程持久化在系统日历数据库，重启自动恢复，无需 `BootReceiver`
+- 减少权限依赖：`SCHEDULE_EXACT_ALARM` + `POST_NOTIFICATIONS` + `RECEIVE_BOOT_COMPLETED` → `READ_CALENDAR` + `WRITE_CALENDAR`
+
+### 新增 calendar 包
+
+`app/src/main/java/com/simpleshift/scheduler/calendar/` 替代原有的 `alarm/` 包。
+
+### `CalendarEventManager.kt`
+
+日历日程管理器（非 Android 组件，纯 Kotlin 类包装 ContentResolver）：
+- `getOrCreateLocalCalendar()` — 查询现有本地日历账户，不存在则用 `ACCOUNT_TYPE_LOCAL` 创建，返回 calendarId
+- `syncNextSevenDays(alarmSettings, shiftCycle, teamPhaseOffset, existingEventIds)` — 计算未来 7 天日程并同步到系统日历
+- 同步策略：对比日程变化 → 有变化删旧插新、无变化跳过
+- 每个日程设置 `CalendarContract.Reminders.METHOD_ALERT`（准时提醒，系统弹出通知）
+- 日程标题："早班提醒"，时长 15 分钟
+- 返回 `CalendarEventIds`（date+shiftType → eventId 映射）供持久化
+- `deleteEvents(eventIds)` — 按 eventId 批量删除日程
+- `deleteAllEventsForTypes(eventIds)` — 删除所有已追踪日程
+
+### `CalendarEventIds.kt`
+
+日程事件 ID 追踪模型：
+```kotlin
+data class CalendarEventIds(
+    val eventIds: Map<String, Long> = emptyMap()  // key = "yyyy-MM-dd_SHIFT_TYPE"
+)
+```
+存储于 DataStore，格式：`"2026-05-09_MORNING=42,2026-05-10_MORNING=43"`
+
+### 保留的模型
+
+- `AlarmTime.kt` — 保留，仅表示提醒时间（hour, minute），语义不变
+- `AlarmSettings.kt` — 保留，仅表示每个班次的提醒时间设置
+
+### 删除的组件
+
+- `AlarmScheduler.kt` → 被 `CalendarEventManager` 替代
+- `AlarmReceiver.kt` → 日历系统自动触发提醒，不再需要自定义 BroadcastReceiver
+- `BootReceiver.kt` → 日程持久化在日历数据库，重启无需恢复
+- `ic_alarm.xml` → 不再需要自定义通知图标
+- 旧测试：`AlarmSchedulerTest.kt`、`AlarmReceiverTest.kt`
+
+### 洞察 T：提醒设置独立自动保存（保留）
+
+提醒时间修改通过 `onAlarmSettingsChanged` 回调立即自动保存到 DataStore + 触发日历日程同步。`cancel()` 只还原倒班周期设置，不重置提醒时间。即使用户修改提醒后直接返回而不保存周期设置，提醒也不会丢失。
+
+### 洞察 U：combine 三流实现自动同步
+
+`MainActivity` 使用 `combine(settingsRepository.settingsFlow, settingsRepository.alarmSettingsFlow, settingsRepository.calendarEventIdsFlow)` 合并三个 DataStore 流。任一流变化时自动调用 `CalendarEventManager.syncNextSevenDays()` 更新系统日历日程。
+
+### 洞察 V：提醒使用默认班组计算日期（保留）
+
+日历日程的日期计算使用 `RuntimeShiftSettings.defaultTeamId`，而非首页的瞬时班组选择。提醒设置是用户全局配置，不受临时班组切换影响。
+
+### 洞察 W：跨品牌本地日历策略
+
+使用 `CalendarContract.Calendars` 查询后创建本地日历账户（`ACCOUNT_TYPE_LOCAL`），日程存储在设备本地，不依赖 Google 账户、不同步云端。小米/华为/OPPO/Vivo/三星/原生 Android 全支持。
+
+### 阶段 10 新增文件
+
+- `app/src/main/java/com/simpleshift/scheduler/calendar/CalendarEventManager.kt` — 日历日程管理器
+- `app/src/main/java/com/simpleshift/scheduler/domain/model/CalendarEventIds.kt` — 日程 ID 追踪模型
+
+### 阶段 10 删除的文件
+
+- `app/src/main/java/com/simpleshift/scheduler/alarm/AlarmScheduler.kt`
+- `app/src/main/java/com/simpleshift/scheduler/alarm/AlarmReceiver.kt`
+- `app/src/main/java/com/simpleshift/scheduler/alarm/BootReceiver.kt`
+- `app/src/main/res/drawable/ic_alarm.xml`
+- `app/src/test/java/com/simpleshift/scheduler/alarm/AlarmSchedulerTest.kt`
+- `app/src/test/java/com/simpleshift/scheduler/alarm/AlarmReceiverTest.kt`
+
+### 阶段 10 改造文件
+
+- `SettingsRepository.kt` — 新增 `calendarEventIdsFlow` + `saveCalendarEventIds()` + eventId 键值
+- `MainActivity.kt` — 移除通知渠道、AlarmScheduler、combine 双流闹钟调度，替换为 CalendarEventManager + 权限请求
+- `AndroidManifest.xml` — 移除 3 个闹钟权限 + 2 个 receiver，新增日历读写权限
+- `strings.xml` — 移除通知相关字符串（渠道名、通知标题/正文）

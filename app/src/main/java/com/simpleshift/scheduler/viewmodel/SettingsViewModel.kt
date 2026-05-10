@@ -2,6 +2,8 @@ package com.simpleshift.scheduler.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import com.simpleshift.scheduler.domain.model.AlarmSettings
+import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
 import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
@@ -15,6 +17,7 @@ data class SettingsUiState(
     val shiftCycle: List<ShiftType> = ShiftCycleConfig.SHIFT_CYCLE,
     val defaultTeamId: Int = 1,
     val availableTeams: List<Team> = Team.ALL_TEAMS,
+    val alarmSettings: AlarmSettings = AlarmSettings(),
     val isDirty: Boolean = false,
     val isSaved: Boolean = false
 )
@@ -22,19 +25,28 @@ data class SettingsUiState(
 class SettingsViewModel(
     application: Application,
     initialSettings: RuntimeShiftSettings = RuntimeShiftSettings(),
-    private val onSettingsSaved: (RuntimeShiftSettings) -> Unit = {}
+    initialAlarmSettings: AlarmSettings = AlarmSettings(),
+    private val onSettingsSaved: (RuntimeShiftSettings) -> Unit = {},
+    private val onAlarmSettingsChanged: (AlarmSettings) -> Unit = {}
 ) : AndroidViewModel(application) {
 
     constructor(
         application: Application,
         initialSettings: RuntimeShiftSettings
-    ) : this(application, initialSettings, {})
+    ) : this(application, initialSettings, AlarmSettings(), {}, {})
+
+    constructor(
+        application: Application,
+        initialSettings: RuntimeShiftSettings,
+        initialAlarmSettings: AlarmSettings
+    ) : this(application, initialSettings, initialAlarmSettings, {}, {})
 
     private val _uiState = MutableStateFlow(
         SettingsUiState(
             cycleLength = initialSettings.cycleLength,
             shiftCycle = initialSettings.shiftCycle,
-            defaultTeamId = initialSettings.defaultTeamId
+            defaultTeamId = initialSettings.defaultTeamId,
+            alarmSettings = initialAlarmSettings
         )
     )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -76,6 +88,14 @@ class SettingsViewModel(
         )
     }
 
+    fun updateAlarmTime(shiftType: ShiftType, alarmTime: AlarmTime?) {
+        val current = _uiState.value
+        val updatedAlarms = current.alarmSettings.alarms + (shiftType to alarmTime)
+        val newAlarmSettings = AlarmSettings(updatedAlarms)
+        _uiState.value = current.copy(alarmSettings = newAlarmSettings)
+        onAlarmSettingsChanged(newAlarmSettings)
+    }
+
     fun save() {
         val current = _uiState.value
         val settings = RuntimeShiftSettings(
@@ -88,10 +108,12 @@ class SettingsViewModel(
     }
 
     fun cancel() {
+        val current = _uiState.value
         _uiState.value = SettingsUiState(
             cycleLength = savedSettings.cycleLength,
             shiftCycle = savedSettings.shiftCycle,
-            defaultTeamId = savedSettings.defaultTeamId
+            defaultTeamId = savedSettings.defaultTeamId,
+            alarmSettings = current.alarmSettings
         )
     }
 }

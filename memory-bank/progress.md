@@ -1,5 +1,103 @@
 # 倒班助手开发进度记录
 
+## 2026-05-09：实施计划第 10 步（闹钟改为日历日程）
+
+### 迁移原因
+
+- AlarmManager 在国产手机上被各厂商杀后台机制严重影响，闹钟延迟或丢失
+- Calendar Provider 是 AOSP 标准 API，所有 Android 品牌必须支持，提醒更可靠
+- 日历日程持久化在系统日历数据库，重启自动恢复，无需 BootReceiver
+- 减少权限依赖：3 个 → 2 个
+
+### 本次完成内容
+
+- 阶段 10（闹钟改为日历日程）全部子步骤：
+  - 新增 `CalendarEventManager` 替代 `AlarmScheduler`：管理本地日历 + 日程 CRUD + 提醒设置
+  - 删除 `AlarmScheduler`、`AlarmReceiver`、`BootReceiver`（日历日程不需要自定义 Receiver）
+  - 新增 `CalendarEventIds` 数据模型：持久化追踪每个日期+班次的日程 eventId
+  - 改造 `SettingsRepository`：新增 `calendarEventIdsFlow` + `saveCalendarEventIds()` + `calendarSettingsFlow`（合并 alarm settings + event ids）
+  - 改造 `MainActivity`：移除通知渠道 + 闹钟 `combine`，改为日历日程同步 + 权限请求
+  - 改造 `AndroidManifest.xml`：移除 3 个闹钟权限，新增 `READ_CALENDAR` + `WRITE_CALENDAR`
+  - `SettingsScreen`/`SettingsViewModel` UI 与逻辑基本不变，底层从 AlarmManager → Calendar Provider
+  - 删除旧的 Alarm 相关测试文件
+
+### 关键结果
+
+- 新增文件：
+  - `app/src/main/java/com/simpleshift/scheduler/calendar/CalendarEventManager.kt`
+  - `app/src/main/java/com/simpleshift/scheduler/domain/model/CalendarEventIds.kt`
+- 删除文件：
+  - `app/src/main/java/com/simpleshift/scheduler/alarm/AlarmScheduler.kt`
+  - `app/src/main/java/com/simpleshift/scheduler/alarm/AlarmReceiver.kt`
+  - `app/src/main/java/com/simpleshift/scheduler/alarm/BootReceiver.kt`
+  - `app/src/main/res/drawable/ic_alarm.xml`
+  - `app/src/test/java/com/simpleshift/scheduler/alarm/AlarmSchedulerTest.kt`
+  - `app/src/test/java/com/simpleshift/scheduler/alarm/AlarmReceiverTest.kt`
+- 改造文件：
+  - `app/src/main/AndroidManifest.xml` — 权限替换
+  - `app/src/main/java/com/simpleshift/scheduler/MainActivity.kt` — 日程同步替代闹钟调度
+  - `app/src/main/java/com/simpleshift/scheduler/data/repository/SettingsRepository.kt` — 新增 eventId 追踪
+  - `app/src/main/res/values/strings.xml` — 移除通知相关字符串
+- 跨品牌兼容：Calendar Provider 是 AOSP 必选项（API 14+），小米/华为/OPPO/Vivo/三星/原生 Android 全支持
+- 本地日历策略：使用检测/创建本地日历账户，日程存储在设备本地不同步云端
+- 权限：运行时请求 `READ_CALENDAR` + `WRITE_CALENDAR`
+
+### 下一步
+
+- 所有规划阶段（1-10）已完成，应用功能完整
+
+---
+
+## 2026-05-06：实施计划第 9 步完成（闹钟提醒）
+
+### 本次完成内容
+
+- 已完成阶段 9（闹钟提醒：每班次独立闹钟时间设置）全部 7 个子步骤：
+  - Step 9.1：新增 `AlarmTime` 和 `AlarmSettings` 数据模型（含 0..23/0..59 校验）
+  - Step 9.2：扩展 `SettingsRepository` 新增 5 个 `stringPreferencesKey` + `alarmSettingsFlow` + `saveAlarmSettings()`
+  - Step 9.3：新增 `AlarmScheduler` 闹钟调度引擎（7 天前瞻、确定性 request code、API 31+ 降级策略）
+  - Step 9.4：新增 `AlarmReceiver`（通知构建 + API 33+ 权限检查）+ `BootReceiver`（设备重启恢复）+ 通知渠道
+  - Step 9.5：扩展 `SettingsViewModel`（`SettingsUiState.alarmSettings` + `updateAlarmTime()` + 自动保存回调）、`cancel()` 不重置闹钟
+  - Step 9.6：扩展 `SettingsScreen`（闹钟设置卡片区 + `ShiftAlarmRow` + `AlarmTimePickerDialog`）
+  - Step 9.7：`MainActivity` 集成（通知渠道创建 + `combine` 双流自动调度 + `rescheduleAlarms` 辅助方法 + `onResume` 重调度）
+
+### 关键结果
+
+- 新增文件：
+  - `app/src/main/java/com/simpleshift/scheduler/domain/model/AlarmTime.kt`
+  - `app/src/main/java/com/simpleshift/scheduler/domain/model/AlarmSettings.kt`
+  - `app/src/main/java/com/simpleshift/scheduler/alarm/AlarmScheduler.kt`
+  - `app/src/main/java/com/simpleshift/scheduler/alarm/AlarmReceiver.kt`
+  - `app/src/main/java/com/simpleshift/scheduler/alarm/BootReceiver.kt`
+  - `app/src/main/res/drawable/ic_alarm.xml`
+  - `app/src/test/java/com/simpleshift/scheduler/domain/model/AlarmTimeTest.kt`
+  - `app/src/test/java/com/simpleshift/scheduler/domain/model/AlarmSettingsTest.kt`
+  - `app/src/test/java/com/simpleshift/scheduler/alarm/AlarmSchedulerTest.kt`
+  - `app/src/test/java/com/simpleshift/scheduler/alarm/AlarmReceiverTest.kt`
+- 改造文件：
+  - `app/src/main/java/com/simpleshift/scheduler/data/repository/SettingsRepository.kt` — 新增 5 个 alarm DataStore key + flow + save
+  - `app/src/main/java/com/simpleshift/scheduler/viewmodel/SettingsViewModel.kt` — `alarmSettings` 字段 + `updateAlarmTime()` + 回调注入
+  - `app/src/main/java/com/simpleshift/scheduler/ui/settings/SettingsScreen.kt` — 闹钟 UI 区 + 时间选择对话框
+  - `app/src/main/java/com/simpleshift/scheduler/MainActivity.kt` — 通知渠道 + `combine` 双流 + `rescheduleAlarms` + 工厂扩展
+  - `app/src/main/AndroidManifest.xml` — 3 个权限 + 2 个 receiver
+  - `app/src/main/res/values/strings.xml` — 12 个新字符串
+  - `app/src/test/java/com/simpleshift/scheduler/viewmodel/SettingsViewModelTest.kt` — 5 个闹钟测试
+- 闹钟调度策略：每次设置变更或启动时自动调度未来 7 天闹钟，设备重启后 `BootReceiver` 恢复
+- 权限策略：`SCHEDULE_EXACT_ALARM`（API 31+ 降级）、`POST_NOTIFICATIONS`（API 33+ 静默跳过）、`RECEIVE_BOOT_COMPLETED`（启动恢复）
+- 闹钟设置独立自动保存（不纳入周期设置的 save/cancel 流程），确保闹钟不丢失
+
+### 构建与测试说明
+
+- 已执行完整单元测试：`./gradlew testDebugUnitTest`
+- 结果：`BUILD SUCCESSFUL`（全部测试通过）
+- 阶段 9 变更未引入单测回归
+
+### 下一步
+
+- 所有规划阶段（1-9）已完成，应用功能完整
+
+---
+
 ## 2026-04-27：全项目文件审查与 memory-bank 同步
 
 ### 审查结论

@@ -61,6 +61,15 @@
   * 异步 + 类型安全
   * 足够应对倒班规则存储
 
+#### 已引入：
+
+* **Calendar Provider（`CalendarContract`，Android 平台 API）**
+
+  * 写入/读取设备本地日历日程（`ContentResolver` + `CalendarContract.Events`）
+  * 日程提醒通过 `CalendarContract.Reminders.METHOD_ALERT` 实现（系统自动弹出通知）
+  * 使用 `ACCOUNT_TYPE_LOCAL` 本地日历账户，日程仅存储设备本地
+  * 日程持久化在系统日历数据库，跨重启自动恢复
+
 #### 未来扩展：
 
 * **Room（可选）**
@@ -205,12 +214,13 @@ app/
 
 ## 9. 当前进度与后续建议
 
-已完成（阶段 1-8）：
+已完成（阶段 1-9）：
 1. 搭项目（Compose 模板）✅
 2. 做首页（班组下拉框 + 今日班次 + 进度）✅
 3. 实现"倒班计算核心逻辑"（含班组偏移支持）✅
 4. 接入日历 UI（7×7 网格 + 上月/下月切换）✅
 5. 班组切换 + 月度统计 ✅
 6. 设置页（自定义倒班规则 + DataStore 持久化 + Navigation Compose 导航）✅
+7. 日历提醒（Calendar Provider 本地日历日程 + 每班次独立时间 + 系统提醒 + 跨品牌兼容）✅
 
-全部规划功能已完成，应用功能完整，29 个单元测试全部通过。
+全部规划功能已完成，应用功能完整，单元测试全部通过。

@@ -35,6 +35,8 @@
 ### ✅ 阶段 6：日历页基础实现（已完成）
 ### ✅ 阶段 7：班组切换 + 月度统计（已完成）
 ### ✅ 阶段 8：设置页（已完成）
+### ✅ 阶段 9：闹钟提醒（已完成，后续被阶段 10 替换）
+### ✅ 阶段 10：闹钟改为日历日程（当前阶段）
 
 ---
 
@@ -747,7 +749,231 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 | 自动刷新时机 | 后台回前台时刷新 |
 | 时区规则 | 设备本地时区，`LocalDate.now()` 即时生效 |
 | 分层策略 | domain 层负责核心计算 |
-| 测试范围 | 核心算法 + HomeViewModel + CalendarGenerator + 班组偏移 + SettingsViewModel + 自定义周期 |
+| 测试范围 | 核心算法 + HomeViewModel + CalendarGenerator + 班组偏移 + SettingsViewModel + 自定义周期 + 闹钟调度 |
 | 目录规范 | `domain/model` 与 `data/model` 分层 |
 
 ---
+
+# ✅ 阶段 9：闹钟提醒
+
+**核心目标**：为每个班次类型设置独立的闹钟提醒，使用 Android AlarmManager 实现精确调度。
+
+**前置条件**：阶段 1-8 已完成，所有现有依赖足够（无需新增外部库）。
+
+---
+
+## Step 9.1：创建闹钟数据模型
+
+**新增文件**：
+- `domain/model/AlarmTime.kt` — `data class AlarmTime(hour: Int, minute: Int)`，含 0..23/0..59 校验，`toEpochMillis(date)` 方法
+- `domain/model/AlarmSettings.kt` — `data class AlarmSettings(alarms: Map<ShiftType, AlarmTime?>)`，含 `isEnabled(shiftType)`/`isAnyEnabled()` 方法，默认为全部 null（禁用）
+
+**测试**：`AlarmTimeTest.kt`（构造边界、校验、toEpochMillis），`AlarmSettingsTest.kt`（默认全禁用、启用检测）
+
+## Step 9.2：扩展 DataStore 持久化
+
+**改造文件**：`SettingsRepository.kt`
+- 新增 5 个 `stringPreferencesKey("alarm_time_${type.name.lowercase()}")`
+- 新增 `alarmSettingsFlow: Flow<AlarmSettings>` — 以 `"HH:MM"` 格式反序列化，空字符串 = null
+- 新增 `suspend saveAlarmSettings(settings: AlarmSettings)` — 写入 DataStore
+- 新增 `parseAlarmTime(raw: String): AlarmTime?` — 辅助解析
+
+## Step 9.3：创建 AlarmScheduler 调度引擎
+
+**新增文件**：`alarm/AlarmScheduler.kt`
+- `class AlarmScheduler(context: Context)` 包装 AlarmManager
+- `scheduleForNextSevenDays(alarmSettings, shiftCycle, teamPhaseOffset)` — 取消并重新调度未来 7 天闹钟
+- `cancelAll()` — 清除当前范围内所有闹钟
+- Request code: `(date.toEpochDay().toInt() * 10) + shiftType.ordinal`
+- API 31+ 精确闹钟降级策略
+
+## Step 9.4：创建 Android 组件
+
+**新增文件**：
+- `alarm/AlarmReceiver.kt` — `BroadcastReceiver`，解析 Intent，构建通知（`NotificationCompat.Builder`）
+- `alarm/BootReceiver.kt` — `BroadcastReceiver`，`BOOT_COMPLETED` 触发，使用 `goAsync()` + `CoroutineScope(Dispatchers.IO)` 恢复闹钟
+- `res/drawable/ic_alarm.xml` — 通知图标（矢量闹钟图标）
+
+**改造文件**：
+- `AndroidManifest.xml` — 添加 3 个权限 + 2 个 receiver 声明
+- `strings.xml` — 添加 12 个新字符串（闹钟设置、对话框、通知、权限）
+
+## Step 9.5：扩展 SettingsViewModel
+
+**改造文件**：`SettingsViewModel.kt`
+- `SettingsUiState` 新增 `alarmSettings: AlarmSettings` 字段
+- 构造参数新增 `initialAlarmSettings` 和 `onAlarmSettingsChanged` 回调
+- 新增 `updateAlarmTime(shiftType, alarmTime?)` 方法，立即触发回调（自动保存）
+- `cancel()` 不重置闹钟设置（仅还原周期设置）
+
+## Step 9.6：扩展 SettingsScreen 闹钟 UI
+
+**改造文件**：`SettingsScreen.kt`
+- 新增 `onUpdateAlarmTime: (ShiftType, AlarmTime?) -> Unit` 参数
+- 新增闹钟设置区：`ShiftAlarmRow` 列表（标签 + 时间按钮）+ `AlarmTimePickerDialog`（时/分文本输入）
+- 每行显示班次名和当前时间或"未设置"
+
+## Step 9.7：MainActivity 集成
+
+**改造文件**：`MainActivity.kt`
+- `onCreate` 中创建通知渠道（`createNotificationChannel`）
+- 新增 `combine(settingsFlow, alarmSettingsFlow)` 双流监听，自动调度闹钟
+- 新增 `rescheduleAlarms(alarmSettings, shiftSettings)` 辅助方法
+- SettingsViewModel 工厂扩展：注入 `initialAlarmSettings` + `onAlarmSettingsChanged`
+- SettingsScreen 调用传递 `onUpdateAlarmTime`
+- `onResume` 中重新调度闹钟（处理时区变更）
+
+## 验收命令
+
+```bash
+./gradlew testDebugUnitTest   # 全部通过
+```
+
+---
+
+# ✅ 阶段 10：闹钟改为日历日程
+
+**核心目标**：将 AlarmManager + BroadcastReceiver 闹钟方案替换为 Calendar Provider 日历日程方案，提高跨品牌 Android 设备兼容性。
+
+**前置条件**：阶段 1-9 已完成。阶段 9 的 AlarmTime/AlarmSettings 数据模型保留，UI 基本不变。
+
+**迁移原因**：
+- AlarmManager 在国产手机（小米/华为/OPPO/Vivo）上被厂商杀后台机制严重影响，闹钟延迟或丢失
+- Calendar Provider 是 AOSP 标准 API（API 14+），所有品牌必须支持
+- 日历日程持久化在系统日历数据库，跨重启自动恢复，无需 BootReceiver
+- 减少权限：3 个（SCHEDULE_EXACT_ALARM + POST_NOTIFICATIONS + RECEIVE_BOOT_COMPLETED）→ 2 个（READ_CALENDAR + WRITE_CALENDAR）
+
+---
+
+## Step 10.1：创建 CalendarEventIds 数据模型
+
+**新增文件**：`domain/model/CalendarEventIds.kt`
+
+**数据模型**：
+```kotlin
+data class CalendarEventIds(
+    val eventIds: Map<String, Long> = emptyMap()  // "yyyy-MM-dd_SHIFT_TYPE" -> eventId
+)
+```
+
+用于持久化追踪已写入系统日历的日程 eventId，以便后续更新/删除时定位。
+
+---
+
+## Step 10.2：扩展 SettingsRepository 支持日程ID持久化
+
+**改造文件**：`SettingsRepository.kt`
+
+- 新增 DataStore key：`KEY_CALENDAR_EVENT_IDS: stringPreferencesKey("calendar_event_ids")`
+- 事件ID序列化格式：`"2026-05-09_MORNING=42,2026-05-10_MORNING=43"`（每个条目用逗号分隔，key=value 用等号分隔）
+- 新增 `calendarEventIdsFlow: Flow<CalendarEventIds>` — 从 DataStore 加载已持久化的日程 ID
+- 新增 `suspend saveCalendarEventIds(ids: CalendarEventIds)` — 写入 DataStore
+
+---
+
+## Step 10.3：创建 CalendarEventManager
+
+**新增文件**：`calendar/CalendarEventManager.kt`
+
+**职责**：管理系统日历日程的增删改查，替代 AlarmScheduler。
+
+**核心能力**：
+
+1. `getOrCreateLocalCalendar(): Long`
+   - 查询系统日历中的本地日历账户（`ACCOUNT_TYPE_LOCAL` + `ownerAccount` 匹配）
+   - 不存在则创建：`ContentValues` 写入 `CalendarContract.Calendars.CONTENT_URI`
+   - 返回 `calendarId`
+
+2. `syncNextSevenDays(alarmSettings, shiftCycle, teamPhaseOffset, existingEventIds): CalendarEventIds`
+   - 计算未来 7 天每天班次
+   - 构建预期日程列表（date + shiftType）→ 与已存储日程对比
+   - **需要新建的日程** → `insertEvent()`: 写入 `CalendarContract.Events` + 设置 `Reminders.METHOD_ALERT`（准时提醒）
+   - **已存在且未变化** → 保留（保留现有 eventId）
+   - **不再需要的日程** → `deleteEvent()`: 按 eventId 删除
+   - 返回新的 `CalendarEventIds` 供持久化
+
+3. `deleteEvents(eventIds: CalendarEventIds)` — 批量删除已追踪的日程
+
+**日程内容设计**：
+- `TITLE` = "{班次标签}班提醒"（如"早班提醒"）
+- `DESCRIPTION` = "{班次标签}班 - 倒班助手"
+- `DTSTART` = 日期 + 提醒时间
+- `DTEND` = DTSTART + 15分钟
+- `HAS_ALARM` = 1
+- `AVAILABILITY` = `AVAILABILITY_BUSY`
+- 提醒：`METHOD_ALERT`, `MINUTES` = 0（准时提醒）
+
+---
+
+## Step 10.4：删除旧闹钟组件
+
+**删除文件**：
+- `alarm/AlarmScheduler.kt` — 被 CalendarEventManager 替代
+- `alarm/AlarmReceiver.kt` — 日历系统自动触发提醒
+- `alarm/BootReceiver.kt` — 日程持久化在日历数据库，重启不丢失
+- `res/drawable/ic_alarm.xml` — 不再需要自定义通知图标
+
+**删除测试**：
+- `alarm/AlarmSchedulerTest.kt`
+- `alarm/AlarmReceiverTest.kt`
+
+---
+
+## Step 10.5：更新 AndroidManifest.xml
+
+**移除**：
+- `<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />`
+- `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />`
+- `<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />`
+- `<receiver android:name=".alarm.AlarmReceiver" />`
+- `<receiver android:name=".alarm.BootReceiver" />`
+
+**新增**：
+- `<uses-permission android:name="android.permission.READ_CALENDAR" />`
+- `<uses-permission android:name="android.permission.WRITE_CALENDAR" />`
+
+---
+
+## Step 10.6：改造 MainActivity
+
+**改造**：`MainActivity.kt`
+
+- 移除 `createNotificationChannel()` 调用和方法
+- 移除 `rescheduleAlarms()` 方法（替换为 `syncCalendarEvents()`）
+- 移除 `AlarmScheduler` / `AlarmReceiver` / `BootReceiver` 相关 import
+- 新增 `CalendarEventManager` 集成
+- 新增 `syncCalendarEvents(alarmSettings, shiftSettings, eventIds)` 辅助方法
+- `combine` 从双流改为三流：`settingsFlow + alarmSettingsFlow + calendarEventIdsFlow`
+- `onResume` 中调用 `syncCalendarEvents` 替代 `rescheduleAlarms`
+- 日历权限请求逻辑：在 `onCreate` 中检查并请求 `READ_CALENDAR` + `WRITE_CALENDAR`
+
+---
+
+## Step 10.7：更新 strings.xml
+
+**移除**：通知渠道相关字符串（`channel_name`, `channel_description`, `alarm_notification_title`, `alarm_notification_body`）
+
+**保留**：闹钟设置 UI 字符串（`alarm_section_title`, `alarm_not_set`, `alarm_dialog_*`），这些在设置页的提醒时间 UI 中仍然使用。
+
+---
+
+## Step 10.8：SettingsScreen/SettingsViewModel 适配
+
+**改造**：`SettingsScreen.kt`
+
+- UI 文案从"闹钟"改为"提醒"（可选，保留"闹钟"也可）
+- 删除按钮文案从"关闭此班次闹钟"改为"关闭此班次提醒"
+- 对话框标题从"设置闹钟时间"改为"设置提醒时间"
+
+**保留**：`SettingsViewModel.kt` 逻辑不变，`updateAlarmTime` 回调仍然触发数据保存和日程同步。
+
+---
+
+## 验收命令
+
+```bash
+./gradlew testDebugUnitTest   # 全部通过
+```
+
+---
+

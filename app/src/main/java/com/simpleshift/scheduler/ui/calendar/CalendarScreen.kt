@@ -4,18 +4,21 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,8 +49,11 @@ fun CalendarScreen(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
-            Button(onClick = onPreviousMonthClick) {
-                Text(text = "上月")
+            IconButton(onClick = onPreviousMonthClick) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowLeft,
+                    contentDescription = "上月"
+                )
             }
             Text(
                 text = uiState.monthLabel,
@@ -55,12 +61,17 @@ fun CalendarScreen(
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center
             )
-            Button(onClick = onNextMonthClick) {
-                Text(text = "下月")
+            IconButton(onClick = onNextMonthClick) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowRight,
+                    contentDescription = "下月"
+                )
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = onStatsClick) {
-                Text(text = "统计")
+            IconButton(onClick = onStatsClick) {
+                Icon(
+                    imageVector = Icons.Filled.BarChart,
+                    contentDescription = "统计"
+                )
             }
         }
 
@@ -182,3 +193,4 @@ private fun CalendarDayCell(day: CalendarDayUiState) {
         }
     }
 }
+

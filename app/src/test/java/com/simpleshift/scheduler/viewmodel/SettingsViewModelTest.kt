@@ -1,10 +1,14 @@
 package com.simpleshift.scheduler.viewmodel
 
 import androidx.test.core.app.ApplicationProvider
+import com.simpleshift.scheduler.domain.model.AlarmSettings
+import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
 import com.simpleshift.scheduler.domain.model.ShiftType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -160,5 +164,94 @@ class SettingsViewModelTest {
 
         viewModel.updateCycleLength(101)
         assertEquals(before.cycleLength, viewModel.uiState.value.cycleLength)
+    }
+
+    @Test
+    fun `init emits default alarm settings from initial alarm settings`() {
+        val alarmSettings = AlarmSettings(
+            mapOf(ShiftType.MORNING to AlarmTime(6, 0))
+        )
+        val viewModel = SettingsViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            initialSettings = RuntimeShiftSettings(),
+            initialAlarmSettings = alarmSettings
+        )
+
+        val uiState = viewModel.uiState.value
+        assertNotNull(uiState.alarmSettings.alarms[ShiftType.MORNING])
+        assertEquals(6, uiState.alarmSettings.alarms[ShiftType.MORNING]?.hour)
+        assertNull(uiState.alarmSettings.alarms[ShiftType.AFTERNOON])
+    }
+
+    @Test
+    fun `updateAlarmTime sets alarm and triggers callback`() {
+        var changedSettings: AlarmSettings? = null
+        val viewModel = SettingsViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            initialSettings = RuntimeShiftSettings(),
+            onAlarmSettingsChanged = { changedSettings = it }
+        )
+
+        viewModel.updateAlarmTime(ShiftType.MORNING, AlarmTime(7, 30))
+
+        val uiState = viewModel.uiState.value
+        assertEquals(7, uiState.alarmSettings.alarms[ShiftType.MORNING]?.hour)
+        assertEquals(30, uiState.alarmSettings.alarms[ShiftType.MORNING]?.minute)
+        assertNotNull(changedSettings)
+        assertEquals(7, changedSettings?.alarms?.get(ShiftType.MORNING)?.hour)
+    }
+
+    @Test
+    fun `updateAlarmTime with null disables alarm`() {
+        val alarmSettings = AlarmSettings(
+            mapOf(ShiftType.MORNING to AlarmTime(6, 0))
+        )
+        val viewModel = SettingsViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            initialSettings = RuntimeShiftSettings(),
+            initialAlarmSettings = alarmSettings
+        )
+
+        viewModel.updateAlarmTime(ShiftType.MORNING, null)
+
+        val uiState = viewModel.uiState.value
+        assertNull(uiState.alarmSettings.alarms[ShiftType.MORNING])
+    }
+
+    @Test
+    fun `cancel does not reset alarm settings`() {
+        val alarmSettings = AlarmSettings(
+            mapOf(ShiftType.MORNING to AlarmTime(6, 0))
+        )
+        val viewModel = SettingsViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            initialSettings = RuntimeShiftSettings(),
+            initialAlarmSettings = alarmSettings
+        )
+
+        viewModel.updateAlarmTime(ShiftType.AFTERNOON, AlarmTime(14, 0))
+        viewModel.updateCycleLength(10)
+        viewModel.cancel()
+
+        // Shift cycle settings reverted
+        val uiState = viewModel.uiState.value
+        assertEquals(42, uiState.cycleLength)
+
+        // Alarm settings preserved (not reverted by cancel)
+        assertNotNull(uiState.alarmSettings.alarms[ShiftType.MORNING])
+        assertNotNull(uiState.alarmSettings.alarms[ShiftType.AFTERNOON])
+    }
+
+    @Test
+    fun `alarm change does not mark shift cycle as dirty`() {
+        val viewModel = SettingsViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            initialSettings = RuntimeShiftSettings()
+        )
+
+        viewModel.updateAlarmTime(ShiftType.MORNING, AlarmTime(6, 0))
+
+        val uiState = viewModel.uiState.value
+        assertFalse("Alarm changes should not mark shift cycle as dirty", uiState.isDirty)
     }
 }
