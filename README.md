@@ -44,7 +44,7 @@
 
 ```bash
 # 克隆仓库
-git clone git@gitee.com:<your-username>/SimpleShiftScheduler.git
+git clone git@gitee.com:MiniPikka/simple-shift-scheduler.git
 
 # 用 Android Studio 打开项目目录，等待 Gradle 同步完成后运行
 ```
