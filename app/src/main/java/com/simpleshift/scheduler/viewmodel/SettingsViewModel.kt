@@ -30,17 +30,6 @@ class SettingsViewModel(
     private val onAlarmSettingsChanged: (AlarmSettings) -> Unit = {}
 ) : AndroidViewModel(application) {
 
-    constructor(
-        application: Application,
-        initialSettings: RuntimeShiftSettings
-    ) : this(application, initialSettings, AlarmSettings(), {}, {})
-
-    constructor(
-        application: Application,
-        initialSettings: RuntimeShiftSettings,
-        initialAlarmSettings: AlarmSettings
-    ) : this(application, initialSettings, initialAlarmSettings, {}, {})
-
     private val _uiState = MutableStateFlow(
         SettingsUiState(
             cycleLength = initialSettings.cycleLength,

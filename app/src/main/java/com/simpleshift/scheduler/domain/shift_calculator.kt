@@ -3,6 +3,7 @@ package com.simpleshift.scheduler.domain
 import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftInfo
 import com.simpleshift.scheduler.domain.model.ShiftType
+import com.simpleshift.scheduler.domain.model.Team
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -39,4 +40,9 @@ fun getShiftInfo(
         dayOfCycle = cycleIndex + 1,
         shiftType = cycle[cycleIndex]
     )
+}
+
+fun teamPhaseStepFor(customCycle: List<ShiftType>? = null): Int {
+    val totalDays = customCycle?.size ?: ShiftCycleConfig.CYCLE_LENGTH
+    return totalDays / Team.TOTAL_TEAMS
 }

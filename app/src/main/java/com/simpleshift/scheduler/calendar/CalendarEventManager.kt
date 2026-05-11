@@ -5,17 +5,20 @@ import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.provider.CalendarContract
+import android.provider.CalendarContract.Calendars
 import com.simpleshift.scheduler.domain.getShiftTypeForDate
 import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.CalendarEventIds
 import com.simpleshift.scheduler.domain.model.ShiftType
+import com.simpleshift.scheduler.util.ShiftLabelMapper
 import java.time.LocalDate
 import java.time.ZoneId
 
-class CalendarEventManager(private val context: Context) {
-
-    private val contentResolver = context.contentResolver
+class CalendarEventManager(
+    private val context: Context,
+    private val resolver: CalendarResolver = ContentCalendarResolver(context.contentResolver)
+) {
     private val zoneId = ZoneId.systemDefault()
 
     /**
@@ -32,12 +35,14 @@ class CalendarEventManager(private val context: Context) {
         val projection = arrayOf(
             CalendarContract.Calendars._ID,
             CalendarContract.Calendars.ACCOUNT_TYPE,
-            CalendarContract.Calendars.ACCOUNT_NAME
+            CalendarContract.Calendars.ACCOUNT_NAME,
+            CalendarContract.Calendars.CALENDAR_DISPLAY_NAME
         )
-        val selection = "${CalendarContract.Calendars.ACCOUNT_TYPE} = ?"
-        val selectionArgs = arrayOf(CalendarContract.ACCOUNT_TYPE_LOCAL)
+        // Match by both ACCOUNT_TYPE and ACCOUNT_NAME to find only our calendar
+        val selection = "${CalendarContract.Calendars.ACCOUNT_TYPE} = ? AND ${CalendarContract.Calendars.ACCOUNT_NAME} = ?"
+        val selectionArgs = arrayOf(CalendarContract.ACCOUNT_TYPE_LOCAL, ACCOUNT_NAME)
 
-        contentResolver.query(
+        resolver.query(
             CalendarContract.Calendars.CONTENT_URI,
             projection,
             selection,
@@ -50,16 +55,25 @@ class CalendarEventManager(private val context: Context) {
             }
         }
 
+        // Fallback: find by display name (handles calendars created without ACCOUNT_NAME)
+        val nameSelection = "${CalendarContract.Calendars.CALENDAR_DISPLAY_NAME} = ?"
+        resolver.query(
+            CalendarContract.Calendars.CONTENT_URI,
+            projection,
+            nameSelection,
+            arrayOf(CALENDAR_DISPLAY_NAME),
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val id = cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID))
+                if (id > 0) return id
+            }
+        }
+
         return -1L
     }
 
     private fun createLocalCalendar(): Long {
-        val uri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
-            .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
-            .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, ACCOUNT_NAME)
-            .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
-            .build()
-
         val values = ContentValues().apply {
             put(CalendarContract.Calendars.NAME, CALENDAR_NAME)
             put(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, CALENDAR_DISPLAY_NAME)
@@ -68,45 +82,43 @@ class CalendarEventManager(private val context: Context) {
             put(CalendarContract.Calendars.OWNER_ACCOUNT, OWNER_ACCOUNT)
             put(CalendarContract.Calendars.VISIBLE, 1)
             put(CalendarContract.Calendars.SYNC_EVENTS, 0)
+            put(CalendarContract.Calendars.ACCOUNT_NAME, ACCOUNT_NAME)
+            put(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
         }
+
+        // Try direct insert first (works on many devices)
+        try {
+            val newUri = resolver.insert(CalendarContract.Calendars.CONTENT_URI, values)
+            if (newUri != null) {
+                return ContentUris.parseId(newUri)
+            }
+        } catch (_: Exception) {}
+
+        // Retry with CALLER_IS_SYNCADAPTER (required on some devices)
+        val syncAdapterUri = CalendarContract.Calendars.CONTENT_URI.buildUpon()
+            .appendQueryParameter(CalendarContract.CALLER_IS_SYNCADAPTER, "true")
+            .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_NAME, ACCOUNT_NAME)
+            .appendQueryParameter(CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.ACCOUNT_TYPE_LOCAL)
+            .build()
 
         return try {
-            val newUri = contentResolver.insert(uri, values)
-            if (newUri != null) {
-                ContentUris.parseId(newUri)
-            } else {
-                findFallbackCalendar()
-            }
+            val newUri = resolver.insert(syncAdapterUri, values)
+            if (newUri != null) ContentUris.parseId(newUri) else -1L
         } catch (_: Exception) {
-            findFallbackCalendar()
+            -1L
         }
-    }
-
-    private fun findFallbackCalendar(): Long {
-        val projection = arrayOf(CalendarContract.Calendars._ID)
-        contentResolver.query(
-            CalendarContract.Calendars.CONTENT_URI,
-            projection,
-            null,
-            null,
-            null
-        )?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                return cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID))
-            }
-        }
-        return -1L
     }
 
     /**
-     * Synchronize calendar events for the next 7 days based on current alarm settings.
+     * Synchronize calendar events for the specified number of days ahead.
      * Returns updated CalendarEventIds to persist.
      */
-    fun syncNextSevenDays(
+    fun syncShiftEvents(
         alarmSettings: AlarmSettings,
         shiftCycle: List<ShiftType>,
         teamPhaseOffset: Int,
-        existingEventIds: CalendarEventIds
+        existingEventIds: CalendarEventIds,
+        daysAhead: Int = 365
     ): CalendarEventIds {
         val calendarId = getOrCreateLocalCalendar()
         if (calendarId == -1L) return existingEventIds
@@ -117,7 +129,7 @@ class CalendarEventManager(private val context: Context) {
         val expectedKeys = mutableSetOf<String>()
         val newEventIds = existingEventIds.eventIds.toMutableMap()
 
-        for (dayOffset in 0..6) {
+        for (dayOffset in 0 until daysAhead) {
             val date = today.plusDays(dayOffset.toLong())
             val shiftType = getShiftTypeForDate(date, teamPhaseOffset, shiftCycle)
             val alarmTime = alarmSettings.alarms[shiftType] ?: continue
@@ -128,8 +140,14 @@ class CalendarEventManager(private val context: Context) {
             val key = CalendarEventIds.eventKey(date.toString(), shiftType)
             expectedKeys.add(key)
 
-            // Skip if we already have a valid event for this key
             if (newEventIds.containsKey(key)) continue
+
+            // Check for existing event in system calendar (safety net for stale tracking)
+            val existingEventId = findExistingEvent(calendarId, date, shiftType)
+            if (existingEventId != -1L) {
+                newEventIds[key] = existingEventId
+                continue
+            }
 
             val eventId = insertEvent(calendarId, date, shiftType, alarmTime)
             if (eventId != -1L) {
@@ -146,6 +164,39 @@ class CalendarEventManager(private val context: Context) {
         }
 
         return CalendarEventIds(newEventIds)
+    }
+
+    private fun findExistingEvent(
+        calendarId: Long,
+        date: LocalDate,
+        shiftType: ShiftType
+    ): Long {
+        val title = "${shiftTypeLabel(shiftType)}班提醒"
+        val dayStart = date.atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val dayEnd = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
+
+        val projection = arrayOf(CalendarContract.Events._ID)
+        val selection = "${CalendarContract.Events.CALENDAR_ID} = ?" +
+            " AND ${CalendarContract.Events.TITLE} = ?" +
+            " AND ${CalendarContract.Events.DTSTART} >= ?" +
+            " AND ${CalendarContract.Events.DTSTART} < ?"
+        val selectionArgs = arrayOf(
+            calendarId.toString(), title,
+            dayStart.toString(), dayEnd.toString()
+        )
+
+        return try {
+            resolver.query(
+                CalendarContract.Events.CONTENT_URI,
+                projection, selection, selectionArgs, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst())
+                    cursor.getLong(cursor.getColumnIndexOrThrow(CalendarContract.Events._ID))
+                else -1L
+            } ?: -1L
+        } catch (_: Exception) {
+            -1L
+        }
     }
 
     private fun insertEvent(
@@ -169,7 +220,7 @@ class CalendarEventManager(private val context: Context) {
         }
 
         return try {
-            val uri = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
+            val uri = resolver.insert(CalendarContract.Events.CONTENT_URI, values)
             if (uri != null) {
                 val eventId = ContentUris.parseId(uri)
                 insertReminder(eventId)
@@ -189,7 +240,7 @@ class CalendarEventManager(private val context: Context) {
             put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT)
         }
         try {
-            contentResolver.insert(CalendarContract.Reminders.CONTENT_URI, values)
+            resolver.insert(CalendarContract.Reminders.CONTENT_URI, values)
         } catch (_: Exception) {
             // Best-effort
         }
@@ -200,7 +251,7 @@ class CalendarEventManager(private val context: Context) {
             CalendarContract.Events.CONTENT_URI, eventId
         )
         try {
-            contentResolver.delete(deleteUri, null, null)
+            resolver.delete(deleteUri, null, null)
         } catch (_: Exception) {
             // Best-effort
         }
@@ -215,15 +266,7 @@ class CalendarEventManager(private val context: Context) {
         }
     }
 
-    private fun shiftTypeLabel(shiftType: ShiftType): String {
-        return when (shiftType) {
-            ShiftType.MORNING -> "早"
-            ShiftType.AFTERNOON -> "中"
-            ShiftType.REST -> "休"
-            ShiftType.NIGHT -> "夜"
-            ShiftType.STUDY -> "学"
-        }
-    }
+    private fun shiftTypeLabel(shiftType: ShiftType): String = ShiftLabelMapper.toLabel(shiftType)
 
     companion object {
         private const val ACCOUNT_NAME = "SimpleShiftScheduler"

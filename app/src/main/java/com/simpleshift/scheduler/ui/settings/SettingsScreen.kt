@@ -298,15 +298,8 @@ private fun TeamDropdown(
     }
 }
 
-private fun shiftTypeToLabel(shiftType: ShiftType): String {
-    return when (shiftType) {
-        ShiftType.MORNING -> "早"
-        ShiftType.AFTERNOON -> "中"
-        ShiftType.REST -> "休"
-        ShiftType.NIGHT -> "夜"
-        ShiftType.STUDY -> "学"
-    }
-}
+private fun shiftTypeToLabel(shiftType: ShiftType): String =
+    com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftType)
 
 @Composable
 private fun ShiftAlarmRow(

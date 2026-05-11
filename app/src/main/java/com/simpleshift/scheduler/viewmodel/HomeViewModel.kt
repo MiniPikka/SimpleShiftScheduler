@@ -2,8 +2,8 @@ package com.simpleshift.scheduler.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.getShiftInfo
+import com.simpleshift.scheduler.domain.teamPhaseStepFor
 import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.domain.model.Team
@@ -43,11 +43,6 @@ class HomeViewModel(
 
     var customCycle: List<ShiftType>? = null
 
-    private fun teamPhaseStep(): Int {
-        val totalDays = customCycle?.size ?: ShiftCycleConfig.CYCLE_LENGTH
-        return totalDays / Team.TOTAL_TEAMS
-    }
-
     init {
         refreshToday()
     }
@@ -59,7 +54,7 @@ class HomeViewModel(
 
     fun refreshToday() {
         val today = currentDateProvider()
-        val teamPhaseOffset = (_uiState.value.selectedTeamId - 1) * teamPhaseStep()
+        val teamPhaseOffset = (_uiState.value.selectedTeamId - 1) * teamPhaseStepFor(customCycle)
         val shiftInfo = getShiftInfo(today, teamPhaseOffset, customCycle)
         val totalDays = customCycle?.size ?: ShiftCycleConfig.CYCLE_LENGTH
         val dateFormatter = DateTimeFormatter
@@ -74,14 +69,6 @@ class HomeViewModel(
         )
     }
 
-    private fun mapShiftLabel(shiftType: ShiftType): String {
-        val resId = when (shiftType) {
-            ShiftType.MORNING -> R.string.shift_label_morning
-            ShiftType.AFTERNOON -> R.string.shift_label_afternoon
-            ShiftType.REST -> R.string.shift_label_rest
-            ShiftType.NIGHT -> R.string.shift_label_night
-            ShiftType.STUDY -> R.string.shift_label_study
-        }
-        return getApplication<Application>().getString(resId)
-    }
+    private fun mapShiftLabel(shiftType: ShiftType): String =
+        com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftType)
 }

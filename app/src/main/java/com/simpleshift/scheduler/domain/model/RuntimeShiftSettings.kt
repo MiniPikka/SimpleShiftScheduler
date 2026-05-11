@@ -9,4 +9,7 @@ data class RuntimeShiftSettings(
         get() = cycleLength in 1..100 && shiftCycle.size == cycleLength
                 && shiftCycle.all { it in ShiftType.entries }
                 && defaultTeamId in 1..Team.TOTAL_TEAMS
+
+    val teamPhaseStep: Int
+        get() = cycleLength / Team.TOTAL_TEAMS
 }

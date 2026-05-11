@@ -2,12 +2,10 @@ package com.simpleshift.scheduler.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.generateMonthCalendarDays
+import com.simpleshift.scheduler.domain.teamPhaseStepFor
 import com.simpleshift.scheduler.domain.model.MonthlyStats
-import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
-import com.simpleshift.scheduler.domain.model.Team
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,11 +50,6 @@ class CalendarViewModel(
 
     var customCycle: List<ShiftType>? = null
 
-    private fun teamPhaseStep(): Int {
-        val totalDays = customCycle?.size ?: ShiftCycleConfig.CYCLE_LENGTH
-        return totalDays / Team.TOTAL_TEAMS
-    }
-
     init {
         refresh()
     }
@@ -77,7 +70,7 @@ class CalendarViewModel(
     }
 
     fun computeStats() {
-        val teamPhaseOffset = (selectedTeamId - 1) * teamPhaseStep()
+        val teamPhaseOffset = (selectedTeamId - 1) * teamPhaseStepFor(customCycle)
         val days = generateMonthCalendarDays(
             currentMonth,
             teamPhaseOffset = teamPhaseOffset,
@@ -102,7 +95,7 @@ class CalendarViewModel(
         val locale = localeProvider()
         val monthFormatter = DateTimeFormatter.ofPattern("yyyy年M月", locale)
         val weekLabels = listOf("日", "一", "二", "三", "四", "五", "六")
-        val teamPhaseOffset = (selectedTeamId - 1) * teamPhaseStep()
+        val teamPhaseOffset = (selectedTeamId - 1) * teamPhaseStepFor(customCycle)
 
         val days = generateMonthCalendarDays(
             currentMonth,
@@ -127,14 +120,6 @@ class CalendarViewModel(
         )
     }
 
-    private fun mapShiftLabel(shiftType: ShiftType): String {
-        val resId = when (shiftType) {
-            ShiftType.MORNING -> R.string.shift_label_morning
-            ShiftType.AFTERNOON -> R.string.shift_label_afternoon
-            ShiftType.REST -> R.string.shift_label_rest
-            ShiftType.NIGHT -> R.string.shift_label_night
-            ShiftType.STUDY -> R.string.shift_label_study
-        }
-        return getApplication<Application>().getString(resId)
-    }
+    private fun mapShiftLabel(shiftType: ShiftType): String =
+        com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftType)
 }
