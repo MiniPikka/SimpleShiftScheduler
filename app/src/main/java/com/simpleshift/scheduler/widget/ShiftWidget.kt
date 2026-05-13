@@ -28,6 +28,7 @@ import com.simpleshift.scheduler.MainActivity
 import com.simpleshift.scheduler.data.repository.SettingsRepository
 import com.simpleshift.scheduler.domain.WidgetShiftData
 import com.simpleshift.scheduler.domain.computeWidgetShiftData
+import com.simpleshift.scheduler.domain.model.ShiftType
 import kotlinx.coroutines.flow.first
 
 class ShiftWidget : GlanceAppWidget() {
@@ -51,6 +52,7 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
+            .background(shiftBackgroundRes(data.shiftType))
             .padding(12.dp)
             .clickable(actionStartActivity(Intent(context, MainActivity::class.java)))
     ) {
@@ -75,7 +77,7 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
 
         Spacer(modifier = GlanceModifier.height(6.dp))
 
-        // Row 2: Shift label (large + colored) + Progress text
+        // Row 2: Shift label (large) + progress
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -88,23 +90,18 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
                 )
             )
             Spacer(modifier = GlanceModifier.width(12.dp))
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                Text(
-                    text = "进度: ${data.dayOfCycle}/${data.totalDays}",
-                    style = TextStyle(fontSize = 11.sp)
-                )
-                Spacer(modifier = GlanceModifier.height(2.dp))
-                Text(
-                    text = progressBarUnicode(data.dayOfCycle, data.totalDays),
-                    style = TextStyle(fontSize = 11.sp)
-                )
-            }
+            Text(
+                text = "进度: ${data.dayOfCycle}/${data.totalDays}",
+                style = TextStyle(fontSize = 12.sp)
+            )
         }
     }
 }
 
-private fun progressBarUnicode(current: Int, total: Int): String {
-    if (total <= 0) return ""
-    val filledCount = (current.toFloat() / total * 8).toInt().coerceIn(0, 8)
-    return "█".repeat(filledCount) + "░".repeat(8 - filledCount)
+private fun shiftBackgroundRes(shiftType: ShiftType): Int = when (shiftType) {
+    ShiftType.MORNING   -> com.simpleshift.scheduler.R.color.shift_widget_morning
+    ShiftType.AFTERNOON -> com.simpleshift.scheduler.R.color.shift_widget_afternoon
+    ShiftType.REST      -> com.simpleshift.scheduler.R.color.shift_widget_rest
+    ShiftType.NIGHT     -> com.simpleshift.scheduler.R.color.shift_widget_night
+    ShiftType.STUDY     -> com.simpleshift.scheduler.R.color.shift_widget_study
 }
