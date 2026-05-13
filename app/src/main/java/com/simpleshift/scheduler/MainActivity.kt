@@ -1,6 +1,7 @@
 package com.simpleshift.scheduler
 
 import android.os.Bundle
+import androidx.glance.appwidget.updateAll
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,6 +41,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.simpleshift.scheduler.calendar.CalendarEventManager
+import com.simpleshift.scheduler.widget.ShiftWidget
 import com.simpleshift.scheduler.calendar.CalendarSyncManager
 import com.simpleshift.scheduler.data.repository.SettingsRepository
 import com.simpleshift.scheduler.domain.model.AlarmSettings
@@ -203,6 +205,7 @@ class MainActivity : ComponentActivity() {
                                                 settingsRepository.saveSettings(saved)
                                             }
                                             calendarSyncManager.syncFromCurrentState()
+                                            notifyWidgetUpdate()
                                         },
                                         onAlarmSettingsChanged = { alarmSettings ->
                                             currentAlarmSettings = alarmSettings
@@ -276,5 +279,14 @@ class MainActivity : ComponentActivity() {
         homeViewModel.refreshToday()
         calendarViewModel.refresh()
         calendarSyncManager.syncFromCurrentState()
+        notifyWidgetUpdate()
+    }
+
+    private fun notifyWidgetUpdate() {
+        lifecycleScope.launch {
+            try {
+                ShiftWidget().updateAll(this@MainActivity)
+            } catch (_: Exception) {}
+        }
     }
 }

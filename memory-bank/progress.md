@@ -47,6 +47,72 @@
 
 ---
 
+## 2026-05-13：阶段 15 实施完成
+
+### 阶段 15：桌面小组件 ✅
+
+**15.1 添加 Glance 依赖**
+- 文件：`app/build.gradle.kts`
+- 新增：`glance-appwidget:1.1.0` + `glance-material3:1.1.0`
+
+**15.2 Widget 数据模型与计算函数**
+- 新增：`domain/widget_data.kt`
+- `WidgetShiftData(dateLabel, shiftLabel, shiftType, dayOfCycle, totalDays, teamName)`
+- `computeWidgetShiftData(today, settings, locale)` — 纯函数，复用 `getShiftInfo()` + `ShiftLabelMapper.toLabel()`
+- `!isValid` 时返回兜底数据（shiftLabel="?"）
+
+**15.3 Glance Widget UI**
+- 新增：`widget/ShiftWidget.kt` — GlanceAppWidget 实现
+- 新增：`widget/ShiftWidgetReceiver.kt` — 系统 Receiver
+- Widget 显示：班组名 + 日期 + 今日班次（大字）+ 进度文本 + Unicode 进度条
+- 点击 Widget 打开 MainActivity
+- 注意：Glance 1.1.0 中 `provideContent` 是扩展函数，需显式 import `androidx.glance.appwidget.provideContent`
+
+**15.4 Widget 注册**
+- 新增：`res/xml/shift_widget_info.xml` — 4×1 Widget，每小时刷新
+- 改造：`AndroidManifest.xml` — 注册 ShiftWidgetReceiver
+- 改造：`res/values/strings.xml` — widget_description
+
+**15.5 Widget 更新触发**
+- 改造：`MainActivity.kt`
+- 新增 `notifyWidgetUpdate()` — 使用 Glance `updateAll()` API 刷新 Widget
+- 触发点：`onResume()` + `onSettingsSaved()` 回调
+
+**15.6 Widget 测试** — 4 个测试全部通过
+- 新增：`WidgetDataTest.kt`
+- 覆盖：默认设置、自定义周期、非法设置兜底、班组选择
+
+### Glance 1.1.0 API 要点
+
+- `provideContent` 是扩展函数，位于 `androidx.glance.appwidget.provideContent`
+- `ColorProvider` 通过工厂函数创建，inline `Color` 类需要 proper import
+- `LocalContext.current` 获取 Context（在 `@Composable` 作用域内）
+- `actionStartActivity(intent)` 接受 `Intent` 参数
+- Glance 不支持 `remember`/`LazyColumn`/动画/Canvas
+- 进度条使用 Unicode 字符 `█░` 文本实现
+
+### 新增/改造文件汇总
+
+| 新增（6 个） | 改造（4 个） |
+|-------------|-------------|
+| `domain/widget_data.kt` | `app/build.gradle.kts` |
+| `widget/ShiftWidget.kt` | `AndroidManifest.xml` |
+| `widget/ShiftWidgetReceiver.kt` | `MainActivity.kt` |
+| `res/xml/shift_widget_info.xml` | `res/values/strings.xml` |
+| `WidgetDataTest.kt`（4 用例） | |
+| memory-bank 更新（已在上步完成） | |
+
+### 构建与测试
+
+```bash
+./gradlew assembleDebug        # BUILD SUCCESSFUL
+./gradlew testDebugUnitTest    # BUILD SUCCESSFUL（79 个测试全部通过）
+```
+
+零回归。测试覆盖从 75 扩展到 79 个用例，10 个测试文件。
+
+---
+
 ## 2026-05-13：全项目审查与改进规划
 
 ### 审查范围

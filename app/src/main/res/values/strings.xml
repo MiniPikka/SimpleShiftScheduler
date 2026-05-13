@@ -16,4 +16,7 @@
     <string name="alarm_dialog_disable">关闭此班次提醒</string>
     <string name="alarm_dialog_hour_label">时</string>
     <string name="alarm_dialog_minute_label">分</string>
+
+    <!-- Widget -->
+    <string name="widget_description">在桌面显示今日班次信息，无需打开应用即可查看。</string>
 </resources>
