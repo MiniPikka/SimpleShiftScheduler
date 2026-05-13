@@ -5,15 +5,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,6 +95,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val runtimeSettings by runtimeSettingsFlow.collectAsState()
+            val syncError by calendarSyncManager.syncErrorFlow.collectAsState()
             val navController = rememberNavController()
             val scope = rememberCoroutineScope()
             var currentAlarmSettings by remember { mutableStateOf(AlarmSettings()) }
@@ -101,14 +106,23 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // Auto-dismiss sync errors after 10 seconds
+            LaunchedEffect(syncError) {
+                if (syncError != null) {
+                    kotlinx.coroutines.delay(10_000L)
+                    calendarSyncManager.clearSyncError()
+                }
+            }
+
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background
             ) {
-                NavHost(
-                    navController = navController,
-                    startDestination = "main"
-                ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = "main"
+                    ) {
                     composable("main") {
                         val homeUiState by homeViewModel.uiState.collectAsState()
                         val calendarUiState by calendarViewModel.uiState.collectAsState()
@@ -161,6 +175,7 @@ class MainActivity : ComponentActivity() {
                                 uiState = calendarUiState,
                                 onPreviousMonthClick = { calendarViewModel.goToPreviousMonth() },
                                 onNextMonthClick = { calendarViewModel.goToNextMonth() },
+                                onTodayClick = { calendarViewModel.goToToday() },
                                 onStatsClick = { calendarViewModel.computeStats() },
                                 onDismissStats = { calendarViewModel.dismissStats() }
                             )
@@ -214,6 +229,42 @@ class MainActivity : ComponentActivity() {
                             onCancel = { settingsViewModel.cancel() },
                             onNavigateBack = { navController.popBackStack() }
                         )
+                    }
+                }
+
+                    syncError?.let { error ->
+                        Surface(
+                            modifier = Modifier
+                                .align(androidx.compose.ui.Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = error,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = { calendarSyncManager.clearSyncError() }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "关闭",
+                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

@@ -26,20 +26,23 @@ data class CalendarUiState(
     val monthLabel: String = "",
     val weekLabels: List<String> = emptyList(),
     val days: List<CalendarDayUiState> = emptyList(),
-    val stats: MonthlyStats? = null
+    val stats: MonthlyStats? = null,
+    val isCurrentMonth: Boolean = true
 )
 
 class CalendarViewModel(
     application: Application,
     private val localeProvider: () -> Locale = { Locale.getDefault() },
-    private val monthProvider: () -> YearMonth = { YearMonth.now() }
+    private val monthProvider: () -> YearMonth = { YearMonth.now() },
+    private val todayProvider: () -> LocalDate = { LocalDate.now() }
 ) : AndroidViewModel(application) {
 
     // Secondary constructor for Android ViewModelProvider
     constructor(application: Application) : this(
         application = application,
         localeProvider = { Locale.getDefault() },
-        monthProvider = { YearMonth.now() }
+        monthProvider = { YearMonth.now() },
+        todayProvider = { LocalDate.now() }
     )
 
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -66,6 +69,11 @@ class CalendarViewModel(
 
     fun goToNextMonth() {
         currentMonth = currentMonth.plusMonths(1)
+        refresh()
+    }
+
+    fun goToToday() {
+        currentMonth = monthProvider()
         refresh()
     }
 
@@ -105,10 +113,10 @@ class CalendarViewModel(
             .map { day ->
                 CalendarDayUiState(
                     dateNumber = day.date.dayOfMonth,
-                    shiftLabel = mapShiftLabel(day.shiftType),
+                    shiftLabel = com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(day.shiftType),
                     shiftType = day.shiftType,
                     isCurrentMonth = day.isCurrentMonth,
-                    isToday = day.date == LocalDate.now()
+                    isToday = day.date == todayProvider()
                 )
             }
 
@@ -116,10 +124,9 @@ class CalendarViewModel(
             monthLabel = currentMonth.format(monthFormatter),
             weekLabels = weekLabels,
             days = days,
-            stats = null
+            stats = null,
+            isCurrentMonth = currentMonth == monthProvider()
         )
     }
 
-    private fun mapShiftLabel(shiftType: ShiftType): String =
-        com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftType)
 }

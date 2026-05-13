@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.ShiftType
+import com.simpleshift.scheduler.ui.common.TeamDropdown
 import com.simpleshift.scheduler.viewmodel.SettingsUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -227,7 +228,7 @@ private fun ShiftDayPickerCell(
     onShiftSelected: (ShiftType) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val shiftLabel = shiftTypeToLabel(shiftType)
+    val shiftLabel = com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftType)
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -248,7 +249,7 @@ private fun ShiftDayPickerCell(
         ) {
             ShiftType.entries.forEach { type ->
                 DropdownMenuItem(
-                    text = { Text(shiftTypeToLabel(type)) },
+                    text = { Text(com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(type)) },
                     onClick = {
                         expanded = false
                         onShiftSelected(type)
@@ -259,48 +260,6 @@ private fun ShiftDayPickerCell(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TeamDropdown(
-    selectedTeamId: Int,
-    availableTeams: List<com.simpleshift.scheduler.domain.model.Team>,
-    onTeamSelected: (Int) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedTeam = availableTeams.find { it.id == selectedTeamId }
-        ?: availableTeams.first()
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = selectedTeam.name,
-            onValueChange = {},
-            readOnly = true,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.menuAnchor().fillMaxWidth()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            availableTeams.forEach { team ->
-                DropdownMenuItem(
-                    text = { Text(team.name) },
-                    onClick = {
-                        expanded = false
-                        onTeamSelected(team.id)
-                    }
-                )
-            }
-        }
-    }
-}
-
-private fun shiftTypeToLabel(shiftType: ShiftType): String =
-    com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftType)
-
 @Composable
 private fun ShiftAlarmRow(
     shiftType: ShiftType,
@@ -308,7 +267,7 @@ private fun ShiftAlarmRow(
     onEdit: (AlarmTime) -> Unit,
     onRemove: () -> Unit
 ) {
-    val label = shiftTypeToLabel(shiftType)
+    val label = com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftType)
     var showDialog by remember { mutableStateOf(false) }
 
     Row(

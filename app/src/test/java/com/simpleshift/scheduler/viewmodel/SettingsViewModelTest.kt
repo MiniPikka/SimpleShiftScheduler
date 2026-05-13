@@ -243,6 +243,35 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `cancel after multiple saves restores last-saved state not initial state`() {
+        val initialSettings = RuntimeShiftSettings(cycleLength = 42,
+            shiftCycle = RuntimeShiftSettings().shiftCycle) // default 42-day cycle
+        val viewModel = SettingsViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            initialSettings = initialSettings
+        )
+
+        // First edit: change to 30 days and save
+        viewModel.updateCycleLength(30)
+        viewModel.save()
+        assertEquals(30, viewModel.uiState.value.cycleLength)
+        assertFalse(viewModel.uiState.value.isDirty)
+
+        // Second edit: change to 20 days but DON'T save
+        viewModel.updateCycleLength(20)
+        assertEquals(20, viewModel.uiState.value.cycleLength)
+        assertTrue(viewModel.uiState.value.isDirty)
+
+        // Cancel should restore to 30 (last-saved), NOT 42 (initial)
+        viewModel.cancel()
+        val uiState = viewModel.uiState.value
+        assertEquals("Cancel should restore to last-saved state (30), not initial (42)",
+            30, uiState.cycleLength)
+        assertEquals(30, uiState.shiftCycle.size)
+        assertFalse(uiState.isDirty)
+    }
+
+    @Test
     fun `alarm change does not mark shift cycle as dirty`() {
         val viewModel = SettingsViewModel(
             application = ApplicationProvider.getApplicationContext(),

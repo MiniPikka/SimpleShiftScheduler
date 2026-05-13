@@ -214,13 +214,49 @@ app/
 
 ## 9. 当前进度与后续建议
 
-已完成（阶段 1-9）：
+已完成（阶段 1-14，功能完整 + 代码加固；阶段 15 桌面 Widget 规划中）：
 1. 搭项目（Compose 模板）✅
 2. 做首页（班组下拉框 + 今日班次 + 进度）✅
 3. 实现"倒班计算核心逻辑"（含班组偏移支持）✅
 4. 接入日历 UI（7×7 网格 + 上月/下月切换）✅
 5. 班组切换 + 月度统计 ✅
 6. 设置页（自定义倒班规则 + DataStore 持久化 + Navigation Compose 导航）✅
-7. 日历提醒（Calendar Provider 本地日历日程 + 每班次独立时间 + 系统提醒 + 跨品牌兼容）✅
+7. 日历提醒（Calendar Provider 本地日历日程 + 每班次独立时间 + 系统提醒 + 跨品牌兼容 + 365 天覆盖）✅
+8. 代码加固与测试补全（阶段 11-14，已完成）✅
+9. 桌面小组件（阶段 15，规划中）—— Jetpack Glance 实现 Compose 式 Widget，在桌面显示今日班次与进度
 
-全部规划功能已完成，应用功能完整，单元测试全部通过。
+全部规划功能已完成，应用功能完整，单元测试全部通过（75 用例，9 个测试文件，BUILD SUCCESSFUL）。
+
+---
+
+## 10. 桌面 Widget 技术选型（阶段 15）
+
+### 框架选择
+
+* **Jetpack Glance（`androidx.glance:glance-appwidget:1.1.0`）**
+  * Google 官方推荐的 Compose 式 AppWidget 框架
+  * 声明式 UI，与项目现有 Compose 代码风格一致
+  * 底层编译为 RemoteViews，100% 兼容系统 Widget
+  * Min SDK 23，项目 Min SDK 24 满足要求
+  * 配合 `glance-material3` 使用 Material 3 主题
+
+### Widget 架构
+
+```
+SettingsRepository (DataStore)
+       │
+       ▼
+computeWidgetShiftData()   ← domain 层纯函数，复用 getShiftInfo()
+       │
+       ▼
+ShiftWidget.provideGlance()  ← GlanceAppWidget，读取 DataStore + 计算 + 渲染
+       │
+       ▼
+ShiftWidgetReceiver         ← 系统 Receiver，注册在 AndroidManifest
+```
+
+### 更新策略
+
+* **系统周期**：`updatePeriodMillis=3600000`（1小时）
+* **App 内主动**：设置保存后 + onResume 广播 `ACTION_APPWIDGET_UPDATE`
+* **用户触发**：点击 Widget 打开 App → onResume → 刷新

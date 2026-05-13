@@ -1,5 +1,174 @@
 # 倒班助手开发进度记录
 
+## 2026-05-13：桌面小组件规划
+
+### 功能概述
+
+在设备桌面添加小组件（Widget），用户无需打开 App 即可查看今日班次和周期进度。使用 Jetpack Glance 框架实现 Compose 式 Widget 开发。
+
+**Widget 显示内容**：
+- 班组名称（一值～六值）
+- 当前日期（本地化可读）
+- 今日班次（大字彩色：早/中/休/夜/学）
+- 周期进度（当前天数 / 总天数 + 简易进度条）
+
+### 技术方案
+
+| 项 | 选择 |
+|---|------|
+| 框架 | Jetpack Glance 1.1.0（`glance-appwidget` + `glance-material3`） |
+| 数据读取 | Widget 内直接通过 `SettingsRepository` 读取 DataStore |
+| 计算复用 | domain 层新增 `computeWidgetShiftData()`，复用 `getShiftInfo()` |
+| 更新机制 | 系统 1h 周期 + App 内主动广播 + 点击打开 App 触发 onResume |
+| Widget 尺寸 | 4×1（默认），自适应 3×1 / 4×2 |
+
+### 实施步骤（阶段 15）
+
+| Step | 内容 | 新增文件 | 改造文件 |
+|------|------|---------|---------|
+| 15.1 | 添加 Glance 依赖 | — | `build.gradle.kts` |
+| 15.2 | 创建 Widget 数据模型 + 计算函数 | `domain/widget_data.kt` | — |
+| 15.3 | 实现 Glance Widget UI | `widget/ShiftWidget.kt`, `widget/ShiftWidgetReceiver.kt` | — |
+| 15.4 | 注册 Widget（Manifest + XML） | `res/xml/shift_widget_info.xml` | `AndroidManifest.xml`, `strings.xml` |
+| 15.5 | Widget 更新触发机制 | — | `MainActivity.kt` |
+| 15.6 | Widget 单元测试 | `WidgetDataTest.kt`（4 用例） | — |
+| 15.7 | 文档更新 | — | memory-bank 全部 5 文件 |
+
+### 预期新增
+
+- 新增文件：5 个（domain/widget_data.kt, widget/ShiftWidget.kt, widget/ShiftWidgetReceiver.kt, res/xml/shift_widget_info.xml, WidgetDataTest.kt）
+- 改造文件：4 个（build.gradle.kts, AndroidManifest.xml, MainActivity.kt, strings.xml）
+- 新增测试：4 个用例
+- 总测试：75 → 79
+
+### 详细规划
+
+参见 `implementation-plan.md` 阶段 15。
+
+---
+
+## 2026-05-13：全项目审查与改进规划
+
+### 审查范围
+
+- 完整阅读 memory-bank 全部 5 个文件
+- 完整审查 26 个源文件 + 7 个测试文件
+- 执行 `./gradlew testDebugUnitTest` — BUILD SUCCESSFUL（全部通过）
+
+### 审查结论
+
+项目整体健康度良好：MVVM 分层清晰、domain 层纯函数可测试性强、Calendar Provider 方案跨品牌兼容、DataStore 持久化稳健。发现 8 个改进点，按严重程度和组织方式规划为 4 个阶段（11-14）。
+
+### 发现的问题与对应阶段
+
+| # | 问题 | 严重度 | 对应阶段 |
+|---|------|--------|---------|
+| 1 | `SettingsViewModel.cancel()` 回退到初始值而非最后保存值 | 高（用户数据丢失） | 阶段 11.1 |
+| 2 | `CalendarSyncManager` 异常静默吞掉 | 中（用户无法感知失败） | 阶段 11.2 |
+| 3 | `CalendarViewModel` 直接调用 `LocalDate.now()` | 中（测试性不一致） | 阶段 11.3 |
+| 4 | 日历网格高度硬编码 `430.dp` | 中（多屏适配不稳） | 阶段 11.4 |
+| 5 | 日历页缺"回到今天"按钮 | 低（UX 摩擦） | 阶段 11.5 |
+| 6 | `CalendarViewModel`/`SettingsRepository`/`CalendarSyncManager` 零测试覆盖 | 高（核心组件无测试） | 阶段 12.1-12.3 |
+| 7 | 三处重复 `mapShiftLabel` + 两处重复 `TeamDropdown` | 低（代码整洁） | 阶段 13.1-13.2 |
+| 8 | memory-bank 文档描述过时（syncNextSevenDays→syncShiftEvents 365天） | 低（文档一致性） | 阶段 14.1-14.3 |
+
+### 改进阶段总览
+
+- **阶段 11**：Bug 修复与代码加固（5 个 Step）—— 修复 cancel()、错误可见化、测试性对齐、响应式布局、回到今天
+- **阶段 12**：测试覆盖补全（3 个 Step）—— CalendarViewModelTest (9 用例)、SettingsRepositoryTest (7 用例)、CalendarSyncManagerTest (可选)
+- **阶段 13**：代码简洁性提升（2 个 Step）—— 去重包装函数、提取共用 TeamDropdown
+- **阶段 14**：文档同步（3 个 Step）—— architecture.md、tech-stack.md、progress.md 更新
+
+### 预期新增测试
+
+- 阶段 11: `SettingsViewModelTest` 追加 1 个取消逻辑测试
+- 阶段 12: `CalendarViewModelTest`（9 用例）、`SettingsRepositoryTest`（7 用例）
+- 总计新增约 17 个测试用例
+
+### 详细规划
+
+参见 `implementation-plan.md` 阶段 11-14。
+
+---
+
+## 2026-05-13：阶段 11-13 实施完成
+
+### 阶段 11：Bug 修复与代码加固 ✅
+
+**11.1 修复 SettingsViewModel.cancel() 回退逻辑**
+- 文件：`SettingsViewModel.kt`
+- 改动：`savedSettings` 从 `val` 改为 `var`，`save()` 中更新 `savedSettings = settings`
+- 测试：新增 `cancel after multiple saves restores last-saved state not initial state`
+
+**11.2 CalendarSyncManager 错误状态可见化**
+- 文件：`CalendarSyncManager.kt`、`MainActivity.kt`
+- 改动：新增 `syncErrorFlow: StateFlow<String?>` + `clearSyncError()`；`syncFromCurrentState()` 和 `startAutoSync()` 中的 `catch (_: Exception) {}` 替换为错误发射 + 成功时清除
+- UI：`MainActivity` 底部显示可关闭的错误 Snackbar（10 秒自动消失）
+
+**11.3 CalendarViewModel 测试性对齐**
+- 文件：`CalendarViewModel.kt`
+- 改动：新增 `todayProvider: () -> LocalDate` 构造参数（默认 `{ LocalDate.now() }`），`refresh()` 中使用 `todayProvider()` 替代硬编码 `LocalDate.now()`
+
+**11.4 日历网格响应式高度**（已修复运行时崩溃）
+- 文件：`CalendarScreen.kt`
+- 改动：`LazyVerticalGrid(height=430.dp)` → 常规 `Column` + `Row` 布局（7 行 × 7 列），`CalendarDayCell` 使用 `Modifier.aspectRatio(0.85f)` 自适应宽高比
+- 修正：初版尝试保留 `LazyVerticalGrid` 只移除高度导致 `IllegalStateException`（无限高度约束），改用非 lazy 布局从根本上解决
+
+**11.5 日历页"回到今天"按钮**
+- 文件：`CalendarViewModel.kt`、`CalendarScreen.kt`、`MainActivity.kt`
+- 改动：新增 `goToToday()` 方法、`CalendarUiState.isCurrentMonth` 字段；非当前月时显示"今天"按钮
+
+### 阶段 12：测试覆盖补全 ✅
+
+**12.1 CalendarViewModelTest** — 9 个测试全部通过
+- 新增文件：`CalendarViewModelTest.kt`
+- 覆盖：初始状态、weekLabels、月份导航、goToToday、isToday 标记、computeStats、dismissStats、setTeam
+
+**12.2 SettingsRepositoryTest** — 7 个测试全部通过
+- 新增文件：`SettingsRepositoryTest.kt`
+- 覆盖：默认 flow、保存/读取往返（settings/alarm/eventIds）、清空闹钟、空 eventIds
+
+**12.3 CalendarSyncManagerTest** — 跳过（依赖 3 层 Android 组件，mock 成本过高；CalendarEventManager 已有独立测试覆盖核心逻辑）
+
+### 阶段 13：代码简洁性提升 ✅
+
+**13.1 移除重复 ShiftLabel 映射包装**
+- 文件：`HomeViewModel.kt`、`CalendarViewModel.kt`、`SettingsScreen.kt`
+- 改动：删除 3 处 `mapShiftLabel()`/`shiftTypeToLabel()` 包装函数，全改为直接调用 `ShiftLabelMapper.toLabel()`
+- 验证：`grep -r "mapShiftLabel\|shiftTypeToLabel" app/src/main/` 无匹配
+
+**13.2 提取共用 TeamDropdown 组件**
+- 新增文件：`ui/common/CommonComponents.kt`
+- 改动：`HomeScreen` 和 `SettingsScreen` 均使用共享 `TeamDropdown`，各自删除私有实现
+- `HomeScreen` 额外清理：移除未使用的 import（DropdownMenuItem、ExperimentalMaterial3Api 等 7 个）
+
+### 关键结果
+
+- 新增文件：
+  - `ui/common/CommonComponents.kt`
+  - `CalendarViewModelTest.kt`（9 用例）
+  - `SettingsRepositoryTest.kt`（7 用例）
+- 改造文件：
+  - `SettingsViewModel.kt` — cancel() 回退逻辑修复
+  - `CalendarSyncManager.kt` — 错误状态流
+  - `MainActivity.kt` — 错误 Snackbar + onTodayClick 接线
+  - `CalendarViewModel.kt` — todayProvider 注入 + goToToday() + isCurrentMonth
+  - `CalendarScreen.kt` — 响应式高度 + 今天按钮
+  - `HomeViewModel.kt` — 删除 mapShiftLabel
+  - `HomeScreen.kt` — 使用共享 TeamDropdown + 清理 imports
+  - `SettingsScreen.kt` — 使用共享 TeamDropdown + 删除 shiftTypeToLabel
+- `SettingsViewModelTest.kt` — 追加 1 个取消逻辑测试
+
+### 构建与测试
+
+```bash
+./gradlew testDebugUnitTest   # BUILD SUCCESSFUL（全部测试通过）
+```
+
+未引入回归。测试覆盖从 7 个测试文件扩展到 9 个测试文件。
+
+---
+
 ## 2026-05-09：实施计划第 10 步（闹钟改为日历日程）
 
 ### 迁移原因

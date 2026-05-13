@@ -13,6 +13,8 @@ import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
 import com.simpleshift.scheduler.domain.model.Team
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -27,6 +29,13 @@ class CalendarSyncManager(
     private val scope: CoroutineScope
 ) {
     private val syncMutex = Mutex()
+
+    private val _syncError = MutableStateFlow<String?>(null)
+    val syncErrorFlow: StateFlow<String?> = _syncError.asStateFlow()
+
+    fun clearSyncError() {
+        _syncError.value = null
+    }
     fun hasCalendarPermissions(): Boolean {
         return ContextCompat.checkSelfPermission(
             context, Manifest.permission.WRITE_CALENDAR
@@ -58,7 +67,12 @@ class CalendarSyncManager(
             }.collect { (shiftSettings, alarmSettings, eventIds) ->
                 if (shiftSettings.isValid && hasCalendarPermissions()) {
                     syncMutex.withLock {
-                        syncCalendarEvents(alarmSettings, shiftSettings, eventIds)
+                        try {
+                            syncCalendarEvents(alarmSettings, shiftSettings, eventIds)
+                            _syncError.value = null
+                        } catch (e: Exception) {
+                            _syncError.value = "日历提醒同步失败: ${e.localizedMessage ?: "请检查日历权限"}"
+                        }
                     }
                 }
             }
@@ -76,7 +90,10 @@ class CalendarSyncManager(
                     if (shiftSettings.isValid) {
                         syncCalendarEvents(alarmSettings, shiftSettings, eventIds)
                     }
-                } catch (_: Exception) {}
+                    _syncError.value = null
+                } catch (e: Exception) {
+                    _syncError.value = "日历提醒同步失败: ${e.localizedMessage ?: "请检查日历权限"}"
+                }
             }
         }
     }

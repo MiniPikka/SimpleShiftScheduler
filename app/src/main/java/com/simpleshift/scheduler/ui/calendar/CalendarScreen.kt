@@ -4,12 +4,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -37,6 +34,7 @@ fun CalendarScreen(
     uiState: CalendarUiState,
     onPreviousMonthClick: () -> Unit,
     onNextMonthClick: () -> Unit,
+    onTodayClick: () -> Unit,
     onStatsClick: () -> Unit,
     onDismissStats: () -> Unit,
     modifier: Modifier = Modifier
@@ -67,6 +65,11 @@ fun CalendarScreen(
                     contentDescription = "下月"
                 )
             }
+            if (!uiState.isCurrentMonth) {
+                TextButton(onClick = onTodayClick) {
+                    Text("今天")
+                }
+            }
             IconButton(onClick = onStatsClick) {
                 Icon(
                     imageVector = Icons.Filled.BarChart,
@@ -75,24 +78,34 @@ fun CalendarScreen(
             }
         }
 
-        LazyVerticalGrid(
-            modifier = Modifier.height(430.dp),
-            columns = GridCells.Fixed(7),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            userScrollEnabled = false
+        // Week header row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            items(uiState.weekLabels) { week ->
+            uiState.weekLabels.forEach { week ->
                 Text(
                     text = week,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.weight(1f)
                 )
             }
+        }
 
-            items(uiState.days) { day ->
-                CalendarDayCell(day = day)
+        // 6 rows of 7 date cells each (42 total)
+        val dayRows = uiState.days.chunked(7)
+        dayRows.forEach { rowDays ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                rowDays.forEach { day ->
+                    CalendarDayCell(
+                        day = day,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
@@ -142,7 +155,7 @@ private fun StatsRow(label: String, count: Int) {
 }
 
 @Composable
-private fun CalendarDayCell(day: CalendarDayUiState) {
+private fun CalendarDayCell(day: CalendarDayUiState, modifier: Modifier = Modifier) {
     val shiftColor = when (day.shiftType) {
         ShiftType.MORNING -> Color(0xFFFFF3E0)
         ShiftType.AFTERNOON -> Color(0xFFE3F2FD)
@@ -167,6 +180,7 @@ private fun CalendarDayCell(day: CalendarDayUiState) {
     }
 
     Card(
+        modifier = modifier.aspectRatio(0.85f),
         border = border,
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {

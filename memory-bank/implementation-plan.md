@@ -977,3 +977,763 @@ data class CalendarEventIds(
 
 ---
 
+# ✅ 阶段 11：Bug 修复与代码加固
+
+**核心目标**：修复已发现的逻辑缺陷和架构不一致问题，提升应用鲁棒性。
+
+**前置条件**：阶段 1-10 已完成。2026-05-13 全项目审查通过（26 个源文件 + 7 个测试文件，`BUILD SUCCESSFUL`）。
+
+**审查发现**：
+1. `SettingsViewModel.cancel()` 回退到构造函数初始值，而非最后保存值 —— 用户多次保存后取消会丢失中间状态
+2. `CalendarSyncManager.syncFromCurrentState()` 静默吞掉所有异常 —— 用户无法感知日历同步失败
+3. `CalendarViewModel` 直接调用 `LocalDate.now()` —— 与 `HomeViewModel` 的注入模式不一致，不可测试
+4. 日历网格高度硬编码 `430.dp` —— 不同屏幕密度下布局异常
+5. 日历页无"回到今天"按钮 —— 用户浏览到远处月份后无法一键返回
+
+---
+
+## Step 11.1：修复 SettingsViewModel.cancel() 回退逻辑
+
+**目标**：`cancel()` 必须回退到最近一次保存的状态，而非 ViewModel 构造时的初始状态。
+
+**当前问题**（`SettingsViewModel.kt:43,99-107`）：
+```kotlin
+private val savedSettings = initialSettings  // val，永远不会更新
+
+fun cancel() {
+    _uiState.value = SettingsUiState(
+        cycleLength = savedSettings.cycleLength,   // 永远是 initialSettings
+        shiftCycle = savedSettings.shiftCycle,
+        defaultTeamId = savedSettings.defaultTeamId,
+        alarmSettings = current.alarmSettings
+    )
+}
+```
+
+**场景复现**：
+1. 用户进入设置页 → 初始周期 42 天
+2. 用户改为 30 天 → 保存 → 生效（savedSettings 仍为 42 天初始值）
+3. 用户再改为 20 天 → 不保存 → 点取消
+4. **错误结果**：回退到 42 天（初始值），丢失了步骤 2 保存的 30 天
+5. **正确结果**：应回退到 30 天（最近一次保存值）
+
+**修复方案**：`savedSettings` 改为 `var`，在 `save()` 中更新引用。
+
+**改造文件**：`viewmodel/SettingsViewModel.kt`
+
+**改造内容**：
+```kotlin
+// 将 val savedSettings 改为 var，并在 save() 中更新
+private var savedSettings: RuntimeShiftSettings = initialSettings
+
+fun save() {
+    // ... 现有构建 settings 逻辑不变
+    savedSettings = settings  // 新增：更新已保存状态引用
+    onSettingsSaved(settings)
+    _uiState.value = current.copy(isDirty = false, isSaved = true)
+}
+```
+
+**验证**：
+- `SettingsViewModelTest` 新增：`cancel after two saves restores last-saved state`
+- 步骤：初始 42 → 改为 30 → save → 改为 20 → cancel → 断言 = 30
+
+---
+
+## Step 11.2：CalendarSyncManager 错误状态可见化
+
+**目标**：日历同步失败时通过 StateFlow 暴露错误，让 UI 有机会展示提示。
+
+**当前问题**（`CalendarSyncManager.kt:71-82`）：
+```kotlin
+fun syncFromCurrentState() {
+    if (!hasCalendarPermissions()) return
+    scope.launch {
+        syncMutex.withLock {
+            try {
+                // ... 同步逻辑
+            } catch (_: Exception) {}  // 静默吞掉所有异常
+        }
+    }
+}
+```
+
+**影响**：ContentProvider 异常、日历账户创建失败、日程写入失败——所有错误用户完全无感知。
+
+**修复方案**：新增 `syncErrorFlow: StateFlow<String?>`，同步失败发射错误消息，成功发射 null。`MainActivity` 可选消费但不阻塞主流程。
+
+**改造文件**：
+- `CalendarSyncManager.kt` — 新增 `_syncError` MutableStateFlow + `syncErrorFlow` + `clearSyncError()`
+- `MainActivity.kt` — 收集 `syncErrorFlow`，在 UI 中展示 Snackbar（非阻塞、不干扰用户操作）
+
+**新增属性**：
+```kotlin
+private val _syncError = MutableStateFlow<String?>(null)
+val syncErrorFlow: StateFlow<String?> = _syncError.asStateFlow()
+
+fun clearSyncError() { _syncError.value = null }
+```
+
+**异常处理改为**：
+```kotlin
+} catch (e: Exception) {
+    _syncError.value = "日历提醒同步失败: ${e.localizedMessage ?: "请检查日历权限"}"
+}
+```
+
+**验证**：
+- 权限未授予时不触发错误（`hasCalendarPermissions()` 提前返回）
+- 同步成功不产生错误
+- syncMutex 竞态不产生重复错误
+
+---
+
+## Step 11.3：CalendarViewModel 测试性对齐
+
+**目标**：`CalendarViewModel` 支持注入日期提供器，与 `HomeViewModel` 注入 `currentDateProvider` 的模式一致。
+
+**当前问题**（`CalendarViewModel.kt:111`）：
+```kotlin
+isToday = day.date == LocalDate.now()  // 硬编码，无法在测试中控制
+```
+
+`CalendarViewModel` 已有 `monthProvider` 注入，但"今天"标记仍然硬编码。
+
+**修复方案**：新增 `todayProvider: () -> LocalDate` 构造函数参数，默认 `{ LocalDate.now() }`。行为零变化，仅开启测试能力。
+
+**改造文件**：`CalendarViewModel.kt`
+
+**改造内容**：
+```kotlin
+class CalendarViewModel(
+    application: Application,
+    private val localeProvider: () -> Locale = { Locale.getDefault() },
+    private val monthProvider: () -> YearMonth = { YearMonth.now() },
+    private val todayProvider: () -> LocalDate = { LocalDate.now() }  // 新增
+) : AndroidViewModel(application) {
+
+    // 在 secondary constructor 中传入默认值
+    constructor(application: Application) : this(
+        application = application,
+        localeProvider = { Locale.getDefault() },
+        monthProvider = { YearMonth.now() },
+        todayProvider = { LocalDate.now() }
+    )
+
+    fun refresh() {
+        val today = todayProvider()
+        // ... days.map 中使用 today 替代 LocalDate.now()
+    }
+}
+```
+
+**验证**：
+- 现有调用方（`MainActivity` 通过 `by viewModels()` 使用 secondary constructor）零改动
+- 阶段 12 的 `CalendarViewModelTest` 可注入固定日期验证 `isToday`
+
+---
+
+## Step 11.4：日历网格响应式高度
+
+**目标**：日历网格高度根据内容自适应，不再硬编码 `430.dp`。
+
+**当前问题**（`CalendarScreen.kt:78-79`）：
+```kotlin
+LazyVerticalGrid(
+    modifier = Modifier.height(430.dp),  // 硬编码
+```
+
+低密度大屏上格子过高、高密度小屏上内容裁剪。
+
+**修复方案**：每个日期格使用 `Modifier.aspectRatio(0.85f)` 保持合理宽高比，`LazyVerticalGrid` 本身不再限定高度（使用 `fillMaxWidth()` + 内容撑开）。
+
+**改造文件**：`CalendarScreen.kt`
+
+**改造内容**：
+- `CalendarDayCell` 的 Card 增加 `Modifier.aspectRatio(0.85f)`
+- `LazyVerticalGrid` 移除 `Modifier.height(430.dp)`
+- 评估是否需要将 `LazyVerticalGrid` 的 `userScrollEnabled = false` 改为允许滚动（当屏幕不足以显示 6 行时）
+
+**验证**：
+- 在 3 种屏幕密度下确认日历网格无裁剪、无异常留白
+- 42 格均在可见范围内
+
+---
+
+## Step 11.5：日历页添加"回到今天"按钮
+
+**目标**：用户在浏览历史/未来月份后能一键返回当前月。
+
+**改造文件**：`CalendarViewModel.kt` + `CalendarScreen.kt` + `MainActivity.kt`
+
+**改造内容**：
+- `CalendarViewModel` 新增 `goToToday()` 方法——重置 `currentMonth` 为 `monthProvider()` 并 `refresh()`
+- `CalendarScreen` 月份导航栏添加"今天"文本按钮，点击通知 ViewModel（仅在非当前月时显示）
+
+**验证**：
+- 切换到 5 个月前 → 点击"今天" → 回到当前月
+- 当前月时按钮不显示（无多余 UI）
+
+---
+
+## 验收命令
+
+```bash
+./gradlew testDebugUnitTest   # 全部通过，阶段 11 不引入回归
+```
+
+---
+
+# ✅ 阶段 12：测试覆盖补全
+
+**核心目标**：为核心 ViewModel、持久化仓储补充单元测试，消除测试盲区。
+
+**前置条件**：阶段 11 完成（CalendarViewModel 测试性改造是 CalendarViewModelTest 的前置条件）。
+
+**当前测试覆盖现状**：
+
+| 被测试组件 | 测试文件 | 覆盖状态 |
+|-----------|---------|---------|
+| shift_calculator + calendar_generator | ShiftCalculatorTest + CalendarGeneratorTest | ✅ 充分 |
+| HomeViewModel | HomeViewModelTest | ✅ 充分 |
+| SettingsViewModel | SettingsViewModelTest | ✅ 充分（阶段 11.1 后追加 1 个取消测试） |
+| CalendarEventManager | CalendarEventManagerTest | ✅ 充分（含 FakeCalendarResolver） |
+| **CalendarViewModel** | **无** | ❌ 零覆盖 |
+| **SettingsRepository** | **无** | ❌ 零覆盖 |
+| **CalendarSyncManager** | **无** | ❌ 零覆盖 |
+
+---
+
+## Step 12.1：CalendarViewModelTest
+
+**新增文件**：`app/src/test/java/com/simpleshift/scheduler/viewmodel/CalendarViewModelTest.kt`
+
+**覆盖点**（共 9 个测试用例）：
+
+| # | 测试用例 | 验证内容 |
+|---|---------|---------|
+| 1 | `initial state produces 42 days` | 初始化后 days 非空、size == 42、monthLabel 非空 |
+| 2 | `weekLabels contain correct order` | 7 个周标签 = ["日","一","二","三","四","五","六"] |
+| 3 | `goToPreviousMonth decrements month` | monthLabel 反映上一个月 |
+| 4 | `goToNextMonth increments month` | monthLabel 反映下一个月 |
+| 5 | `goToToday resets to current month` | 浏览远处后 goToToday() 回到设定月份 |
+| 6 | `isToday marks correct cell` | 注入固定 todayProvider，验证有一个 day.isToday = true |
+| 7 | `computeStats produces non-null stats` | stats 触发后 UiState.stats != null，计数正确 |
+| 8 | `dismissStats clears stats to null` | dismiss 后 stats == null |
+| 9 | `setTeam changes shift labels` | 切换班组后 days 的 shiftLabel 变化 |
+
+**测试技术**：Robolectric + 注入 `localeProvider`/`monthProvider`/`todayProvider`。`monthProvider` 固定为 `YearMonth.of(2026, 5)`。
+
+**验证**：
+```bash
+./gradlew testDebugUnitTest --tests "*CalendarViewModelTest"
+```
+
+---
+
+## Step 12.2：SettingsRepositoryTest
+
+**新增文件**：`app/src/test/java/com/simpleshift/scheduler/data/repository/SettingsRepositoryTest.kt`
+
+**覆盖点**（共 7 个测试用例）：
+
+| # | 测试用例 | 验证内容 |
+|---|---------|---------|
+| 1 | `default flow returns RuntimeShiftSettings()` | 首次无数据时 flow 发射默认值 |
+| 2 | `save and read roundtrip` | 保存自定义 30 天周期后 flow 产出匹配 |
+| 3 | `mismatched cycle length falls back` | cycle_length=50 但 shift_cycle 只有 42 个 → 回退默认 |
+| 4 | `invalid shift_cycle string falls back` | 非法枚举名 → deserializeShiftCycle 返回 null → 回退默认 |
+| 5 | `alarmSettings save and read roundtrip` | 设置 3 个闹钟时间后 flow 产出匹配，null 的为空字符串 |
+| 6 | `calendarEventIds save and read roundtrip` | 多条目 eventId 映射序列化往返正确 |
+| 7 | `empty alarmSettings and eventIds first launch` | 空字符串解析为 AlarmSettings() 和 CalendarEventIds() |
+
+**测试技术**：Robolectric + `ApplicationProvider.getApplicationContext()` + 内存 DataStore。
+
+**验证**：
+```bash
+./gradlew testDebugUnitTest --tests "*SettingsRepositoryTest"
+```
+
+---
+
+## Step 12.3：CalendarSyncManager 关键路径测试（可选）
+
+**目标**：验证 `combine` 三流和非权限路径逻辑。
+
+**复杂度评估**：`CalendarSyncManager` 依赖 3 层外部组件（Context、SettingsRepository、CalendarEventManager），完整单元测试需要 mock 全部三层。考虑到：
+- `CalendarEventManager` 已有 `CalendarEventManagerTest` 完整覆盖
+- `SettingsRepository` 在 Step 12.2 中将有独立测试
+- `CalendarSyncManager` 核心逻辑 = 三流组合 + Mutex 防竞态 + 权限判断
+
+**最小可行方案**：如果 mock 成本可接受（约 50 行 mock 设置），覆盖：
+- 权限未授予时不启动同步
+- 权限授予后 combine 收集触发 `syncShiftEvents` 调用
+- `syncFromCurrentState` 在无权限时直接返回
+
+**如果 mock 难度过高，可跳过此步骤**，将验证重点放在 Step 12.1 和 12.2。
+
+---
+
+## 验收命令
+
+```bash
+./gradlew testDebugUnitTest   # 全部通过（新增约 16+ 个测试，不引入回归）
+```
+
+---
+
+# ✅ 阶段 13：代码简洁性提升
+
+**核心目标**：消除重复代码，提取共用组件。小范围重构，不改变任何行为。
+
+**前置条件**：阶段 11-12 完成（确保重构前测试覆盖充分）。
+
+---
+
+## Step 13.1：移除重复的 ShiftLabel 映射包装
+
+**当前问题**：三处存在仅一行、完全相同的包装函数：
+- `HomeViewModel.mapShiftLabel()` (line 72-73)
+- `CalendarViewModel.mapShiftLabel()` (line 123-124)
+- `SettingsScreen.shiftTypeToLabel()` (line 301-302)
+
+三者都是 `ShiftLabelMapper.toLabel(shiftType)` 的别名。
+
+**修复方案**：在所有调用点直接使用 `ShiftLabelMapper.toLabel()`，删除中间包装函数。
+
+**改造文件**：
+- `HomeViewModel.kt` — `mapShiftLabel(shiftInfo.shiftType)` → `ShiftLabelMapper.toLabel(shiftInfo.shiftType)`, 删除 `mapShiftLabel` 方法
+- `CalendarViewModel.kt` — `mapShiftLabel(day.shiftType)` → `ShiftLabelMapper.toLabel(day.shiftType)`, 删除 `mapShiftLabel` 方法
+- `SettingsScreen.kt` — `shiftTypeToLabel(type)` → `ShiftLabelMapper.toLabel(type)`, 删除 `shiftTypeToLabel` 函数
+
+**验证**：
+- `grep -r "mapShiftLabel\|shiftTypeToLabel" app/src/main/` 无匹配
+- 所有现有测试通过
+
+---
+
+## Step 13.2：提取共用 TeamDropdown 组件
+
+**当前问题**：`HomeScreen` 内联实现班组下拉框（约 25 行），`SettingsScreen` 有几乎相同的私有 `TeamDropdown`（约 24 行），逻辑完全重复。
+
+**修复方案**：提取为顶层 Composable，放在 `ui/` 目录下。
+
+**新增/修改文件**：
+- 新建 `app/src/main/java/com/simpleshift/scheduler/ui/common/CommonComponents.kt`，包含 `TeamDropdown` Composable
+- `HomeScreen.kt` — 替换内联 `ExposedDropdownMenuBox` 逻辑为 `TeamDropdown` 调用
+- `SettingsScreen.kt` — 删除私有 `TeamDropdown`，改为 import 共用组件
+
+**组件签名**：
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TeamDropdown(
+    selectedTeamId: Int,
+    availableTeams: List<Team>,
+    onTeamSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+)
+```
+
+**验证**：
+- 首页班组下拉框外观和行为不变
+- 设置页默认班组下拉框外观和行为不变
+- 编译通过，无 import 错误
+
+---
+
+## 验收命令
+
+```bash
+./gradlew testDebugUnitTest   # 全部通过，重构不引入回归
+```
+
+---
+
+# ✅ 阶段 14：文档同步
+
+**核心目标**：修正 memory-bank 文档中的过时描述和不一致内容，使文档准确反映 2026-05-13 代码状态。
+
+**前置条件**：阶段 11-13 完成。
+
+---
+
+## Step 14.1：architecture.md 更新
+
+**更新内容**：
+1. "阶段 10" 章节中 `syncNextSevenDays` → 更新为 `syncShiftEvents(daysAhead = 365)`，描述从"未来 7 天"改为"默认未来 365 天（一整年）"
+2. 阶段编号补充：在阶段 10 之后，追加阶段 11-13 的架构洞察（新增/改造文件清单、关键架构决策）
+3. 更新文件清单映射
+
+---
+
+## Step 14.2：tech-stack.md 更新
+
+**更新内容**：
+1. "当前进度与后续建议"中，"已完成（阶段 1-9）" → "已完成（阶段 1-13）"
+2. 列表项 7（"日历提醒"）的描述明确为 Calendar Provider 方案，去掉 AlarmManager 相关表述
+3. 末尾状态更新："全部规划功能已完成，应用功能完整，单元测试全部通过" → 追加"阶段 11-13 代码加固与测试补全已完成"
+
+---
+
+## Step 14.3：progress.md 记录
+
+**更新内容**：
+- 新增 2026-05-13 条目：代码审查与改进规划
+- 记录审查发现的 8 个问题及对应的 4 个改进阶段
+- 列出当前项目整体健康度评估（测试覆盖、代码质量、文档一致性）
+
+---
+
+## 验收
+
+- 所有 memory-bank 文件内容一致、无矛盾
+- `grep -r "阶段 9" memory-bank/` 仅在 implementation-plan.md 的历史记录中出现（属于正常）
+- 文档反映 2026-05-13 实际代码状态
+
+---
+
+# ✅ 阶段 15：桌面小组件（Widget）
+
+**核心目标**：在设备桌面上显示今日班次信息，用户无需打开 App 即可查看当前班次和周期进度。使用 Jetpack Glance 框架实现 Compose 式 Widget 开发。
+
+**前置条件**：阶段 1-14 已完成。Min SDK 24 满足 Glance 最低要求（API 23）。
+
+**技术选型**：
+
+| 方案 | 优点 | 缺点 | 选择 |
+|------|------|------|------|
+| **Glance (Compose)** | 声明式 UI、与现有 Compose 代码风格一致、轻量 | 功能受限于 RemoteViews 能力 | ✅ 推荐 |
+| RemoteViews (XML) | 完整 RemoteViews 功能 | 代码冗长、XML 维护、与现有 Compose 风格不一致 | ❌ |
+
+Glance 已 1.1+ 稳定版本，Google 官方推荐，支持 Material 3 主题。Widget 的 UI 由 Glance 编译为 RemoteViews，本质与系统 Widget 兼容。
+
+**Widget 设计**：
+
+```
+┌──────────────────────────────────────┐
+│  🏷️ 一值                            │
+│                                      │
+│  2026年5月13日 星期三                  │
+│                                      │
+│     早         进度: 10 / 42          │
+│   (大字)        ███████░░░░░          │
+└──────────────────────────────────────┘
+```
+
+- **尺寸**：4×1（默认），自适应 3×1 / 4×2
+- **内容**：班组名、日期、今日班次（大字彩色）、周期进度
+- **交互**：点击 Widget 打开 App 主界面
+- **更新**：`updatePeriodMillis = 3600000`（每小时）+ App 内数据变更时主动刷新
+
+---
+
+## Step 15.1：添加 Glance 依赖
+
+**目标**：在 `app/build.gradle.kts` 中添加 Glance AppWidget 依赖。
+
+**依赖**：
+```kotlin
+implementation("androidx.glance:glance-appwidget:1.1.0")
+implementation("androidx.glance:glance-material3:1.1.0")
+```
+
+`glance-appwidget` 提供 `GlanceAppWidget`、`GlanceAppWidgetReceiver` 等核心类。
+`glance-material3` 提供 Material 3 主题 ColorScheme 适配。
+
+**验证**：Gradle sync 成功，无依赖冲突。
+
+---
+
+## Step 15.2：创建 Widget 数据与计算
+
+**目标**：在 domain 层新增 Widget 专用数据模型和纯计算函数，复用现有 `getShiftInfo()`。
+
+**新增文件**：`app/src/main/java/com/simpleshift/scheduler/domain/widget_data.kt`
+
+**数据模型**：
+```kotlin
+data class WidgetShiftData(
+    val dateLabel: String,        // "2026年5月13日 星期三"
+    val shiftLabel: String,       // "早"
+    val shiftType: ShiftType,     // MORNING
+    val dayOfCycle: Int,          // 10
+    val totalDays: Int,           // 42
+    val teamName: String          // "一值"
+)
+
+fun computeWidgetShiftData(
+    today: LocalDate = LocalDate.now(),
+    settings: RuntimeShiftSettings = RuntimeShiftSettings(),
+    locale: Locale = Locale.getDefault()
+): WidgetShiftData {
+    if (!settings.isValid) {
+        return WidgetShiftData(
+            dateLabel = "",
+            shiftLabel = "?",
+            shiftType = ShiftType.REST,
+            dayOfCycle = 0,
+            totalDays = 0,
+            teamName = ""
+        )
+    }
+    val teamPhaseOffset = (settings.defaultTeamId - 1) *
+        (settings.shiftCycle.size / Team.TOTAL_TEAMS)
+    val shiftInfo = getShiftInfo(today, teamPhaseOffset, settings.shiftCycle)
+    val team = Team.ALL_TEAMS.find { it.id == settings.defaultTeamId }
+        ?: Team.ALL_TEAMS.first()
+    val dateFormatter = DateTimeFormatter
+        .ofLocalizedDate(FormatStyle.FULL)
+        .withLocale(locale)
+    return WidgetShiftData(
+        dateLabel = today.format(dateFormatter),
+        shiftLabel = ShiftLabelMapper.toLabel(shiftInfo.shiftType),
+        shiftType = shiftInfo.shiftType,
+        dayOfCycle = shiftInfo.dayOfCycle,
+        totalDays = settings.shiftCycle.size,
+        teamName = team.name
+    )
+}
+```
+
+**设计要点**：
+- 纯函数，接受注入参数（date、settings、locale），与 ViewModel 注入模式一致
+- 复用 `getShiftInfo()` 和 `ShiftLabelMapper.toLabel()` 保证口径统一
+- `settings.isValid == false` 时返回兜底数据（显示"?"）
+
+**验证**：快速单元测试覆盖正常路径和非法 settings 兜底。
+
+---
+
+## Step 15.3：实现 Glance Widget UI
+
+**目标**：使用 Glance API 实现 Widget 的 Compose 式 UI。
+
+**新增文件**：`app/src/main/java/com/simpleshift/scheduler/widget/ShiftWidget.kt`
+
+**Widget 结构**：
+
+```kotlin
+class ShiftWidget : GlanceAppWidget() {
+
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
+        val settingsRepository = SettingsRepository(context)
+        val settings = settingsRepository.settingsFlow.first()
+        val data = computeWidgetShiftData(settings = settings)
+
+        provideContent {
+            ShiftWidgetContent(data, context)
+        }
+    }
+}
+
+@Composable
+fun ShiftWidgetContent(data: WidgetShiftData, context: Context) {
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .padding(12.dp)
+            .clickable(actionStartActivity<MainActivity>())
+    ) {
+        // Row 1: Team name + refresh indicator
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.SpaceBetween
+        ) {
+            Text(text = "🏷️ ${data.teamName}", style = TextStyle(fontWeight = FontWeight.Bold))
+            Text(text = data.dateLabel, style = TextStyle(fontSize = 12.sp))
+        }
+        Spacer(modifier = GlanceModifier.height(4.dp))
+        // Row 2: Shift label (large, colored) + progress
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = data.shiftLabel,
+                style = TextStyle(
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = shiftTypeColor(data.shiftType)
+                ),
+                modifier = GlanceModifier.defaultWeight()
+            )
+            Column {
+                Text("进度: ${data.dayOfCycle} / ${data.totalDays}")
+                // Simple progress bar via colored Box
+                ProgressBar(data.dayOfCycle, data.totalDays)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgressBar(current: Int, total: Int) {
+    val fraction = if (total > 0) current.toFloat() / total else 0f
+    Row(modifier = GlanceModifier.fillMaxWidth().height(8.dp).cornerRadius(4.dp)) {
+        Box(GlanceModifier.defaultWeight().fillMaxHeight()
+            .background(shiftColor(Color(0xFF4CAF50))),
+            modifier = GlanceModifier.fillMaxWidth(fraction))
+        Box(GlanceModifier.defaultWeight().fillMaxHeight()
+            .background(shiftColor(Color(0xFFE0E0E0))),
+            modifier = GlanceModifier.fillMaxWidth(1f - fraction))
+    }
+}
+```
+
+**新增文件**：`app/src/main/java/com/simpleshift/scheduler/widget/ShiftWidgetReceiver.kt`
+
+```kotlin
+class ShiftWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = ShiftWidget()
+}
+```
+
+**设计要点**：
+- Widget 通过 `SettingsRepository` 直接从 DataStore 读取最新配置
+- 点击 Widget 打开 `MainActivity`（深层链接到首页）
+- 进度条用两个不同颜色的 Box 按比例分割，避免 Glance 不支持 Canvas 的限制
+- 班次标签使用对应颜色（早=橙、中=蓝、休=绿、夜=紫、学=黄），与日历页保持一致
+
+**Glance 限制注意**：
+- 不支持 `LazyColumn`/`LazyRow`
+- 不支持动画、Canvas 绘制
+- 不支持自定义 Composable 修饰符（只支持 `GlanceModifier`）
+- 不支持 `remember` / `mutableStateOf`（Widget 是静态快照）
+
+---
+
+## Step 15.4：注册 Widget（Manifest + XML 配置）
+
+**目标**：在 AndroidManifest 中注册 Widget Receiver，创建 Widget 描述 XML。
+
+**新增文件**：`app/src/main/res/xml/shift_widget_info.xml`
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="3600000"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:description="@string/widget_description" />
+```
+
+**改造文件**：`AndroidManifest.xml`
+
+在 `<application>` 内注册：
+```xml
+<receiver
+    android:name=".widget.ShiftWidgetReceiver"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/shift_widget_info" />
+</receiver>
+```
+
+**新增字符串资源**：`res/values/strings.xml`
+```xml
+<string name="widget_description">在桌面显示今日班次信息，无需打开应用即可查看。</string>
+<string name="widget_name">倒班助手 · 今日班次</string>
+```
+
+---
+
+## Step 15.5：Widget 更新触发机制
+
+**目标**：确保 App 内数据变更时 Widget 实时刷新。
+
+**改造文件**：`MainActivity.kt`
+
+在 `settingsRepository.saveSettings()` 调用后，追加 Widget 更新广播：
+```kotlin
+private fun notifyWidgetUpdate() {
+    val intent = Intent(this, ShiftWidgetReceiver::class.java).apply {
+        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+    }
+    sendBroadcast(intent)
+}
+```
+
+调用点：
+1. `onSettingsSaved` 回调中 — 用户保存设置后
+2. `onAlarmSettingsChanged` 回调中 — 闹钟设置变更后（虽然不影响 Widget 显示，但保持一致性）
+3. `onResume()` — App 回到前台时（处理跨天场景）
+
+Widget 补充更新机制：
+- **系统周期刷新**：`updatePeriodMillis = 3600000`（1 小时）
+- **跨天自动更新**：`onResume` 触发刷新
+- **用户主动操作**：点击 Widget 打开 App → `onResume` → 刷新
+
+---
+
+## Step 15.6：Widget 单元测试
+
+**目标**：验证 `computeWidgetShiftData()` 数据计算逻辑。
+
+**新增文件**：`app/src/test/java/com/simpleshift/scheduler/domain/WidgetDataTest.kt`
+
+**覆盖点**（4 个用例）：
+
+| # | 测试用例 | 验证内容 |
+|---|---------|---------|
+| 1 | `produces correct data for default settings` | 固定日期 + 默认 42 天周期 → dateLabel/shiftLabel/dayOfCycle 正确 |
+| 2 | `produces correct data for custom cycle` | 10 天自定义周期 → totalDays=10 |
+| 3 | `returns fallback for invalid settings` | `isValid=false` → shiftLabel="?" |
+| 4 | `respects default team selection` | defaultTeamId=3 → teamName 为对应班组 |
+
+**验证**：
+```bash
+./gradlew testDebugUnitTest --tests "*WidgetDataTest"
+```
+
+---
+
+## Step 15.7：Memory-bank 文档更新
+
+**更新内容**：
+- `app-design-document.md`：新增 2.5 桌面小组件章节
+- `architecture.md`：新增阶段 15 架构洞察
+- `tech-stack.md`：追加 Glance 依赖和 Widget 技术说明
+- `progress.md`：记录阶段 15 规划与实施结果
+
+---
+
+## 验收命令
+
+```bash
+# 编译 + 测试
+./gradlew assembleDebug
+./gradlew testDebugUnitTest   # 全部通过（约 79 个测试）
+
+# Widget 功能验证（设备/模拟器）：
+# 1. 长按桌面 → 添加小部件 → 找到"倒班助手 · 今日班次"
+# 2. 放置到桌面，确认显示今日班次、日期、进度
+# 3. 打开 App 修改班组 → 返回桌面确认 Widget 更新
+# 4. 过夜后（或改系统时间）确认 Widget 自动显示新日期班次
+```
+
+---
+
+### 阶段 15 文件变更汇总
+
+| 类型 | 文件 |
+|------|------|
+| 新增 | `domain/widget_data.kt` — Widget 数据模型 + 计算函数 |
+| 新增 | `widget/ShiftWidget.kt` — GlanceAppWidget + Glance UI |
+| 新增 | `widget/ShiftWidgetReceiver.kt` — 系统 Receiver |
+| 新增 | `res/xml/shift_widget_info.xml` — Widget 元数据 |
+| 新增 | `WidgetDataTest.kt` — 4 个单元测试 |
+| 改造 | `app/build.gradle.kts` — 新增 2 个 Glance 依赖 |
+| 改造 | `AndroidManifest.xml` — 注册 Widget Receiver |
+| 改造 | `MainActivity.kt` — Widget 更新触发逻辑 |
+| 改造 | `res/values/strings.xml` — Widget 相关字符串 |

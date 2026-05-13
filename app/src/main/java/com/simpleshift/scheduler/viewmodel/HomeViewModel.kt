@@ -63,12 +63,10 @@ class HomeViewModel(
         _uiState.value = _uiState.value.copy(
             todayDate = today.format(dateFormatter),
             shiftType = shiftInfo.shiftType,
-            shiftLabel = mapShiftLabel(shiftInfo.shiftType),
+            shiftLabel = com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftInfo.shiftType),
             dayOfCycle = shiftInfo.dayOfCycle,
             totalDays = totalDays
         )
     }
 
-    private fun mapShiftLabel(shiftType: ShiftType): String =
-        com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftType)
 }

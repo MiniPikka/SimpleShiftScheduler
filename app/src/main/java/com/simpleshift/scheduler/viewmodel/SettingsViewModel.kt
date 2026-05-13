@@ -40,7 +40,7 @@ class SettingsViewModel(
     )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-    private val savedSettings = initialSettings
+    private var savedSettings = initialSettings
 
     fun updateCycleLength(newLength: Int) {
         if (newLength < 1 || newLength > 100) return
@@ -92,6 +92,7 @@ class SettingsViewModel(
             shiftCycle = current.shiftCycle,
             defaultTeamId = current.defaultTeamId
         )
+        savedSettings = settings
         onSettingsSaved(settings)
         _uiState.value = current.copy(isDirty = false, isSaved = true)
     }

@@ -96,8 +96,8 @@ class HomeViewModelTest {
         val uiState = viewModel.uiState.value
         assertEquals(Team.TOTAL_TEAMS, uiState.availableTeams.size)
         assertEquals(1, uiState.selectedTeamId)
-        assertEquals("班组1", uiState.availableTeams.first().name)
-        assertEquals("班组6", uiState.availableTeams.last().name)
+        assertEquals("一值", uiState.availableTeams.first().name)
+        assertEquals("六值", uiState.availableTeams.last().name)
     }
 
     @Test

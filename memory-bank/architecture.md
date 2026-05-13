@@ -320,8 +320,8 @@
 
 日历日程管理器（非 Android 组件，纯 Kotlin 类包装 ContentResolver）：
 - `getOrCreateLocalCalendar()` — 查询现有本地日历账户，不存在则用 `ACCOUNT_TYPE_LOCAL` 创建，返回 calendarId
-- `syncNextSevenDays(alarmSettings, shiftCycle, teamPhaseOffset, existingEventIds)` — 计算未来 7 天日程并同步到系统日历
-- 同步策略：对比日程变化 → 有变化删旧插新、无变化跳过
+- `syncShiftEvents(alarmSettings, shiftCycle, teamPhaseOffset, existingEventIds, daysAhead = 365)` — 计算未来 365 天（一整年）日程并同步到系统日历，已有的日程跳过，stale 的日程移除
+- 同步策略：对比日程变化 → 有变化删旧插新、无变化跳过、窗口外的 stale 日程自动清理
 - 每个日程设置 `CalendarContract.Reminders.METHOD_ALERT`（准时提醒，系统弹出通知）
 - 日程标题："早班提醒"，时长 15 分钟
 - 返回 `CalendarEventIds`（date+shiftType → eventId 映射）供持久化
@@ -355,9 +355,9 @@ data class CalendarEventIds(
 
 提醒时间修改通过 `onAlarmSettingsChanged` 回调立即自动保存到 DataStore + 触发日历日程同步。`cancel()` 只还原倒班周期设置，不重置提醒时间。即使用户修改提醒后直接返回而不保存周期设置，提醒也不会丢失。
 
-### 洞察 U：combine 三流实现自动同步
+### 洞察 U：CalendarSyncManager 封装 combine 三流自动同步
 
-`MainActivity` 使用 `combine(settingsRepository.settingsFlow, settingsRepository.alarmSettingsFlow, settingsRepository.calendarEventIdsFlow)` 合并三个 DataStore 流。任一流变化时自动调用 `CalendarEventManager.syncNextSevenDays()` 更新系统日历日程。
+`CalendarSyncManager` 封装 `combine(settingsRepository.settingsFlow, settingsRepository.alarmSettingsFlow, settingsRepository.calendarEventIdsFlow)` 三流合并逻辑，任一流变化时自动调用 `CalendarEventManager.syncShiftEvents(daysAhead = 365)` 更新系统日历日程。`syncFromCurrentState()` 提供按需强制同步入口（`onResume` 调用 + 设置保存后调用），使用 Mutex 防止并发同步。
 
 ### 洞察 V：提醒使用默认班组计算日期（保留）
 
@@ -370,7 +370,10 @@ data class CalendarEventIds(
 ### 阶段 10 新增文件
 
 - `app/src/main/java/com/simpleshift/scheduler/calendar/CalendarEventManager.kt` — 日历日程管理器
+- `app/src/main/java/com/simpleshift/scheduler/calendar/CalendarResolver.kt` — ContentResolver 抽象接口 + 实现（开启测试能力）
+- `app/src/main/java/com/simpleshift/scheduler/calendar/CalendarSyncManager.kt` — 自动同步调度器（combine 三流 + Mutex 防竞态）
 - `app/src/main/java/com/simpleshift/scheduler/domain/model/CalendarEventIds.kt` — 日程 ID 追踪模型
+- `app/src/test/java/com/simpleshift/scheduler/calendar/CalendarEventManagerTest.kt` — 日程管理器测试（含 FakeCalendarResolver）
 
 ### 阶段 10 删除的文件
 
@@ -387,3 +390,128 @@ data class CalendarEventIds(
 - `MainActivity.kt` — 移除通知渠道、AlarmScheduler、combine 双流闹钟调度，替换为 CalendarEventManager + 权限请求
 - `AndroidManifest.xml` — 移除 3 个闹钟权限 + 2 个 receiver，新增日历读写权限
 - `strings.xml` — 移除通知相关字符串（渠道名、通知标题/正文）
+
+---
+
+## 8. 阶段 11-14 架构更新：鲁棒性加固与完善（已完成）
+
+2026-05-13 全项目审查后规划 4 个改进阶段，覆盖 Bug 修复、测试补全、代码整洁和文档同步。
+
+### 审查发现的架构问题
+
+1. **`SettingsViewModel.cancel()` 回退逻辑缺陷** — `savedSettings` 是 `val`，永远指向构造函数初始值。多次保存后取消会回退到最初状态而非最后保存状态。修复：改为 `var` 并在 `save()` 中更新。
+
+2. **`CalendarSyncManager` 异常静默吞掉** — `syncFromCurrentState()` 中 `catch (_: Exception) {}` 使日历同步失败完全不可见。修复：新增 `syncErrorFlow: StateFlow<String?>` 暴露错误。
+
+3. **`CalendarViewModel` 测试性不一致** — `refresh()` 中直接调用 `LocalDate.now()`，而 `HomeViewModel` 已建立注入模式。修复：新增 `todayProvider: () -> LocalDate` 构造参数。
+
+4. **日历网格高度硬编码** — `Modifier.height(430.dp)` 在不同密度屏幕下布局不稳。修复：`LazyVerticalGrid` → 常规 `Column`+`Row` 7×7 布局，每个日期格使用 `aspectRatio(0.85f)` 自适应宽高比。`LazyVerticalGrid` 在 `verticalScroll` 父容器中产生无限高度约束 Crash，非 lazy 布局从根本上解决。
+
+5. **缺失"回到今天"按钮** — 用户无限切换月份后无法一键返回。修复：`CalendarViewModel` 新增 `goToToday()`。
+
+6. **测试覆盖盲区** — `CalendarViewModel`（零覆盖）、`SettingsRepository`（零覆盖）、`CalendarSyncManager`（零覆盖）。
+
+7. **重复代码** — 三处 `mapShiftLabel`/`shiftTypeToLabel` 包装 + 两处内联 `TeamDropdown` 实现。
+
+8. **文档过时** — architecture.md 中 `syncNextSevenDays` 描述与实际 365 天不符；tech-stack.md 阶段 9/10 混淆。
+
+### 洞察 X：savedSettings 应为可变引用
+
+`SettingsViewModel` 的 `savedSettings` 必须在每次 `save()` 成功时更新为当前已保存值。`cancel()` 的语义是"回退到最近一次保存状态"，而非"回退到进入页面时的状态"。这是状态管理模式的基础要求。
+
+### 洞察 Y：系统性异常静默是鲁棒性反模式
+
+`CalendarSyncManager` 中的 `catch (_: Exception) {}` 违反了"至少记录、最好上报"原则。对于后台同步类操作，应在不影响主流程的前提下将错误状态暴露给 UI 层，让用户有机会通过重试或检查权限来修复。
+
+### 洞察 Z：测试性不应对齐不一致
+
+`HomeViewModel` 已实现 `currentDateProvider` 注入模式，`CalendarViewModel` 也应统一使用 `todayProvider`。项目中任何需要"今天"概念的组件都应支持注入，否则测试只能依赖真实系统时间，导致测试不稳定或无法覆盖特定日期的边界情况。
+
+### 计划新增/改造文件（阶段 11-13）
+
+| 阶段 | 新增文件 | 改造文件 |
+|------|---------|---------|
+| 11 | — | `SettingsViewModel.kt`, `CalendarSyncManager.kt`, `CalendarViewModel.kt`, `CalendarScreen.kt`, `MainActivity.kt` |
+| 12 | `CalendarViewModelTest.kt`, `SettingsRepositoryTest.kt` | `SettingsViewModelTest.kt`（追加 1 个取消测试） |
+| 13 | `ui/common/CommonComponents.kt`（可选） | `HomeViewModel.kt`, `CalendarViewModel.kt`, `SettingsScreen.kt`, `HomeScreen.kt` |
+| 14 | — | memory-bank 全部 4 个文件 |
+
+### 预期最终状态
+
+- 所有已知 Bug 修复，cancel() 行为正确
+- 日历同步失败对用户可见（Snackbar 提示）
+- `CalendarViewModel` 支持日期注入，测试覆盖 9 个用例
+- `SettingsRepository` 序列化/反序列化测试覆盖 7 个用例
+- 日历网格响应式适配不同屏幕
+- 日历页支持一键回到今天
+- 代码无重复包装函数，共用组件提取
+- memory-bank 文档准确反映代码状态
+
+---
+
+## 9. 阶段 15 架构更新：桌面小组件（规划中）
+
+2026-05-13 规划桌面 Widget 功能，使用 Jetpack Glance 实现 Compose 式 Widget 开发。
+
+### 技术选型：Jetpack Glance
+
+Glance 提供 Compose 式 API 开发 AppWidget，底层编译为 RemoteViews，保证系统兼容性。相比传统 RemoteViews XML 方式，Glance 与项目现有 Compose 代码风格一致，学习成本低。
+
+### 新增 widget 包
+
+`app/src/main/java/com/simpleshift/scheduler/widget/` 承载 Widget 相关代码。
+
+### `widget_data.kt`
+
+Widget 专用数据计算（domain 层）：
+- `WidgetShiftData` — Widget 显示数据：`dateLabel/shiftLabel/shiftType/dayOfCycle/totalDays/teamName`
+- `computeWidgetShiftData(today, settings, locale)` — 纯函数，复用 `getShiftInfo()` + `ShiftLabelMapper.toLabel()`
+- `settings.isValid == false` 时返回兜底数据（shiftLabel="?"）
+
+### `ShiftWidget.kt`
+
+GlanceAppWidget 实现：
+- `ShiftWidget : GlanceAppWidget` — `provideGlance()` 中从 `SettingsRepository` 读取最新配置，调用 `computeWidgetShiftData()` 计算数据
+- `ShiftWidgetContent(data, context)` — Widget UI 布局（Compose 风格但使用 GlanceModifier）
+  - 班组名 + 日期
+  - 今日班次（大字彩色）
+  - 周期进度（当前/总天数 + 简易进度条）
+  - 点击打开 `MainActivity`
+
+### `ShiftWidgetReceiver.kt`
+
+`GlanceAppWidgetReceiver` 子类，系统通过它实例化 `ShiftWidget`。
+
+### Widget 更新策略
+
+更新触发源（三重保障）：
+1. **系统周期更新**：`updatePeriodMillis = 3600000`（1 小时），通过 `shift_widget_info.xml` 声明
+2. **App 内主动刷新**：设置保存后 + App 回到前台时，通过 `ACTION_APPWIDGET_UPDATE` 广播触发
+3. **用户交互**：点击 Widget → 打开 App → `onResume()` → 刷新
+
+### 洞察 AA：Widget 数据计算是纯函数，与 ViewModel 模式一致
+
+`computeWidgetShiftData()` 接受可注入参数（today、settings、locale），与 `HomeViewModel(currentDateProvider, localeProvider)` 模式一致。Widget 自身不管理状态，每次 `provideGlance()` 调用时从 DataStore 读取最新配置并计算。
+
+### 洞察 BB：DataStore 直达避免跨进程通信复杂度
+
+Widget 通过 `SettingsRepository(context)` 直接读取 DataStore，而非通过 App 进程 IPC。DataStore 支持多进程访问（文件锁），Widget 在系统进程中运行可安全读取。
+
+### 洞察 CC：Glance 限制需要轻量 UI 策略
+
+Glance 不支持 `LazyColumn`、动画、Canvas、`remember` 等 Compose 动态特性。进度条用两个固定比例的 Box 并排实现，颜色映射用纯色列表匹配。Widget 本质是静态快照，交互只能通过 `clickable` 打开 Activity/BroadcastReceiver。
+
+### 阶段 15 新增文件
+
+- `app/src/main/java/com/simpleshift/scheduler/domain/widget_data.kt` — Widget 数据模型 + 计算函数
+- `app/src/main/java/com/simpleshift/scheduler/widget/ShiftWidget.kt` — GlanceAppWidget + UI
+- `app/src/main/java/com/simpleshift/scheduler/widget/ShiftWidgetReceiver.kt` — 系统 Receiver
+- `app/src/main/res/xml/shift_widget_info.xml` — Widget 元数据配置
+- `app/src/test/java/com/simpleshift/scheduler/domain/WidgetDataTest.kt` — 4 个单元测试
+
+### 阶段 15 改造文件
+
+- `app/build.gradle.kts` — 新增 `glance-appwidget:1.1.0` + `glance-material3:1.1.0`
+- `AndroidManifest.xml` — 注册 `ShiftWidgetReceiver`
+- `MainActivity.kt` — 新增 `notifyWidgetUpdate()`，在设置保存/onResume 中调用
+- `res/values/strings.xml` — 新增 widget_description / widget_name
