@@ -2854,7 +2854,7 @@ class ColleagueModeViewModel(
 | 个税计算 | 简化模型（月收入 × 税率 - 速算扣除数），V2 升级为累计预扣法 |
 | 社保扣除 | 社保基数 × 10.5%（个人部分），V2 支持自定义比例 |
 | 班次统计 | 复用 `countShiftTypeInMonth()` 逐类型调用 |
-| 假设分析 | 仅支持"多上夜班"，数据清晰直观 |
+| 假设分析 | 支持选择班次类型（早/中/夜/学），灵活适配 |
 | UI 入口 | "我的"页 → "工资预测"菜单项（同事模式下方） |
 | 主题 | 复用 V2 Design Token |
 
@@ -2871,12 +2871,12 @@ class ColleagueModeViewModel(
 **SalaryConfig**：
 ```kotlin
 data class SalaryConfig(
-    val baseSalary: Int = 0,           // 基本工资（月薪）
-    val nightShiftPremium: Int = 0,    // 夜班补贴（每班）
-    val mealAllowance: Int = 0,        // 餐补（每班）
-    val mealDiscountRate: Float = 1.0f, // 餐补变现折扣
-    val payday: Int = 15,              // 发薪日
-    val socialInsuranceBase: Int = 0   // 社保基数
+    val baseSalary: Int = 0,                     // 基本工资（月薪）
+    val shiftPremiums: Map<ShiftType, Int> = emptyMap(), // 各班次每班补贴
+    val mealAllowance: Int = 0,                  // 餐补（每班）
+    val mealDiscountRate: Float = 1.0f,           // 餐补变现折扣
+    val payday: Int = 15,                        // 发薪日
+    val socialInsuranceBase: Int = 0             // 社保基数
 )
 ```
 
@@ -2886,7 +2886,7 @@ data class SalaryBreakdown(
     val month: YearMonth,
     val baseSalary: Int,
     val shiftCounts: Map<ShiftType, Int>,
-    val nightShiftPremiumTotal: Int,
+    val shiftPremiumsTotal: Int,
     val mealAllowanceTotal: Int,
     val grossPay: Int,              // 应发工资
     val socialInsurance: Int,       // 社保扣除
@@ -2908,7 +2908,7 @@ data class SalaryBreakdown(
 **新增 DataStore Key**（6 个）：
 ```kotlin
 KEY_BASE_SALARY = intPreferencesKey("base_salary")
-KEY_NIGHT_SHIFT_PREMIUM = intPreferencesKey("night_shift_premium")
+KEY_SHIFT_PREMIUMS = stringPreferencesKey("shift_premiums") // "MORNING=0,AFTERNOON=50,NIGHT=200,STUDY=0"
 KEY_MEAL_ALLOWANCE = intPreferencesKey("meal_allowance")
 KEY_MEAL_DISCOUNT_RATE = stringPreferencesKey("meal_discount_rate") // "0.85"
 KEY_PAYDAY = intPreferencesKey("payday")
@@ -2949,10 +2949,11 @@ fun calculateSalaryBreakdown(
 // 个税计算（简化：月收入 × 税率 - 速算扣除数）
 internal fun calculateIncomeTax(taxableIncome: Int): Int
 
-// 假设分析：多上 X 天夜班
-fun simulateExtraNightShifts(
+// 假设分析：多上 X 天某班次
+fun simulateExtraShifts(
     current: SalaryBreakdown,
     extraCount: Int,
+    extraShiftType: ShiftType,
     config: SalaryConfig
 ): SalaryBreakdown
 ```
@@ -3034,7 +3035,7 @@ class SalaryPredictorViewModel(
 │  └────────┴────────┴────────┘        │
 │  早班8次 中班7次 夜班7次 休班8次       │
 │  ┌──────────────────────────────┐    │
-│  │ 💡 如果多上 [2] 天夜班          │    │  假设分析
+│  │ 💡 如果多上 [2] 天 [夜班 ▼]     │    │  假设分析（天数和班次类型可选）
 │  │ → 预计到手 ¥11,476  (+¥600)    │    │
 │  └──────────────────────────────┘    │
 └──────────────────────────────────────┘
@@ -3082,7 +3083,7 @@ class SalaryPredictorViewModel(
 | 7 | `income tax below threshold is zero` | 应发 ≤ 5000+社保 → 个税 = 0 |
 | 8 | `income tax bracket correct` | 应纳税所得额 8000 → 个税 = 8000×0.1−210 |
 | 9 | `net pay = gross - insurance - tax` | 到手 = 应发 - 社保 - 个税 |
-| 10 | `simulate extra night shifts increases net` | 多上 2 天夜班 → 到手增加 |
+| 10 | `simulate extra shifts increases net` | 多上 2 天某班次 → 到手增加，可选班次类型 |
 | 11 | `custom cycle respected` | 自定义周期后班次统计变化 |
 | 12 | `zero config produces zero breakdown` | 未设置参数时所有金额为 0 |
 

@@ -1113,7 +1113,7 @@ class ColleagueModeViewModel(
 
 ### 核心目标
 
-输入基本工资、夜班补贴、餐补等薪资参数，自动统计当月各班次天数，精确预测本月到手工资。支持"如果多上 X 天夜班"的假设分析。倒班人员最关心的就是钱，粘性最强的功能。
+输入基本工资、各班次补贴（早/中/夜/学各自可设）、餐补等薪资参数，自动统计当月各班次天数，精确预测本月到手工资。一套灵活的班次补贴配置覆盖所有企业类型。
 
 ### 核心算法：班次统计 × 薪资参数
 
@@ -1121,18 +1121,20 @@ class ColleagueModeViewModel(
 1. countShiftTypesInMonth(month) → {早: M, 中: A, 夜: N, 休: R, 学: S}
    工作天数 = M + A + N + S
 
-2. 应发 = 基本工资 + 夜班补贴×N + 餐补×工作天数×折扣率
+2. 班次补贴合计 = Σ(每种班次补贴 × 该班次当月天数)
+   每个班次补贴由用户自行设置，默认 0，只填适用的即可
 
-3. 预估扣除（简化）:
+3. 应发 = 基本工资 + 班次补贴合计 + 餐补×工作天数×折扣率
+
+4. 预估扣除（简化）:
    社保 ≈ 社保基数 × 10.5%
    应纳税所得额 = max(0, 应发 - 社保 - 5000)
    个税 ≈ 应纳税所得额 × 税率 - 速算扣除数
 
-4. 预计到手 = 应发 - 社保 - 个税
+5. 预计到手 = 应发 - 社保 - 个税
 
-5. 夜班贡献 = 夜班补贴 × N
-
-6. 假设分析: 多上 X 天夜班 → +X×(夜班补贴 + 餐补×折扣率)
+6. 假设分析: 多上 X 天某班次（用户可选类型）
+   → +X×(该班次补贴 + 餐补×折扣率)
 ```
 
 算法纯函数，不依赖 Android。复用现有 `countShiftTypeInMonth()`。
@@ -1164,12 +1166,21 @@ fun simulateExtraShifts(
 ): SalaryBreakdown
 ```
 
+### DataStore 持久化扩展
+
+`SettingsRepository` 新增 key 存储薪资配置：
+```
+KEY_BASE_SALARY, KEY_SHIFT_PREMIUMS (逗号分隔 "MORNING=0,AFTERNOON=50,NIGHT=200,STUDY=0"),
+KEY_MEAL_ALLOWANCE, KEY_MEAL_DISCOUNT_RATE, KEY_PAYDAY, KEY_SOCIAL_INSURANCE_BASE
+```
+新增 `salaryConfigFlow: Flow<SalaryConfig>` + `saveSalaryConfig()`。
+
 ### 新增 `domain/model/SalaryConfig.kt`
 
 ```kotlin
 data class SalaryConfig(
     val baseSalary: Int = 0,
-    val nightShiftPremium: Int = 0,     // 每班补贴
+    val shiftPremiums: Map<ShiftType, Int> = emptyMap(), // 每种班次每班补贴
     val mealAllowance: Int = 0,          // 每班餐补
     val mealDiscountRate: Float = 1.0f,  // 变现折扣率
     val payday: Int = 15,
@@ -1184,14 +1195,14 @@ data class SalaryBreakdown(
     val month: YearMonth,
     val baseSalary: Int,
     val shiftCounts: Map<ShiftType, Int>,
-    val nightShiftPremiumTotal: Int,
+    val shiftPremiumTotal: Int,          // 所有班次补贴合计
     val mealAllowanceTotal: Int,
     val grossPay: Int,
     val socialInsurance: Int,
     val taxableIncome: Int,
     val incomeTax: Int,
     val netPay: Int,
-    val nightShiftContribution: Int
+    val nightShiftContribution: Int      // 夜班贡献（便捷字段）
 )
 ```
 
@@ -1209,16 +1220,7 @@ data class SalaryBreakdown(
 - 三宫格明细（基本工资/夜班贡献/餐补合计）
 - 应发 + 预估扣除明细行
 - 班次统计标签行
-- 假设分析卡片（"如果多上 2 天夜班"滑块 + 增量金额）
-
-### DataStore 持久化扩展
-
-`SettingsRepository` 新增 5 个 key：
-```
-KEY_BASE_SALARY, KEY_NIGHT_SHIFT_PREMIUM, KEY_MEAL_ALLOWANCE,
-KEY_MEAL_DISCOUNT_RATE, KEY_PAYDAY, KEY_SOCIAL_INSURANCE_BASE
-```
-新增 `salaryConfigFlow: Flow<SalaryConfig>` + `saveSalaryConfig()`。
+- 假设分析卡片（天数 + 班次类型可选 + 增量金额）
 
 ### 导航集成
 

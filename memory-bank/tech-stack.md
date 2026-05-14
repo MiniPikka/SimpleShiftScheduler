@@ -434,15 +434,16 @@ ColleagueModeScreen          ← 主卡片 + 统计行 + 日期列表
 
 * **班次统计 × 薪资参数** — 纯算术，纯函数，零外部依赖
   * 复用 `countShiftTypeInMonth()` 逐类型统计
-  * 应发 = 基本 + 夜班补贴×N + 餐补×工作天数×折扣率
+  * 班次补贴合计 = Σ(每种班次补贴 × 当月天数)，每种班次可单独配置（默认 0）
+  * 应发 = 基本 + 班次补贴合计 + 餐补×工作天数×折扣率
   * 个税 = 阶梯税率模型（3%～45%），V1 用简化月算
-  * 假设分析 = 增量计算（多上 X 天夜班 → +X×每日增量）
+  * 假设分析 = 增量计算（多上 X 天某班次 → +X×每日增量），班次类型可选
 
 ### 数据持久化
 
 * **DataStore**（SettingsRepository 新增 6 个 key）
-  * `base_salary`, `night_shift_premium`, `meal_allowance`, `meal_discount_rate`, `payday`, `social_insurance_base`
-  * 独立 `salaryConfigFlow`，配置变更自动重新计算
+  * `base_salary`, `shift_premiums`, `meal_allowance`, `meal_discount_rate`, `payday`, `social_insurance_base`
+  * `shift_premiums` 以逗号分隔格式序列化（如 `"MORNING=0,AFTERNOON=50,NIGHT=200,STUDY=0"`），与现有 `shift_cycle` 序列化风格一致
 
 ### 数据流
 
@@ -457,7 +458,7 @@ calculateSalaryBreakdown()    ← 班次 × 薪资参数 = 工资明细
        │
        ├──→ 应发/扣除/到手
        │
-       └──→ simulateExtraNightShifts() ← 假设分析
+       └──→ simulateExtraShifts() ← 假设分析（可选班次类型）
               │
               ▼
        SalaryPredictorViewModel  ← StateFlow
