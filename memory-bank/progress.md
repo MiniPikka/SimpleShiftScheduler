@@ -1106,3 +1106,156 @@ Glance 限制应对：
 ```
 
 零回归。所有 domain 新参数均为默认值，旧调用点无需修改。
+
+---
+
+## 2026-05-14：阶段 19 规划（拼假神器）
+
+### 功能概述
+
+拼假神器（请假优化器）是差异化核心功能。自动分析今日至年底，结合用户的倒班表 + 中国法定节假日，找到"请最少假、连休最久"的最佳请假方案。
+
+**核心价值**：倒班人员的妻儿老小遵循正常节假日作息。拼假神器帮助用户用最少的年假，在家人放假时最大化团聚时间。
+
+**输出示例**：
+- 请假 2 天 → 连休 6 天（含端午节假期，效率 3.0x）
+- 请假 1 天 → 连休 4 天（含周末，效率 4.0x）
+- 请假 3 天 → 连休 9 天（含国庆节假期，效率 3.0x）
+
+### 技术方案
+
+| 项 | 选择 |
+|---|------|
+| 算法 | 间隙桥接法（Gap-Merging），O(365) 复杂度 |
+| 分析范围 | 今日至当年 12 月 31 日（不跨年） |
+| 节假日数据 | 本地内置 `holiday_data.kt`，无需网络请求 |
+| 最大请假天数 | 默认 5 天，可筛选 |
+| 评分体系 | 效率分(50%) + 长度分(25%) + 家庭分(25%) |
+| UI 入口 | "我的"页 → "拼假神器"菜单项 |
+| 主题 | 复用 V2 Design Token，自适应深色/浅色 |
+
+### 算法核心：间隙桥接法
+
+1. 生成 365 天每日状态（isRest + isHoliday + isWeekend + isAdjustedWorkDay）
+2. 识别"休息块"（连续休班日）和"工作间隙"（两块休息之间的连续工作日）
+3. 对于每个工作间隙 ≤ maxLeaveDays：请假桥接 → 左右休息块合并 = 一个长连休
+4. 补充延伸策略：在休息块前后请 N 天延长休息
+5. 综合评分排序（效率 + 长度 + 家庭重叠）
+6. 去重，输出策略列表
+
+### 法定节假日数据
+
+- 2026 年：官方已发布（元旦/春节/清明/劳动节/端午/中秋/国庆 + 调休日）
+- 2027 年：基于农历推算，标记"待国务院确认"
+- 数据文件 `domain/holiday_data.kt`，每年更新一次即可
+- 同时检测周末（周六/周日），使家庭重叠计算准确
+
+### 实施步骤（阶段 19）
+
+| Step | 内容 | 新增文件 | 改造文件 |
+|------|------|---------|---------|
+| 19.1 | 数据模型 + 节假日数据 | `LeaveStrategy.kt`, `holiday_data.kt`, `HolidayDataTest.kt` | — |
+| 19.2 | 核心拼假算法 | `leave_optimizer.kt`, `LeaveOptimizerTest.kt` | — |
+| 19.3 | LeaveOptimizerViewModel | `LeaveOptimizerViewModel.kt` | — |
+| 19.4 | LeaveOptimizerScreen UI | `LeaveOptimizerScreen.kt` | — |
+| 19.5 | 导航集成 | — | `MainActivity.kt`, `ProfileScreen.kt` |
+| 19.6 | 单元测试（已完成在 19.1-19.2 中） | — | — |
+| 19.7 | 文档更新 | — | memory-bank 全部 5 文件 |
+
+### 预期新增
+
+- 新增文件：7 个（domain/model/LeaveStrategy.kt, domain/holiday_data.kt, domain/leave_optimizer.kt, viewmodel/LeaveOptimizerViewModel.kt, ui/leave_optimizer/LeaveOptimizerScreen.kt, LeaveOptimizerTest.kt, HolidayDataTest.kt）
+- 改造文件：2 个（MainActivity.kt, ProfileScreen.kt）
+- 新增测试：约 19 个用例（LeaveOptimizerTest 15 用例 + HolidayDataTest 4 用例）
+- 总测试：97 → 约 116
+
+### 详细规划
+
+参见 `implementation-plan.md` 阶段 19。
+
+---
+
+## 2026-05-14：阶段 19 实施完成
+
+### 阶段 19：拼假神器（请假优化器）✅
+
+**19.1 数据模型 + 节假日数据**
+- 新增：`domain/model/LeaveStrategy.kt` — LeaveStrategy 数据模型（10 个字段含综合评分）
+- 新增：`domain/holiday_data.kt` — 中国法定节假日数据：
+  - 2026 年全部节假日（元旦/春节/清明/劳动节/端午/中秋/国庆）+ 调休工作日
+  - 2027 年节假日（基于农历推算，标记"[待确认]"）
+  - `HolidayInfo(date, name, isHoliday)` + `isWeekend()` + `isNaturallyOff()` 辅助函数
+
+**19.2 核心拼假算法**
+- 新增：`domain/leave_optimizer.kt` — 间隙桥接法（Gap-Merging）：
+  - `buildDailyStatus()`：构建 365 天每日状态（isRest/isHoliday/isWeekend/isAdjustedWorkDay）
+  - `findBestLeavePlans()`：主入口，扫描工作间隙 → 请假桥接 → 评分排序
+  - 预计算 restBefore/restAfter 数组，O(365 × maxLeaveDays) 复杂度
+  - 综合评分：效率分(50%) + 长度分(25%) + 家庭分(25%)
+  - 同一连休区间自动去重（保留请假天数最少方案）
+  - `teamPhaseOffsetFor()` 辅助函数
+
+**19.3 LeaveOptimizerViewModel**
+- 新增：`viewmodel/LeaveOptimizerViewModel.kt` — StateFlow 状态管理
+  - `LeaveOptimizerUiState`：strategies/selectedTeamId/maxLeaveDays/analyzedDateRange/isLoading
+  - `refresh(customCycle, referenceDate, teamId)`：调用算法并发射状态
+  - `setMaxLeaveDays(days)`：切换筛选天数并重新计算
+  - 支持 `todayProvider` 注入（测试性）
+
+**19.4 LeaveOptimizerScreen UI**
+- 新增：`ui/leave_optimizer/LeaveOptimizerScreen.kt`（~340 行 Compose）
+  - TopAppBar "拼假神器" + 返回按钮
+  - 说明区（分析范围 + 班组信息）
+  - FilterChip 行：1-5 天筛选
+  - LazyColumn 策略卡片列表（入场动画 fadeIn + slideInVertically）
+  - StrategyCard：前三名金/银/铜边框 + 大字体"请假N天→连休M天" + 日期范围 + 节日徽章 + 效率标签 + MiniCalendarBar
+  - MiniCalendarBar：24 天缩略窗，请假日实心圆、休息日半透明、其他日浅灰
+  - 加载中（CircularProgressIndicator）和空状态处理
+
+**19.5 导航集成**
+- 改造：`MainActivity.kt` — 新增 `"leave_optimizer"` 路由 + LeaveOptimizerViewModel factory + LaunchedEffect 自动刷新
+- 改造：`ui/profile/ProfileScreen.kt` — 新增 `onLeaveOptimizerClick` 参数 + "拼假神器"菜单项（在提醒设置下方）
+
+**19.6 单元测试** — 23 个新测试全部通过
+- 新增：`LeaveOptimizerTest.kt`（17 用例）
+  - buildDailyStatus 基本属性（大小/日期/isRest/周末/节假日/调休）
+  - 间隙桥接（2天间隙/1天间隙/间隙超限/全休息无方案）
+  - 去重验证、评分排序验证、节日重叠加分
+  - 自定义周期、班组偏移、边界参数
+  - 策略字段完整性、节日名称捕获
+- 新增：`HolidayDataTest.kt`（6 用例）
+  - 无重复日期、覆盖未来365天、调休日标记、主要节日存在
+  - isWeekend 检测、isNaturallyOff 综合判断
+
+### 新增/改造文件汇总
+
+| 新增（7 个） | 改造（2 个） |
+|-------------|-------------|
+| `domain/model/LeaveStrategy.kt` | `MainActivity.kt`（+50 行） |
+| `domain/holiday_data.kt`（~110 行） | `ui/profile/ProfileScreen.kt`（+12 行） |
+| `domain/leave_optimizer.kt`（~170 行） | |
+| `viewmodel/LeaveOptimizerViewModel.kt`（~80 行） | |
+| `ui/leave_optimizer/LeaveOptimizerScreen.kt`（~340 行） | |
+| `LeaveOptimizerTest.kt`（17 用例） | |
+| `HolidayDataTest.kt`（6 用例） | |
+
+### 构建与测试
+
+```bash
+./gradlew assembleDebug        # BUILD SUCCESSFUL（零警告）
+./gradlew testDebugUnitTest    # BUILD SUCCESSFUL（124 个测试全部通过）
+```
+
+零回归。测试覆盖从 97 扩展到 124 个用例（+27），13 个测试文件。
+
+### 分析范围调整
+
+分析范围从"未来 365 天（跨年）"改为"今日至当年 12 月 31 日（不跨年）"，确保策略卡片中所有日期均在同年，显示"6月15日 — 6月20日"无需年份即可无歧义。
+
+### 入口
+
+"我的"页 → "拼假神器"菜单项（在提醒设置下方）。不在底部导航栏新增 Tab。
+
+### 节假日数据维护
+
+每年 11-12 月国务院发布下一年节假日安排后，更新 `domain/holiday_data.kt` 中的 2027 年数据（去除 `[待确认]` 标记），并追加 2028 年推算数据。

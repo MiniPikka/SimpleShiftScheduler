@@ -2,7 +2,7 @@
 
 ## 1. 当前架构阶段
 
-阶段 1-17 全部完成。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
+阶段 1-18 全部完成。阶段 19（拼假神器）已规划待实施。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
 
 已完成的功能：
 - 阶段 1-15：全部功能（项目骨架、数据模型、核心算法、首页 UI、测试、日历页、班组切换 + 月度统计、设置页、日历提醒、代码加固、桌面 Widget）
@@ -161,6 +161,11 @@
 - 保存/加载 `RuntimeShiftSettings`（cycleLength, shiftCycle 逗号分隔串, defaultTeamId）
 - 解析失败自动回退到默认值
 - 提供 `settingsFlow: Flow<RuntimeShiftSettings>` 和 `suspend saveSettings()`
+
+### `app/src/main/java/com/simpleshift/scheduler/ui/leave_optimizer/`（阶段 19 规划）
+
+- 拼假神器 UI 模块
+- `LeaveOptimizerScreen.kt`：策略卡片列表 + 说明区
 
 ### `app/src/main/java/com/simpleshift/scheduler/ui/settings/`
 
@@ -808,3 +813,174 @@ Phase A 在 6 个 domain/data 层文件中新增 `referenceDate` 参数，全部
 - `viewmodel/HomeViewModel.kt`、`viewmodel/CalendarViewModel.kt`
 - `calendar/CalendarEventManager.kt`、`calendar/CalendarSyncManager.kt`
 - `MainActivity.kt`
+
+---
+
+## 14. 阶段 19 架构规划：拼假神器（请假优化器）
+
+### 核心目标
+
+自动分析今日至当年 12 月 31 日，结合用户倒班表 + 中国法定节假日，找到最佳请假方案（请最少假、连休最久）。不跨年，日期显示无需年份即可无歧义。差异化核心功能，竞品少有。
+
+### 核心算法：间隙桥接法（Gap-Merging）
+
+**第一步**：构建未来 365 天的每日状态数组 `DayStatus`：
+- `isRest`: 倒班表当天为休或学 → true
+- `isHoliday`: 当天为法定节假日 → true
+- `isWeekend`: 当天为周六或周日 → true
+- `isAdjustedWorkDay`: 当天为调休工作日 → true（节假日数据中 `isHoliday=false` 的条目）
+
+**第二步**：识别"休息块"（连续 isRest 日）和"工作间隙"（两休息块之间的连续工作日）。
+
+**第三步**：对于每个工作间隙 ≤ 最大请假天数（默认 5 天）：
+- 请假桥接此间隙 → 左右休息块 + 间隙 = 一个长连休
+- 记录策略：`LeaveStrategy(leaveDays=间隙天数, breakDays=总连休)`
+
+**第四步**：补充"延伸策略"——在休息块前后请 1~N 天（N = maxLeaveDays），延长休息块。
+
+**第五步**：综合评分排序：
+```
+score = 0.50 * efficiencyScore + 0.25 * lengthScore + 0.25 * familyScore
+```
+- `efficiencyScore`: breakDays / leaveDays 归一化（最高者 1.0）
+- `lengthScore`: breakDays / maxBreakDays 归一化
+- `familyScore`: (holidayOverlap * 2 + weekendOverlap) / maxFamilyBonus 归一化
+
+**第六步**：去重（同一连休区间仅保留最优方案），按评分降序输出。
+
+### 新增 `domain/leave_optimizer.kt`
+
+纯函数文件，不依赖 Android：
+
+```kotlin
+// 构建每日状态数组
+fun buildDailyStatus(
+    startDate: LocalDate,
+    days: Int,
+    teamPhaseOffset: Int,
+    customCycle: List<ShiftType>?,
+    referenceDate: LocalDate,
+    holidays: Map<LocalDate, HolidayInfo>
+): List<DayStatus>
+
+// 主入口：查找最佳请假方案
+fun findBestLeavePlans(
+    today: LocalDate = LocalDate.now(),
+    daysToAnalyze: Int = 365,
+    teamPhaseOffset: Int = 0,
+    customCycle: List<ShiftType>? = null,
+    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE,
+    holidays: Map<LocalDate, HolidayInfo> = getChinaHolidays(),
+    maxLeaveDays: Int = 5
+): List<LeaveStrategy>
+```
+
+### 新增 `domain/holiday_data.kt`
+
+内置中国法定节假日数据：
+
+```kotlin
+data class HolidayInfo(
+    val date: LocalDate,
+    val name: String,
+    val isHoliday: Boolean  // true=放假, false=调休上班
+)
+
+fun getChinaHolidays(): Map<LocalDate, HolidayInfo>
+```
+
+数据覆盖范围：当前日期起未来 365 天。每年国务院发布下一年节假日安排后更新此文件即可。
+
+2026 年法定节假日（官方已发布）：
+- 元旦：1月1日
+- 春节：2月16日-22日（农历正月初一为2月17日）
+- 清明节：4月5日
+- 劳动节：5月1日-5日
+- 端午节：6月19日-21日（农历五月初五为6月19日）
+- 中秋节：9月25日-27日（农历八月十五为9月25日）
+- 国庆节：10月1日-7日
+
+各节假日均有对应的调休工作日（周末补班）。
+
+2027 年节假日（基于农历推算，待官方确认）：
+- 元旦、春节（农历正月初一约2月5日）、清明、劳动节、端午、中秋、国庆
+- 调休工作日按历史规律推算
+
+数据文件中标注官方已确认 vs 推算待确认。
+
+### 新增 `domain/model/LeaveStrategy.kt`
+
+```kotlin
+data class LeaveStrategy(
+    val leaveDays: Int,                      // 需要请假天数
+    val totalBreakDays: Int,                 // 连休总天数
+    val leaveDates: List<LocalDate>,         // 需请假的具体日期
+    val breakStart: LocalDate,               // 连休起始日
+    val breakEnd: LocalDate,                 // 连休结束日
+    val holidayOverlap: Int,                 // 与法定节假日重叠天数
+    val weekendOverlap: Int,                 // 与周末重叠天数
+    val overlappingHolidayNames: List<String>, // 重叠的节假日名称
+    val efficiency: Float,                   // 效率 = breakDays / leaveDays
+    val score: Float                         // 综合评分 0~1
+)
+```
+
+### 新增 `viewmodel/LeaveOptimizerViewModel.kt`
+
+```kotlin
+class LeaveOptimizerViewModel(
+    application: Application,
+    private val todayProvider: () -> LocalDate = { LocalDate.now() }
+) : AndroidViewModel(application) {
+
+    data class LeaveOptimizerUiState(
+        val strategies: List<LeaveStrategy> = emptyList(),
+        val selectedTeamId: Int = 1,
+        val maxLeaveDays: Int = 5,
+        val isLoading: Boolean = true
+    )
+
+    fun refresh(customCycle: List<ShiftType>?, referenceDate: LocalDate, teamId: Int)
+    fun setMaxLeaveDays(days: Int)
+}
+```
+
+从 `SettingsRepository` 读取最新配置，调用 `findBestLeavePlans()`，发射 `LeaveOptimizerUiState`。
+
+### 新增 `ui/leave_optimizer/LeaveOptimizerScreen.kt`
+
+- `TopAppBar`：标题"拼假神器" + 返回按钮
+- 说明区域：功能简介文字
+- 策略卡片列表（`LazyColumn`）：
+  - 推荐方案高亮（前 3 名金色边框）
+  - 每张卡片：请假 X 天 → 连休 Y 天（大字）+ 日期范围 + 节日标识 + 效率标签 + 周进度示意
+- 底部筛选区（可选）：最大请假天数滑块
+
+### 导航集成
+
+- `MainActivity.kt`：新增 `"leave_optimizer"` 路由 + `LeaveOptimizerViewModel` factory
+- `ProfileScreen.kt`：新增"拼假神器"菜单项，点击 `onLeaveOptimizerClick` → `navController.navigate("leave_optimizer")`
+- 不在底部导航栏新增 Tab（功能入口在"我的"页内）
+
+### 洞察 LL：法定节假日数据是唯一的外部依赖
+
+拼假神器的核心算法是纯数学问题（数组扫描 + 间隙检测），完全可单元测试。唯一的"外部依赖"是法定节假日数据，但这些数据每年仅变化一次（国务院发布），内置在 `holiday_data.kt` 中即可。不引入网络请求、不依赖第三方 API、不需要用户手动输入。
+
+### 洞察 MM：间隙桥接法覆盖 95%+ 的真实请假场景
+
+真实世界中，人们请假几乎总是连续的（一个假期），"桥接两个休息块"是最常见的拼假模式。算法专注于检测 ≤5 天的工作间隙并桥接，既高效（O(365) 复杂度）又覆盖了绝大多数实用场景。间歇式请假（每周请一天）虽然理论上可能产生更长连休，但实际几乎无人采用。
+
+### 阶段 19 新增文件
+
+- `domain/model/LeaveStrategy.kt` — LeaveStrategy 数据模型
+- `domain/leave_optimizer.kt` — 拼假核心算法
+- `domain/holiday_data.kt` — 中国法定节假日数据
+- `viewmodel/LeaveOptimizerViewModel.kt` — 拼假页 ViewModel
+- `ui/leave_optimizer/LeaveOptimizerScreen.kt` — 拼假页 UI
+- `LeaveOptimizerTest.kt` — 核心算法测试（约 12 用例）
+- `HolidayDataTest.kt` — 节假日数据验证（约 4 用例）
+
+### 阶段 19 改造文件
+
+- `MainActivity.kt` — 新增路由 + ViewModel factory
+- `ui/profile/ProfileScreen.kt` — 新增"拼假神器"入口

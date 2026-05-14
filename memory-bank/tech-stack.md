@@ -138,6 +138,7 @@ app/
  │    │    ├── NewHomeScreenV2.kt   # 阶段 17：V2 首页
  │    ├── calendar/
  │    ├── settings/
+ │    ├── leave_optimizer/    # 阶段 19 规划：拼假神器
  │    ├── profile/            # 阶段 17 新增
  │    ├── common/             # 共享组件（TeamDropdown）
  │
@@ -270,9 +271,11 @@ app/
 15. V2 完整 UI 设计系统（阶段 17，已完成）—— Design Token 系统 + Dark Productivity Design + 底部导航（首页/日历/我的）+ 牛马指数 + Profile 页
 16. 倒班规则编辑器重设计（阶段 18，已完成）—— 两步向导式规则编辑（按钮构建序列 + 日期保存）+ 规则/提醒拆分为独立页面
 17. 首页精简 —— 移除与底部导航重复的 `TeamDropdown` / `QuickActionsRow`
+18. 拼假神器（阶段 19 规划）—— 结合倒班表 + 法定节假日，自动分析最佳请假方案（差异化功能）
 
 全部规划功能已完成，应用功能完整，单元测试全部通过（BUILD SUCCESSFUL）。
 V2 UI 设计系统已实施，设置页已拆分重构。
+阶段 19（拼假神器）已规划待实施：结合倒班表 + 中国法定节假日，自动分析最佳请假方案。
 
 ---
 
@@ -310,3 +313,60 @@ Widget 布局对齐首页卡片：圆角 Box 徽章（白字班次）+ 班组名
 * **App 内主动**：设置保存后 + onResume 广播 `ACTION_APPWIDGET_UPDATE`
 * **用户触发**：点击 Widget 打开 App → onResume → 刷新
 * **Widget 尺寸**：`minWidth=250dp`, `minHeight=40dp`, `targetCellWidth=4`, `targetCellHeight=1`
+
+---
+
+## 12. 拼假神器技术选型（阶段 19 规划）
+
+### 算法选型
+
+* **间隙桥接法（Gap-Merging）** — 核心算法
+  * 扫描今日至年底（最多 365 天），识别休息块和工作间隙
+  * 对每个 ≤ maxLeaveDays 的工作间隙：请假桥接 → 合并相邻休息块
+  * O(n) 复杂度，毫秒级完成
+  * 覆盖 95%+ 真实请假场景（连续请假）
+
+### 节假日数据
+
+* **本地内置**（`domain/holiday_data.kt`）
+  * 中国国务院发布的法定节假日 + 调休工作日
+  * 每年发布下一年安排后更新此文件即可（约 150 行数据）
+  * 不引入网络请求、不依赖第三方 API
+  * 2027 年数据基于农历推算，标记"待确认"
+
+### 评分体系
+
+```
+综合分 = 0.50 × 效率分 + 0.25 × 长度分 + 0.25 × 家庭分
+```
+* **效率分**：连休天数 ÷ 请假天数（核心指标）
+* **长度分**：连休绝对天数（长假期有独立价值）
+* **家庭分**：与节假日/周末的重叠天数（家庭团聚时间）
+
+### 数据流
+
+```
+SettingsRepository (DataStore)
+       │
+       ▼
+getShiftTypeForDate()        ← domain 层纯函数
+       │
+       ▼
+buildDailyStatus()           ← 构建今日至年底状态数组
+       │
+       ▼
+findBestLeavePlans()         ← 间隙检测 + 策略评分
+       │
+       ▼
+LeaveOptimizerViewModel      ← StateFlow 暴露策略列表
+       │
+       ▼
+LeaveOptimizerScreen         ← LazyColumn 卡片列表
+```
+
+### 导航
+
+* 入口：ProfileScreen → "拼假神器"菜单项
+* 路由：`navController.navigate("leave_optimizer")`
+* 返回：`navController.popBackStack()`（回到"我的"页）
+* 不在底部导航栏新增 Tab（避免导航栏过于拥挤）

@@ -57,6 +57,7 @@ import com.simpleshift.scheduler.ui.home.HomeScreen
 import com.simpleshift.scheduler.ui.home.NewHomeScreen
 import com.simpleshift.scheduler.ui.home.NewHomeScreenV2
 import com.simpleshift.scheduler.ui.profile.ProfileScreen
+import com.simpleshift.scheduler.ui.leave_optimizer.LeaveOptimizerScreen
 import com.simpleshift.scheduler.ui.settings.AlarmSettingsScreen
 import com.simpleshift.scheduler.ui.settings.SettingsScreen
 import com.simpleshift.scheduler.ui.settings.ShiftRuleEditorScreen
@@ -64,6 +65,7 @@ import com.simpleshift.scheduler.ui.theme.ShiftSchedulerTheme
 import com.simpleshift.scheduler.viewmodel.AlarmSettingsViewModel
 import com.simpleshift.scheduler.viewmodel.CalendarViewModel
 import com.simpleshift.scheduler.viewmodel.HomeViewModel
+import com.simpleshift.scheduler.viewmodel.LeaveOptimizerViewModel
 import com.simpleshift.scheduler.viewmodel.SettingsViewModel
 import com.simpleshift.scheduler.viewmodel.ShiftRuleViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -253,6 +255,9 @@ class MainActivity : ComponentActivity() {
                                         onAlarmClick = {
                                             if (USE_NEW_SETTINGS) navController.navigate("alarm_settings")
                                             else navController.navigate("settings")
+                                        },
+                                        onLeaveOptimizerClick = {
+                                            navController.navigate("leave_optimizer")
                                         }
                                     )
                                 }
@@ -331,6 +336,36 @@ class MainActivity : ComponentActivity() {
                                             alarmViewModel.updateAlarmTime(type, time)
                                         },
                                         onNavigateBack = { navController.popBackStack() }
+                                    )
+                                }
+
+                                composable("leave_optimizer") {
+                                    val leaveOptimizerViewModel: LeaveOptimizerViewModel = viewModel(
+                                        factory = object : ViewModelProvider.Factory {
+                                            @Suppress("UNCHECKED_CAST")
+                                            override fun <T : androidx.lifecycle.ViewModel> create(
+                                                modelClass: Class<T>
+                                            ): T {
+                                                return LeaveOptimizerViewModel(application) as T
+                                            }
+                                        }
+                                    )
+                                    val leaveUiState by leaveOptimizerViewModel.uiState.collectAsState()
+
+                                    LaunchedEffect(runtimeSettings) {
+                                        leaveOptimizerViewModel.refresh(
+                                            customCycle = runtimeSettings.shiftCycle,
+                                            referenceDate = runtimeSettings.referenceDate,
+                                            teamId = runtimeSettings.defaultTeamId
+                                        )
+                                    }
+
+                                    LeaveOptimizerScreen(
+                                        uiState = leaveUiState,
+                                        onNavigateBack = { navController.popBackStack() },
+                                        onMaxLeaveDaysChanged = { days ->
+                                            leaveOptimizerViewModel.setMaxLeaveDays(days)
+                                        }
                                     )
                                 }
 

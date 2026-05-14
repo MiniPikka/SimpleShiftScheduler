@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Info
@@ -43,6 +44,7 @@ fun ProfileScreen(
     onTeamSelected: (Int) -> Unit,
     onRulesClick: () -> Unit,
     onAlarmClick: () -> Unit,
+    onLeaveOptimizerClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val surface = MaterialTheme.colorScheme.surface
@@ -104,6 +106,14 @@ fun ProfileScreen(
                     subtitle = "为每个班次设置提醒时间",
                     onBg = onBg, onSv = onSv,
                     onClick = onAlarmClick
+                )
+                ProfileMenuDivider(onSv = onSv)
+                ProfileMenuItem(
+                    icon = Icons.Filled.CalendarMonth,
+                    title = "拼假神器",
+                    subtitle = "智能请假方案 · 最大化连休",
+                    onBg = onBg, onSv = onSv,
+                    onClick = onLeaveOptimizerClick
                 )
             }
         }
