@@ -5,6 +5,7 @@ import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.CalendarEventIds
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
+import com.simpleshift.scheduler.domain.model.SalaryConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -141,5 +142,35 @@ class SettingsRepositoryTest {
         val loaded = repo.calendarEventIdsFlow.first()
         assertTrue("Default should be empty", loaded.eventIds.isEmpty())
         assertTrue(loaded.isEmpty())
+    }
+
+    @Test
+    fun `salaryConfig save and read roundtrip`() = runBlocking {
+        val repo = SettingsRepository(context)
+        val config = SalaryConfig(
+            mapOf(
+                ShiftType.MORNING to 0,
+                ShiftType.AFTERNOON to 50,
+                ShiftType.NIGHT to 200,
+                ShiftType.STUDY to 0
+            )
+        )
+
+        repo.saveSalaryConfig(config)
+
+        val loaded = repo.salaryConfigFlow.first()
+        assertEquals(4, loaded.shiftPremiums.size)
+        assertEquals(0, loaded.shiftPremiums[ShiftType.MORNING])
+        assertEquals(50, loaded.shiftPremiums[ShiftType.AFTERNOON])
+        assertEquals(200, loaded.shiftPremiums[ShiftType.NIGHT])
+        assertEquals(0, loaded.shiftPremiums[ShiftType.STUDY])
+    }
+
+    @Test
+    fun `default salaryConfig is empty`() = runBlocking {
+        val repo = SettingsRepository(context)
+
+        val loaded = repo.salaryConfigFlow.first()
+        assertTrue("Default salary config should be empty", loaded.shiftPremiums.isEmpty())
     }
 }

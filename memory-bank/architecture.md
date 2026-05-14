@@ -2,7 +2,7 @@
 
 ## 1. 当前架构阶段
 
-阶段 1-18 全部完成。阶段 19（拼假神器）和阶段 20（同事模式）已实施完成，阶段 21（工资预测）已规划待实施。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
+阶段 1-21 全部完成。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
 
 已完成的功能：
 - 阶段 1-15：全部功能（项目骨架、数据模型、核心算法、首页 UI、测试、日历页、班组切换 + 月度统计、设置页、日历提醒、代码加固、桌面 Widget）
@@ -1109,119 +1109,94 @@ class ColleagueModeViewModel(
 
 ---
 
-## 16. 阶段 21 架构规划：倒班津贴计算器
+## 16. 阶段 21 架构更新：倒班津贴计算器（已完成）
+
+2026-05-14 实施倒班津贴计算器，高频刚需功能——自动统计当月班次 × 补贴单价 = 精确津贴。
 
 ### 核心目标
 
-输入各班次补贴金额（早/中/夜/学各自可设），自动统计当月各班次天数，精确计算本月倒班津贴。只算倒班直接决定的收入——算得准、零维护、普适所有企业。
+只算倒班直接决定的收入——班次补贴。基本工资/餐补/五险一金/个税涉及企业差异化政策，算不准反而失信。班次补贴 100% 由倒班表决定，普适所有倒班企业。
 
 ### 核心算法：班次统计 × 补贴单价
 
 ```
-1. countShiftTypesInMonth(month) → {早: M, 中: A, 夜: N, 休: R, 学: S}
+1. countAllShiftTypesInMonth(month) → {早:M, 中:A, 夜:N, 休:R, 学:S}
 
 2. 本月倒班津贴 = Σ(每种班次补贴 × 该班次当月天数)
    每个班次补贴由用户自行设置，默认 0
 
-3. 假设分析: 多上 X 天某班次（用户可选类型）
+3. 假设分析：多上 X 天某班次（用户可选早/中/夜/学）
    → +X×该班次补贴
 ```
 
-算法纯函数，不依赖 Android。复用现有 `countShiftTypeInMonth()`。
-
 ### 新增 `domain/salary_calculator.kt`
 
-```kotlin
-// 统计当月各班次天数
-fun countAllShiftTypesInMonth(
-    yearMonth: YearMonth,
-    teamPhaseOffset: Int = 0,
-    customCycle: List<ShiftType>? = null,
-    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE
-): Map<ShiftType, Int>
+3 个纯函数：
+- `countAllShiftTypesInMonth(yearMonth, teamPhaseOffset, customCycle, referenceDate): Map<ShiftType, Int>` — 遍历当月每天，统计 5 种班次出现次数
+- `calculateSalaryBreakdown(config, shiftCounts, yearMonth): SalaryBreakdown` — Σ(补贴 × 次数) = 津贴总额
+- `simulateExtraShifts(current, extraCount, extraShiftType, config): SalaryBreakdown` — 假设多上 X 天某班次的增量
 
-// 计算工资明细
-fun calculateSalaryBreakdown(
-    config: SalaryConfig,
-    shiftCounts: Map<ShiftType, Int>,
-    yearMonth: YearMonth
-): SalaryBreakdown
-
-// 假设分析：多上 X 天某班次
-fun simulateExtraShifts(
-    current: SalaryBreakdown,
-    extraCount: Int,
-    extraShiftType: ShiftType,
-    config: SalaryConfig
-): SalaryBreakdown
-```
-
-### DataStore 持久化扩展
-
-`SettingsRepository` 新增 1 个 key 存储津贴配置：
-```
-KEY_SHIFT_PREMIUMS (逗号分隔 "MORNING=0,AFTERNOON=50,NIGHT=200,STUDY=0")
-```
-新增 `salaryConfigFlow: Flow<SalaryConfig>` + `saveSalaryConfig()`。
-
-### 新增 `domain/model/SalaryConfig.kt`
+### 新增 `domain/model/SalaryConfig.kt` / `SalaryBreakdown.kt`
 
 ```kotlin
 data class SalaryConfig(
-    val shiftPremiums: Map<ShiftType, Int> = emptyMap() // 每种班次每班补贴
+    val shiftPremiums: Map<ShiftType, Int> = emptyMap()
 )
-```
 
-### 新增 `domain/model/SalaryBreakdown.kt`
-
-```kotlin
 data class SalaryBreakdown(
     val month: YearMonth,
     val shiftCounts: Map<ShiftType, Int>,
-    val shiftPremiumTotal: Int  // 本月倒班津贴 = Σ(每种班次补贴 × 当月天数)
+    val shiftPremiumTotal: Int
 )
 ```
 
-### 新增 `viewmodel/SalaryPredictorViewModel.kt`
+### DataStore 持久化
 
-- 管理薪资配置（从 DataStore 加载/保存）
-- 管理当前查看月份（默认当月）
-- 管理"假设分析"参数（额外夜班天数）
-- StateFlow 暴露 SalaryPredictorUiState
+`SettingsRepository` 新增 1 个 key：
+```
+KEY_SHIFT_PREMIUMS = stringPreferencesKey("shift_premiums")
+// 序列化格式："MORNING=0,AFTERNOON=50,NIGHT=200,STUDY=0"
+```
+新增 `salaryConfigFlow: Flow<SalaryConfig>` + `suspend saveSalaryConfig()`。
 
-### 新增 `ui/salary_predictor/SalaryPredictorScreen.kt`
+### `SalaryPredictorViewModel`
 
-- 可折叠津贴设置区（各班次补贴金额）
-- 津贴金额主卡片（大字体 ¥1,750）
-- 大字体津贴金额 + 各班次贡献明细
-- 应发 + 预估扣除明细行
-- 班次统计标签行
-- 假设分析卡片（天数 + 班次类型可选 + 增量金额）
+管理：薪资配置（自动保存）/ 月份切换 / 班组选择 / 假设分析参数（天数 0-5 + 班次类型可选）。
+`updateConfig()` 立即写入 DataStore 并触发重算。`refresh()` 从 MainActivity 调用传入最新 settings。
 
-### 导航集成
+### `SalaryPredictorScreen`
 
-- `MainActivity.kt`：新增 `"salary_predictor"` 路由
-- `ProfileScreen.kt`：新增"工资预测"菜单项（在同事模式下方）
+- 可折叠津贴设置区（早/中/夜/学 OutlinedTextField + 彩色圆点标签）
+- 月份左右切换 + 班组下拉（`MonthTeamRow`）
+- `PremiumTotalCard`：大字体 ¥1,750（36sp Bold）+ primary 色背景
+- `ShiftBreakdownSection`：彩色班次标签行（早班 8次...）+ 各津贴贡献明细
+- `SimulationCard`：FilterChip 0-5 + 班次类型下拉 + 增量结果
+
+### 导航
+
+- 路由：`"salary_predictor"`（不在底部导航栏）
+- 入口：ProfileScreen → "倒班津贴"菜单项（同事模式下方，AttachMoney 图标）
 
 ### 洞察 PP：倒班津贴是唯一完全由倒班表决定的收入
 
-只有班次补贴直接取决于当月排班。基本工资、餐补、五险一金、个税都和倒班表无关。只算班次补贴：算得准（不涉及企业差异化政策）、零维护（不追任何政策变化）、普适所有倒班企业。
+只有班次补贴直接取决于当月排班。基本工资、餐补、五险一金、个税都和倒班表无关。只算班次补贴：算得准、零维护、普适所有倒班企业。
 
 ### 洞察 QQ：假设分析帮助换班决策
 
-"如果多上两天夜班能多拿 ¥400"——假设分析让用户在做换班决策时有数据支撑。拼假神器帮用户找"什么时候休"，倒班津贴帮用户算"多上班能多拿多少"，两者互补。
+"如果多上两天夜班能多拿 ¥400"——假设分析让用户在做换班决策时有数据支撑。拼假神器帮找"什么时候休"，倒班津贴帮算"多上班能多拿多少"，两者互补。
 
 ### 阶段 21 新增文件
 
 - `domain/model/SalaryConfig.kt` — 津贴配置模型
 - `domain/model/SalaryBreakdown.kt` — 津贴明细模型
-- `domain/salary_calculator.kt` — 津贴计算纯函数
-- `viewmodel/SalaryPredictorViewModel.kt` — 工资预测 ViewModel
-- `ui/salary_predictor/SalaryPredictorScreen.kt` — 工资预测 UI
-- `SalaryCalculatorTest.kt` — 核心算法测试（约 12 用例）
+- `domain/salary_calculator.kt` — 津贴计算纯函数（~50 行）
+- `viewmodel/SalaryPredictorViewModel.kt` — 倒班津贴 ViewModel（~110 行）
+- `ui/salary_predictor/SalaryPredictorScreen.kt` — 倒班津贴 UI（~310 行）
+- `SalaryCalculatorTest.kt` — 核心算法测试（8 用例）
 
 ### 阶段 21 改造文件
 
-- `data/repository/SettingsRepository.kt` — 新增津贴配置持久化（1 个 DataStore key）
-- `MainActivity.kt` — 新增路由 + ViewModel factory
-- `ui/profile/ProfileScreen.kt` — 新增"倒班津贴"入口
+- `data/repository/SettingsRepository.kt` — 新增 1 个 DataStore key + salaryConfigFlow + saveSalaryConfig()
+- `SettingsRepositoryTest.kt` — 追加 2 个津贴配置测试用例
+- `MainActivity.kt` — 新增 `"salary_predictor"` 路由 + ViewModel factory + `currentSalaryConfig` 状态流
+- `ui/profile/ProfileScreen.kt` — 新增"倒班津贴"入口 + `onSalaryPredictorClick` 回调

@@ -1396,68 +1396,65 @@ O(n)，n ≤ 365。约 30 行纯函数。
 
 ---
 
-## 2026-05-14：阶段 21 规划（倒班津贴系统）
+## 2026-05-14：阶段 21 实施完成
 
-### 功能概述
+### 阶段 21：倒班津贴计算器 ✅
 
-倒班津贴计算器是高频刚需功能。输入各班次补贴金额，自动统计当月各班次天数，精确计算本月倒班津贴。只算倒班直接决定的收入——算得准、零维护、普适所有企业。
+**21.1 数据模型**
+- 新增：`domain/model/SalaryConfig.kt` — 津贴配置模型（`shiftPremiums: Map<ShiftType, Int>`）
+- 新增：`domain/model/SalaryBreakdown.kt` — 津贴明细模型（`month/shiftCounts/shiftPremiumTotal`）
 
-**核心价值**：倒班津贴是唯一由倒班表直接决定的收入。用户每次换班/加班前都会想"这样能多拿多少"。自动统计当月班次 → 实时计算津贴 → 高频刚需。
+**21.2 SettingsRepository 扩展**
+- 改造：`SettingsRepository.kt` — 新增 `KEY_SHIFT_PREMIUMS` + `salaryConfigFlow` + `saveSalaryConfig()`
+  - 序列化格式：`"MORNING=0,AFTERNOON=50,NIGHT=200,STUDY=0"`（逗号分隔键值对）
+- 改造：`SettingsRepositoryTest.kt` — 追加 2 个测试用例（读写往返 + 默认空）
 
-**输出示例**：
-- 本月倒班津贴：¥1,750
-- 夜班 7次 × ¥200 = ¥1,400 · 中班 7次 × ¥50 = ¥350
-- 如果多上两天夜班：津贴 +¥400
-- 早班补贴0、中班补贴50、夜班补贴200 → 只填企业实际有的即可
+**21.3 核心算法**
+- 新增：`domain/salary_calculator.kt` — 3 个纯函数（~50 行）：
+  - `countAllShiftTypesInMonth()` — 统计当月全部 5 种班次出现次数
+  - `calculateSalaryBreakdown()` — 班次统计 × 补贴单价 = 津贴明细
+  - `simulateExtraShifts()` — 假设分析：多上 X 天某班次的增量
+- 新增：`SalaryCalculatorTest.kt`（8 用例）
 
-### 技术方案
+**21.4 SalaryPredictorViewModel**
+- 新增：`viewmodel/SalaryPredictorViewModel.kt`（~110 行）
+  - `SalaryPredictorUiState`：salaryConfig/breakdown/simulatedBreakdown/selectedTeamId/currentMonth/extraShiftsCount/extraShiftType/isLoading/isSettingsExpanded
+  - 方法：`updateConfig`/`setTeam`/`setMonth`/`setExtraShiftsCount`/`setExtraShiftType`/`toggleSettingsExpanded`/`refresh`
+  - `updateConfig()` 立即写入 DataStore 并自动重新计算
 
-| 项 | 选择 |
-|---|------|
-| 算法 | 班次统计 × 补贴单价 |
-| 班次统计 | 复用 `countShiftTypeInMonth()` |
-| 计算范围 | 仅班次补贴，不涉及基本工资/餐补/五险一金/个税 |
-| 津贴持久化 | DataStore（SettingsRepository 新增 1 个 key） |
-| 假设分析 | 可选班次类型，增量计算 |
-| UI 入口 | "我的"页 → "倒班津贴"菜单项（同事模式下方） |
+**21.5 SalaryPredictorScreen UI**
+- 新增：`ui/salary_predictor/SalaryPredictorScreen.kt`（~310 行 Compose）
+  - TopAppBar "倒班津贴" + 返回按钮
+  - `SettingsSection`：可折叠津贴设置区（早/中/夜/学 4 行 × OutlinedTextField）
+  - `MonthTeamRow`：月份左右切换 + 班组下拉
+  - `PremiumTotalCard`：大字体 ¥金额（36sp Bold）+ 主色背景
+  - `ShiftBreakdownSection`：彩色班次标签行 + 各津贴贡献明细
+  - `SimulationCard`：FilterChip 0-5 天 + 班次类型下拉 + 增量结果
 
-### 算法核心
+**21.6 导航集成**
+- 改造：`MainActivity.kt` — 新增 `"salary_predictor"` 路由 + SalaryPredictorViewModel factory + `currentSalaryConfig` 状态流收集
+- 改造：`ui/profile/ProfileScreen.kt` — 新增"倒班津贴"菜单项（同事模式下方，AttachMoney 图标）+ `onSalaryPredictorClick` 回调
 
+### 新增/改造文件汇总
+
+| 新增（6 个） | 改造（4 个） |
+|-------------|-------------|
+| `domain/model/SalaryConfig.kt` | `data/repository/SettingsRepository.kt` |
+| `domain/model/SalaryBreakdown.kt` | `MainActivity.kt` |
+| `domain/salary_calculator.kt` | `ui/profile/ProfileScreen.kt` |
+| `viewmodel/SalaryPredictorViewModel.kt` | `SettingsRepositoryTest.kt`（+2 用例） |
+| `ui/salary_predictor/SalaryPredictorScreen.kt` | |
+| `SalaryCalculatorTest.kt`（8 用例） | |
+
+### 构建与测试
+
+```bash
+./gradlew assembleDebug        # BUILD SUCCESSFUL（零警告）
+./gradlew testDebugUnitTest    # BUILD SUCCESSFUL（142 个测试全部通过）
 ```
-1. countAllShiftTypesInMonth(month) → {早:M, 中:A, 夜:N, 休:R, 学:S}
 
-2. 本月倒班津贴 = Σ(每种班次补贴 × 该班次当月天数)
-   （每种班次补贴由用户设置，默认 0）
+零回归。测试覆盖从 132 扩展到 142 个用例（+10），15 个测试文件。
 
-3. 假设分析：多上 X 天某班次（用户可选类型）
-   → +X × 该班次补贴
-```
+### 为何只算班次补贴
 
-### 为什么只算班次补贴
-
-- 基本工资、餐补、五险一金、个税——每个企业发放方式不同，算不准反而失信
-- 班次补贴是唯一 100% 由倒班表决定的收入，普适所有倒班企业
-- 极致简单：1 个 DataStore key、~50 行算法、零维护
-
-### 实施步骤（阶段 21）
-
-| Step | 内容 | 新增文件 | 改造文件 |
-|------|------|---------|---------|
-| 21.1 | 数据模型 | `SalaryConfig.kt`, `SalaryBreakdown.kt` | — |
-| 21.2 | SettingsRepository 扩展 | — | `SettingsRepository.kt`, `SettingsRepositoryTest.kt` |
-| 21.3 | 核心算法 | `salary_calculator.kt`, `SalaryCalculatorTest.kt` | — |
-| 21.4 | ViewModel | `SalaryPredictorViewModel.kt` | — |
-| 21.5 | UI | `SalaryPredictorScreen.kt` | — |
-| 21.6 | 导航集成 | — | `MainActivity.kt`, `ProfileScreen.kt` |
-| 21.7 | 文档更新 | — | memory-bank 全部 5 文件 |
-
-### 预期新增
-
-- 新增文件：6 个（SalaryConfig.kt, SalaryBreakdown.kt, salary_calculator.kt, SalaryPredictorViewModel.kt, SalaryPredictorScreen.kt, SalaryCalculatorTest.kt）
-- 改造文件：4 个（SettingsRepository.kt, MainActivity.kt, ProfileScreen.kt, SettingsRepositoryTest.kt）
-- 新增测试：约 14 个用例（SalaryCalculatorTest 12 + SettingsRepositoryTest 追加 2）
-- 总测试：132 → 约 146
-
-### 详细规划
-
-参见 `implementation-plan.md` 阶段 21。
+基本工资、餐补、五险一金、个税——每个企业发放方式不同，算不准反而失信。班次补贴是唯一 100% 由倒班表决定的收入，算得准、零维护、普适所有倒班企业。

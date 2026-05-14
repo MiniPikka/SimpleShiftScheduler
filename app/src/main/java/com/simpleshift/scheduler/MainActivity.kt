@@ -52,6 +52,7 @@ import com.simpleshift.scheduler.calendar.CalendarSyncManager
 import com.simpleshift.scheduler.data.repository.SettingsRepository
 import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
+import com.simpleshift.scheduler.domain.model.SalaryConfig
 import com.simpleshift.scheduler.ui.calendar.CalendarScreen
 import com.simpleshift.scheduler.ui.home.HomeScreen
 import com.simpleshift.scheduler.ui.home.NewHomeScreen
@@ -59,6 +60,7 @@ import com.simpleshift.scheduler.ui.home.NewHomeScreenV2
 import com.simpleshift.scheduler.ui.profile.ProfileScreen
 import com.simpleshift.scheduler.ui.colleague_mode.ColleagueModeScreen
 import com.simpleshift.scheduler.ui.leave_optimizer.LeaveOptimizerScreen
+import com.simpleshift.scheduler.ui.salary_predictor.SalaryPredictorScreen
 import com.simpleshift.scheduler.ui.settings.AlarmSettingsScreen
 import com.simpleshift.scheduler.ui.settings.SettingsScreen
 import com.simpleshift.scheduler.ui.settings.ShiftRuleEditorScreen
@@ -68,6 +70,7 @@ import com.simpleshift.scheduler.viewmodel.CalendarViewModel
 import com.simpleshift.scheduler.viewmodel.ColleagueModeViewModel
 import com.simpleshift.scheduler.viewmodel.HomeViewModel
 import com.simpleshift.scheduler.viewmodel.LeaveOptimizerViewModel
+import com.simpleshift.scheduler.viewmodel.SalaryPredictorViewModel
 import com.simpleshift.scheduler.viewmodel.SettingsViewModel
 import com.simpleshift.scheduler.viewmodel.ShiftRuleViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -127,11 +130,18 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
             val scope = rememberCoroutineScope()
             var currentAlarmSettings by remember { mutableStateOf(AlarmSettings()) }
+            var currentSalaryConfig by remember { mutableStateOf(SalaryConfig()) }
 
             LaunchedEffect(Unit) {
                 settingsRepository.alarmSettingsFlow.collect { alarmSettings ->
                     currentAlarmSettings = alarmSettings
                     homeViewModel.updateAlarmSettings(alarmSettings)
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                settingsRepository.salaryConfigFlow.collect { config ->
+                    currentSalaryConfig = config
                 }
             }
 
@@ -263,6 +273,9 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onColleagueModeClick = {
                                             navController.navigate("colleague_mode")
+                                        },
+                                        onSalaryPredictorClick = {
+                                            navController.navigate("salary_predictor")
                                         }
                                     )
                                 }
@@ -403,6 +416,53 @@ class MainActivity : ComponentActivity() {
                                         onTeamBSelected = { colleagueModeViewModel.setTeamB(it) },
                                         onSwapTeams = { colleagueModeViewModel.swapTeams() },
                                         onNavigateBack = { navController.popBackStack() }
+                                    )
+                                }
+
+                                composable("salary_predictor") {
+                                    val salaryViewModel: SalaryPredictorViewModel = viewModel(
+                                        factory = object : ViewModelProvider.Factory {
+                                            @Suppress("UNCHECKED_CAST")
+                                            override fun <T : androidx.lifecycle.ViewModel> create(
+                                                modelClass: Class<T>
+                                            ): T {
+                                                return SalaryPredictorViewModel(application) as T
+                                            }
+                                        }
+                                    )
+                                    val salaryUiState by salaryViewModel.uiState.collectAsState()
+
+                                    LaunchedEffect(runtimeSettings) {
+                                        salaryViewModel.refresh(
+                                            customCycle = runtimeSettings.shiftCycle,
+                                            referenceDate = runtimeSettings.referenceDate,
+                                            teamId = runtimeSettings.defaultTeamId,
+                                            salaryConfig = currentSalaryConfig
+                                        )
+                                    }
+
+                                    SalaryPredictorScreen(
+                                        uiState = salaryUiState,
+                                        availableTeams = com.simpleshift.scheduler.domain.model.Team.ALL_TEAMS,
+                                        onNavigateBack = { navController.popBackStack() },
+                                        onConfigUpdate = { newPremiums ->
+                                            salaryViewModel.updateConfig(SalaryConfig(newPremiums))
+                                        },
+                                        onTeamSelected = { teamId ->
+                                            salaryViewModel.setTeam(teamId)
+                                        },
+                                        onMonthChange = { yearMonth ->
+                                            salaryViewModel.setMonth(yearMonth)
+                                        },
+                                        onExtraShiftsCountChange = { count ->
+                                            salaryViewModel.setExtraShiftsCount(count)
+                                        },
+                                        onExtraShiftTypeChange = { type ->
+                                            salaryViewModel.setExtraShiftType(type)
+                                        },
+                                        onToggleSettingsExpanded = {
+                                            salaryViewModel.toggleSettingsExpanded()
+                                        }
                                     )
                                 }
 

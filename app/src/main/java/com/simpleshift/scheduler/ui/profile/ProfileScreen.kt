@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Groups
@@ -47,6 +48,7 @@ fun ProfileScreen(
     onAlarmClick: () -> Unit,
     onLeaveOptimizerClick: () -> Unit = {},
     onColleagueModeClick: () -> Unit = {},
+    onSalaryPredictorClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val surface = MaterialTheme.colorScheme.surface
@@ -124,6 +126,14 @@ fun ProfileScreen(
                     subtitle = "查看两人何时共同休息",
                     onBg = onBg, onSv = onSv,
                     onClick = onColleagueModeClick
+                )
+                ProfileMenuDivider(onSv = onSv)
+                ProfileMenuItem(
+                    icon = Icons.Filled.AttachMoney,
+                    title = "倒班津贴",
+                    subtitle = "本月班次补贴精确计算",
+                    onBg = onBg, onSv = onSv,
+                    onClick = onSalaryPredictorClick
                 )
             }
         }

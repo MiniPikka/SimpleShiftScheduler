@@ -11,6 +11,7 @@ import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.CalendarEventIds
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
+import com.simpleshift.scheduler.domain.model.SalaryConfig
 import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +29,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_DEFAULT_TEAM = intPreferencesKey("default_team")
         private val KEY_REFERENCE_DATE = stringPreferencesKey("reference_date")
         private val KEY_CALENDAR_EVENT_IDS = stringPreferencesKey("calendar_event_ids")
+        private val KEY_SHIFT_PREMIUMS = stringPreferencesKey("shift_premiums")
 
         private val KEY_ALARM_TIME: Map<ShiftType, Preferences.Key<String>> =
             ShiftType.entries.associateWith { type ->
@@ -38,6 +40,8 @@ class SettingsRepository(private val context: Context) {
         private const val ALARM_TIME_SEPARATOR = ":"
         private const val EVENT_ID_SEPARATOR = "="
         private const val EVENT_ENTRY_SEPARATOR = ","
+        private const val PREMIUM_SEPARATOR = "="
+        private const val PREMIUM_ENTRY_SEPARATOR = ","
 
         fun serializeShiftCycle(cycle: List<ShiftType>): String {
             return cycle.joinToString(DELIMITER) { it.name }
@@ -131,6 +135,24 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    val salaryConfigFlow: Flow<SalaryConfig> = context.dataStore.data.map { prefs ->
+        val raw = prefs[KEY_SHIFT_PREMIUMS] ?: ""
+        if (raw.isBlank()) {
+            SalaryConfig()
+        } else {
+            parseSalaryConfig(raw)
+        }
+    }
+
+    suspend fun saveSalaryConfig(config: SalaryConfig) {
+        val serialized = config.shiftPremiums.entries.joinToString(PREMIUM_ENTRY_SEPARATOR) { (type, amount) ->
+            "${type.name}$PREMIUM_SEPARATOR$amount"
+        }
+        context.dataStore.edit { prefs ->
+            prefs[KEY_SHIFT_PREMIUMS] = serialized
+        }
+    }
+
     private fun parseReferenceDate(raw: String?): LocalDate {
         if (raw.isNullOrBlank()) return ShiftCycleConfig.REFERENCE_DATE
         return try {
@@ -162,5 +184,25 @@ class SettingsRepository(private val context: Context) {
             }
         }
         return CalendarEventIds(map)
+    }
+
+    private fun parseSalaryConfig(raw: String): SalaryConfig {
+        val map = mutableMapOf<ShiftType, Int>()
+        val entries = raw.split(PREMIUM_ENTRY_SEPARATOR)
+        for (entry in entries) {
+            val parts = entry.split(PREMIUM_SEPARATOR)
+            if (parts.size == 2) {
+                val type = try {
+                    ShiftType.valueOf(parts[0].trim())
+                } catch (_: Exception) {
+                    null
+                }
+                val amount = parts[1].trim().toIntOrNull()
+                if (type != null && amount != null) {
+                    map[type] = amount
+                }
+            }
+        }
+        return SalaryConfig(map)
     }
 }
