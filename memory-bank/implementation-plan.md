@@ -2589,6 +2589,253 @@ ProfileScreen
 | 改造 | `ui/profile/ProfileScreen.kt` — 新增"拼假神器"入口（+10 行） |
 | 改造 | memory-bank 全部 5 文件 — 文档同步 |
 
+---
+
+# 🔲 阶段 20：同事模式（社交裂变）
+
+**核心目标**：输入两个人的班组，自动计算下次同时休息日期和共同休息天数。技术简单但产品价值高——情侣、朋友、同事都会使用，截图天然适合社交传播。
+
+**前置条件**：阶段 1-19 已完成。现有 `shift_calculator`、`teamPhaseOffsetFor()`、`TeamDropdown` 全部可用。
+
+---
+
+## 设计决策
+
+| 问题 | 决策 |
+|------|------|
+| 算法 | 双班组逐日对比，O(n)，比拼假神器简单一个量级 |
+| 分析范围 | 今日至当年 12 月 31 日（与拼假神器一致，不跨年） |
+| "休息"定义 | REST 或 STUDY（与现有代码一致） |
+| 默认值 | "我"=用户当前班组，"他"=相邻班组（降低操作门槛） |
+| UI 入口 | "我的"页 → "同事模式"菜单项（在拼假神器下方） |
+| 主题 | 复用 V2 Design Token |
+| 社交传播 | 大字体具体日期 = 天然对话素材，截图即内容 |
+
+---
+
+## Step 20.1：数据模型
+
+**目标**：定义共同休息结果模型。
+
+**新增文件**：`domain/model/CommonRestResult.kt`
+
+**数据模型**：
+```kotlin
+data class CommonRestResult(
+    val teamAName: String,              // "一值"
+    val teamBName: String,              // "三值"
+    val nextCommonRestDate: LocalDate?, // 最近一次共同休息日
+    val daysUntilNext: Int?,            // 距今天数
+    val commonRestDates: List<LocalDate>, // 所有共同休息日（按日期排序）
+    val totalCount: Int,                // 分析范围内总次数
+    val countIn30Days: Int,             // 未来 30 天次数
+    val countIn60Days: Int              // 未来 60 天次数
+)
+```
+
+**验证**：编译通过。
+
+---
+
+## Step 20.2：核心算法
+
+**目标**：实现双班组交叉对比，纯函数。
+
+**新增文件**：`domain/colleague_mode.kt`
+
+**函数清单**：
+```kotlin
+fun findCommonRestDays(
+    teamAId: Int,
+    teamBId: Int,
+    today: LocalDate = LocalDate.now(),
+    daysToAnalyze: Int = 365,
+    customCycle: List<ShiftType>? = null,
+    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE
+): CommonRestResult {
+    val offsetA = teamPhaseOffsetFor(teamAId, customCycle)
+    val offsetB = teamPhaseOffsetFor(teamBId, customCycle)
+    val teamAName = Team.ALL_TEAMS.find { it.id == teamAId }?.name ?: "班组$teamAId"
+    val teamBName = Team.ALL_TEAMS.find { it.id == teamBId }?.name ?: "班组$teamBId"
+
+    val commonDates = (0 until daysToAnalyze)
+        .map { today.plusDays(it.toLong()) }
+        .filter { date ->
+            val shiftA = getShiftTypeForDate(date, offsetA, customCycle, referenceDate)
+            val shiftB = getShiftTypeForDate(date, offsetB, customCycle, referenceDate)
+            val isRestA = shiftA == ShiftType.REST || shiftA == ShiftType.STUDY
+            val isRestB = shiftB == ShiftType.REST || shiftB == ShiftType.STUDY
+            isRestA && isRestB
+        }
+
+    val next = commonDates.firstOrNull()
+    val daysUntil = next?.let { ChronoUnit.DAYS.between(today, it).toInt() }
+    val count30 = commonDates.count { ChronoUnit.DAYS.between(today, it).toInt() < 30 }
+    val count60 = commonDates.count { ChronoUnit.DAYS.between(today, it).toInt() < 60 }
+
+    return CommonRestResult(
+        teamAName = teamAName,
+        teamBName = teamBName,
+        nextCommonRestDate = next,
+        daysUntilNext = daysUntil,
+        commonRestDates = commonDates,
+        totalCount = commonDates.size,
+        countIn30Days = count30,
+        countIn60Days = count60
+    )
+}
+```
+
+**验证**：`ColleagueModeTest`（约 8 用例，详见 Step 20.6）
+
+---
+
+## Step 20.3：ColleagueModeViewModel
+
+**目标**：管理双班组选择和结果状态。
+
+**新增文件**：`viewmodel/ColleagueModeViewModel.kt`
+
+**状态设计**：
+```kotlin
+data class ColleagueModeUiState(
+    val teamAId: Int = 1,
+    val teamBId: Int = 3,
+    val result: CommonRestResult? = null,
+    val analyzedDateRange: String = "",
+    val isLoading: Boolean = true,
+    val errorMessage: String? = null
+)
+
+class ColleagueModeViewModel(
+    application: Application,
+    private val todayProvider: () -> LocalDate = { LocalDate.now() }
+) : AndroidViewModel(application) {
+
+    fun setTeamA(teamId: Int)
+    fun setTeamB(teamId: Int)
+    fun refresh(customCycle: List<ShiftType>?, referenceDate: LocalDate)
+    fun swapTeams()  // 便捷交换"我"和"他"
+}
+```
+
+**验证**：编译通过。
+
+---
+
+## Step 20.4：ColleagueModeScreen UI
+
+**目标**：实现双班组下拉 + 结果卡片 + 日期列表。
+
+**新增文件**：`ui/colleague_mode/ColleagueModeScreen.kt`
+
+**布局设计**：
+```
+┌──────────────────────────────────────┐
+│  ← 同事模式                           │  TopAppBar
+├──────────────────────────────────────┤
+│  我是 [一值 ▼]     他是 [三值 ▼]  ⇄  │  双 TeamDropdown + 交换按钮
+├──────────────────────────────────────┤
+│  ┌──────────────────────────────┐    │
+│  │       下次同时休息               │    │
+│  │         5月28日                 │    │  36sp Bold
+│  │         星期三                  │    │
+│  │       距今 14 天                │    │
+│  └──────────────────────────────┘    │
+│  ┌────────────┬────────────┐         │
+│  │ 未来30天    │ 未来60天    │         │
+│  │  共同休息   │  共同休息    │         │
+│  │   3 次     │   7 次     │         │
+│  └────────────┴────────────┘         │
+│  共同休息日（共 N 次）                  │
+│  ┌──────────────────────────────┐    │
+│  │ 5月28日 星期三          14天后│    │
+│  │ 6月03日 星期二          20天后│    │
+│  │ ...                          │    │
+│  └──────────────────────────────┘    │
+│  2026/05/14 — 12/31                  │
+└──────────────────────────────────────┘
+```
+
+**关键 UI 组件**：
+- `NextRestCard`：主结果卡片（渐变背景 + 大字体日期 + 倒计时）
+- `StatsRow`：两个统计卡片（30天/60天次数）
+- `CommonRestDateList`：LazyColumn 日期列表，每行日期 + 星期 + 距今天数
+- `SwapButton`：交换"我"和"他"的班组
+
+**状态处理**：
+- 加载中：CircularProgressIndicator
+- 同一班组：提示"你们是同一个班组，休息日完全一致"
+- 无共同休息：提示"在分析范围内未找到共同休息日"
+- 有结果：完整展示
+
+**验证**：编译通过 + Preview 可显示。
+
+---
+
+## Step 20.5：导航集成
+
+**目标**：新增路由，在"我的"页增加入口。
+
+**改造文件**：
+- `MainActivity.kt`
+- `ui/profile/ProfileScreen.kt`
+
+**MainActivity 改动**：
+1. 新增 `ColleagueModeViewModel` factory
+2. 在 V2 NavHost 新增 `composable("colleague_mode")` 路由
+3. 传递 `runtimeSettings.shiftCycle`、`runtimeSettings.referenceDate`、`homeUiState.selectedTeamId`
+
+**ProfileScreen 改动**：
+1. 新增参数 `onColleagueModeClick: () -> Unit`
+2. 在菜单卡片中"拼假神器"下方新增"同事模式"项（图标 + "查看共同休息日"）
+
+**验证**：
+- "我的"页可见"同事模式"入口
+- 点击跳转，返回回到"我的"页
+- 编译通过
+
+---
+
+## Step 20.6：单元测试
+
+**目标**：核心算法全覆盖。
+
+**新增文件**：`ColleagueModeTest.kt`（约 8 用例）
+
+**覆盖点**：
+
+| # | 测试用例 | 验证内容 |
+|---|---------|---------|
+| 1 | `same team produces all common rest days` | 同班组 = 所有休日都是共同休息 |
+| 2 | `different teams find intersection` | 不同班组 = 只取交集 |
+| 3 | `nextCommonRestDate is earliest` | 下一次 = 列表中第一个 |
+| 4 | `daysUntilNext correct` | 距今天数正确 |
+| 5 | `countIn30Days accurate` | 30天内计数正确 |
+| 6 | `countIn60Days accurate` | 60天内计数正确 |
+| 7 | `custom cycle respected` | 自定义周期产出不同结果 |
+| 8 | `empty result when no overlap` | 无交集时返回空列表 |
+
+**验证**：
+```bash
+./gradlew testDebugUnitTest --tests "*ColleagueModeTest"
+./gradlew testDebugUnitTest   # 全部通过，零回归
+```
+
+---
+
+## 阶段 20 文件变更汇总
+
+| 类型 | 文件 |
+|------|------|
+| 新增 | `domain/model/CommonRestResult.kt` — 共同休息结果模型 |
+| 新增 | `domain/colleague_mode.kt` — 双班组对比算法（~40 行纯函数） |
+| 新增 | `viewmodel/ColleagueModeViewModel.kt` — 同事模式 ViewModel（~90 行） |
+| 新增 | `ui/colleague_mode/ColleagueModeScreen.kt` — 同事模式 UI（~300 行） |
+| 新增 | `ColleagueModeTest.kt` — 核心算法测试（~8 用例） |
+| 改造 | `MainActivity.kt` — 新增路由 + ViewModel factory（+40 行） |
+| 改造 | `ui/profile/ProfileScreen.kt` — 新增"同事模式"入口（+10 行） |
+
 ## 暂缓（V2.1+）
 
 | 功能 | 原因 |

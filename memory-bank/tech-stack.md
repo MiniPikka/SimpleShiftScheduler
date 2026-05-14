@@ -138,7 +138,8 @@ app/
  │    │    ├── NewHomeScreenV2.kt   # 阶段 17：V2 首页
  │    ├── calendar/
  │    ├── settings/
- │    ├── leave_optimizer/    # 阶段 19 规划：拼假神器
+ │    ├── leave_optimizer/    # 阶段 19：拼假神器
+ │    ├── colleague_mode/     # 阶段 20 规划：同事模式
  │    ├── profile/            # 阶段 17 新增
  │    ├── common/             # 共享组件（TeamDropdown）
  │
@@ -271,7 +272,8 @@ app/
 15. V2 完整 UI 设计系统（阶段 17，已完成）—— Design Token 系统 + Dark Productivity Design + 底部导航（首页/日历/我的）+ 牛马指数 + Profile 页
 16. 倒班规则编辑器重设计（阶段 18，已完成）—— 两步向导式规则编辑（按钮构建序列 + 日期保存）+ 规则/提醒拆分为独立页面
 17. 首页精简 —— 移除与底部导航重复的 `TeamDropdown` / `QuickActionsRow`
-18. 拼假神器（阶段 19 规划）—— 结合倒班表 + 法定节假日，自动分析最佳请假方案（差异化功能）
+18. 拼假神器（阶段 19）—— 结合倒班表 + 法定节假日，自动分析最佳请假方案（差异化功能）
+19. 同事模式（阶段 20 规划）—— 输入两人班组，自动计算共同休息日（社交裂变功能）
 
 全部规划功能已完成，应用功能完整，单元测试全部通过（BUILD SUCCESSFUL）。
 V2 UI 设计系统已实施，设置页已拆分重构。
@@ -370,3 +372,49 @@ LeaveOptimizerScreen         ← LazyColumn 卡片列表
 * 路由：`navController.navigate("leave_optimizer")`
 * 返回：`navController.popBackStack()`（回到"我的"页）
 * 不在底部导航栏新增 Tab（避免导航栏过于拥挤）
+
+---
+
+## 13. 同事模式技术选型（阶段 20 规划）
+
+### 算法选型
+
+* **双班组逐日交叉对比** — O(n)，n ≤ 365
+  * 对每一天分别计算两人的 `getShiftTypeForDate()`
+  * 两天均为 REST/STUDY → 共同休息日
+  * 算法约 30 行纯函数，比拼假神器简单一个量级
+  * 复用 `teamPhaseOffsetFor()` + `getShiftTypeForDate()`
+
+### 社交传播设计
+
+* **信息即内容**："下次同时休息：5月28日" 是大字体具体日期，天然对话素材
+* **截图即分享**：结果页面信息密度高，一屏展示关键数据
+* **零操作门槛**：默认值（"我"=当前班组，"他"=相邻班组）让用户打开即见结果
+* **V2 扩展**：分享按钮生成带二维码的分享图
+
+### 数据流
+
+```
+teamAId, teamBId
+       │
+       ▼
+teamPhaseOffsetFor()         ← 计算两队相位偏移
+       │
+       ▼
+getShiftTypeForDate()        ← 对每天分别计算两人班次
+       │
+       ▼
+findCommonRestDays()         ← 取交集，统计
+       │
+       ▼
+ColleagueModeViewModel       ← StateFlow 暴露结果
+       │
+       ▼
+ColleagueModeScreen          ← 主卡片 + 统计行 + 日期列表
+```
+
+### 导航
+
+* 入口：ProfileScreen → "同事模式"菜单项（拼假神器下方）
+* 路由：`navController.navigate("colleague_mode")`
+* 返回：`navController.popBackStack()`（回到"我的"页）

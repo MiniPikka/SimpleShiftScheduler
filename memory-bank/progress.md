@@ -1259,3 +1259,137 @@ Glance 限制应对：
 ### 节假日数据维护
 
 每年 11-12 月国务院发布下一年节假日安排后，更新 `domain/holiday_data.kt` 中的 2027 年数据（去除 `[待确认]` 标记），并追加 2028 年推算数据。
+
+---
+
+## 2026-05-14：阶段 20 规划（同事模式）
+
+### 功能概述
+
+同事模式是社交裂变功能。输入两个人的班组，自动计算下次同时休息日期和共同休息天数。情侣、朋友、同事都会使用，结果截图天然适合社交传播。
+
+**核心价值**：不同班组的倒班人员休息日不同。"下次同时休息：5月28日"是天然对话素材。传播力极强。
+
+**输出示例**：
+- 我是一值，他是三值
+- 下次同时休息：5月28日 星期三（距今 14 天）
+- 未来30天共同休息：3 次
+- 未来60天共同休息：7 次
+- 完整共同休息日列表
+
+### 技术方案
+
+| 项 | 选择 |
+|---|------|
+| 算法 | 双班组逐日交叉对比，O(n)，比拼假神器简单一个量级 |
+| 分析范围 | 今日至当年 12 月 31 日（与拼假神器一致，不跨年） |
+| 默认值 | "我"=用户当前班组，"他"=相邻班组 |
+| UI 入口 | "我的"页 → "同事模式"菜单项（在拼假神器下方） |
+| 主题 | 复用 V2 Design Token |
+
+### 算法核心：双班组交叉对比
+
+```
+对每一天 date：
+  shiftA = getShiftTypeForDate(date, phaseOffsetA, cycle)
+  shiftB = getShiftTypeForDate(date, phaseOffsetB, cycle)
+  if (shiftA is REST or STUDY) and (shiftB is REST or STUDY):
+    → 共同休息日
+```
+O(n)，n ≤ 365。约 30 行纯函数。
+
+### 社交传播设计
+
+- "下次同时休息：5月28日" 是大字体具体日期 → 天然对话素材
+- 结果页面信息密度高 → 截图即社交分享内容
+- 两个人一起看屏幕 → 主卡片视觉冲击力强
+- 默认值降低操作门槛（零操作即可看到有意义结果）
+
+### 实施步骤（阶段 20）
+
+| Step | 内容 | 新增文件 | 改造文件 |
+|------|------|---------|---------|
+| 20.1 | 数据模型 | `CommonRestResult.kt` | — |
+| 20.2 | 核心算法 | `colleague_mode.kt`, `ColleagueModeTest.kt` | — |
+| 20.3 | ViewModel | `ColleagueModeViewModel.kt` | — |
+| 20.4 | UI | `ColleagueModeScreen.kt` | — |
+| 20.5 | 导航集成 | — | `MainActivity.kt`, `ProfileScreen.kt` |
+| 20.6 | 单元测试 | — | — |
+| 20.7 | 文档更新 | — | memory-bank 全部 5 文件 |
+
+### 预期新增
+
+- 新增文件：5 个（domain/model/CommonRestResult.kt, domain/colleague_mode.kt, viewmodel/ColleagueModeViewModel.kt, ui/colleague_mode/ColleagueModeScreen.kt, ColleagueModeTest.kt）
+- 改造文件：2 个（MainActivity.kt, ProfileScreen.kt）
+- 新增测试：8 个用例（ColleagueModeTest）
+- 总测试：124 → 132（实际结果）
+
+### 详细规划
+
+参见 `implementation-plan.md` 阶段 20。
+
+---
+
+## 2026-05-14：阶段 20 实施完成
+
+### 阶段 20：同事模式（社交裂变）✅
+
+**20.1 数据模型**
+- 新增：`domain/model/CommonRestResult.kt` — CommonRestResult 数据模型（10 个字段：双班组名/下次日期/距今/列表/计数）
+
+**20.2 核心算法**
+- 新增：`domain/colleague_mode.kt` — 双班组逐日交叉对比：
+  - `findCommonRestDays(teamAId, teamBId, today, daysToAnalyze, customCycle, referenceDate)` — 逐日计算两人班次，取 REST/STUDY 交集
+  - O(n) 复杂度，~40 行纯函数
+  - 复用 `getShiftTypeForDate()` + `teamPhaseOffsetFor()`
+
+**20.3 ColleagueModeViewModel**
+- 新增：`viewmodel/ColleagueModeViewModel.kt` — 双班组选择 + 结果刷新
+  - `setTeamA(id)` / `setTeamB(id)` / `swapTeams()` — 班组切换即刷新
+  - `refresh(customCycle, referenceDate)` — 分析范围"今日至年底"
+  - 同一班组自动提示
+
+**20.4 ColleagueModeScreen UI**
+- 新增：`ui/colleague_mode/ColleagueModeScreen.kt`（~290 行 Compose）
+  - TopAppBar "同事模式" + 返回按钮
+  - 双班组选择区：两个 TeamDropdown 并排（"我是"/"他是"）+ SwapHoriz 交换按钮
+  - NextRestCard 主结果卡片：渐变背景 + 大字体"X月X日" + 星期 + 倒计时
+  - StatCard 统计行（30天/60天共同休息次数）
+  - CommonRestDateRow 日期列表（每行日期 + 星期 + "X天后"）
+  - 同班组提示、无交集空状态
+
+**20.5 导航集成**
+- 改造：`MainActivity.kt` — 新增 `"colleague_mode"` 路由 + ColleagueModeViewModel factory
+  - 默认"我"使用当前用户班组
+- 改造：`ui/profile/ProfileScreen.kt` — 新增"同事模式"菜单项（拼假神器下方，People 图标）
+
+**20.6 单元测试** — 8 个新测试全部通过
+- 新增：`ColleagueModeTest.kt`（8 用例）
+  - 同班组=全部休息日、不同班组=取交集、nextCommonRestDate=最早
+  - daysUntilNext=0 当天、30/60天计数准确、自定义周期、无交集空结果、字段完整性
+
+### 新增/改造文件汇总
+
+| 新增（5 个） | 改造（2 个） |
+|-------------|-------------|
+| `domain/model/CommonRestResult.kt` | `MainActivity.kt`（+45 行） |
+| `domain/colleague_mode.kt`（~40 行） | `ui/profile/ProfileScreen.kt`（+12 行） |
+| `viewmodel/ColleagueModeViewModel.kt`（~90 行） | |
+| `ui/colleague_mode/ColleagueModeScreen.kt`（~290 行） | |
+| `ColleagueModeTest.kt`（8 用例） | |
+
+### 构建与测试
+
+```bash
+./gradlew assembleDebug        # BUILD SUCCESSFUL（零警告）
+./gradlew testDebugUnitTest    # BUILD SUCCESSFUL（132 个测试全部通过）
+```
+
+零回归。测试覆盖从 124 扩展到 132 个用例（+8），14 个测试文件。
+
+### 社交传播亮点
+
+- "下次同时休息：5月28日" 是大字体具体日期 → 天然对话素材
+- 双班组并排下拉 + 交换按钮 → 两个人一起操作体验好
+- 结果页面信息密度高 → 截图即社交分享内容
+- 默认值（"我"=当前班组，"他"=相邻班组）→ 零操作即可看到有意义结果

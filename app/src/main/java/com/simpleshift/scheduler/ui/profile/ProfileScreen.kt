@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
@@ -45,6 +46,7 @@ fun ProfileScreen(
     onRulesClick: () -> Unit,
     onAlarmClick: () -> Unit,
     onLeaveOptimizerClick: () -> Unit = {},
+    onColleagueModeClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val surface = MaterialTheme.colorScheme.surface
@@ -114,6 +116,14 @@ fun ProfileScreen(
                     subtitle = "智能请假方案 · 最大化连休",
                     onBg = onBg, onSv = onSv,
                     onClick = onLeaveOptimizerClick
+                )
+                ProfileMenuDivider(onSv = onSv)
+                ProfileMenuItem(
+                    icon = Icons.Filled.People,
+                    title = "同事模式",
+                    subtitle = "查看两人何时共同休息",
+                    onBg = onBg, onSv = onSv,
+                    onClick = onColleagueModeClick
                 )
             }
         }

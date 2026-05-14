@@ -57,6 +57,7 @@ import com.simpleshift.scheduler.ui.home.HomeScreen
 import com.simpleshift.scheduler.ui.home.NewHomeScreen
 import com.simpleshift.scheduler.ui.home.NewHomeScreenV2
 import com.simpleshift.scheduler.ui.profile.ProfileScreen
+import com.simpleshift.scheduler.ui.colleague_mode.ColleagueModeScreen
 import com.simpleshift.scheduler.ui.leave_optimizer.LeaveOptimizerScreen
 import com.simpleshift.scheduler.ui.settings.AlarmSettingsScreen
 import com.simpleshift.scheduler.ui.settings.SettingsScreen
@@ -64,6 +65,7 @@ import com.simpleshift.scheduler.ui.settings.ShiftRuleEditorScreen
 import com.simpleshift.scheduler.ui.theme.ShiftSchedulerTheme
 import com.simpleshift.scheduler.viewmodel.AlarmSettingsViewModel
 import com.simpleshift.scheduler.viewmodel.CalendarViewModel
+import com.simpleshift.scheduler.viewmodel.ColleagueModeViewModel
 import com.simpleshift.scheduler.viewmodel.HomeViewModel
 import com.simpleshift.scheduler.viewmodel.LeaveOptimizerViewModel
 import com.simpleshift.scheduler.viewmodel.SettingsViewModel
@@ -258,6 +260,9 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onLeaveOptimizerClick = {
                                             navController.navigate("leave_optimizer")
+                                        },
+                                        onColleagueModeClick = {
+                                            navController.navigate("colleague_mode")
                                         }
                                     )
                                 }
@@ -366,6 +371,38 @@ class MainActivity : ComponentActivity() {
                                         onMaxLeaveDaysChanged = { days ->
                                             leaveOptimizerViewModel.setMaxLeaveDays(days)
                                         }
+                                    )
+                                }
+
+                                composable("colleague_mode") {
+                                    val colleagueModeViewModel: ColleagueModeViewModel = viewModel(
+                                        factory = object : ViewModelProvider.Factory {
+                                            @Suppress("UNCHECKED_CAST")
+                                            override fun <T : androidx.lifecycle.ViewModel> create(
+                                                modelClass: Class<T>
+                                            ): T {
+                                                return ColleagueModeViewModel(application) as T
+                                            }
+                                        }
+                                    )
+                                    val colleagueUiState by colleagueModeViewModel.uiState.collectAsState()
+                                    val homeUiState by homeViewModel.uiState.collectAsState()
+
+                                    LaunchedEffect(runtimeSettings) {
+                                        // Set default team A to user's current team
+                                        colleagueModeViewModel.refresh(
+                                            customCycle = runtimeSettings.shiftCycle,
+                                            referenceDate = runtimeSettings.referenceDate
+                                        )
+                                    }
+
+                                    ColleagueModeScreen(
+                                        uiState = colleagueUiState,
+                                        availableTeams = com.simpleshift.scheduler.domain.model.Team.ALL_TEAMS,
+                                        onTeamASelected = { colleagueModeViewModel.setTeamA(it) },
+                                        onTeamBSelected = { colleagueModeViewModel.setTeamB(it) },
+                                        onSwapTeams = { colleagueModeViewModel.swapTeams() },
+                                        onNavigateBack = { navController.popBackStack() }
                                     )
                                 }
 

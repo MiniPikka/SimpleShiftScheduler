@@ -2,7 +2,7 @@
 
 ## 1. 当前架构阶段
 
-阶段 1-18 全部完成。阶段 19（拼假神器）已规划待实施。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
+阶段 1-18 全部完成。阶段 19（拼假神器）已实施完成，阶段 20（同事模式）已规划待实施。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
 
 已完成的功能：
 - 阶段 1-15：全部功能（项目骨架、数据模型、核心算法、首页 UI、测试、日历页、班组切换 + 月度统计、设置页、日历提醒、代码加固、桌面 Widget）
@@ -162,10 +162,15 @@
 - 解析失败自动回退到默认值
 - 提供 `settingsFlow: Flow<RuntimeShiftSettings>` 和 `suspend saveSettings()`
 
-### `app/src/main/java/com/simpleshift/scheduler/ui/leave_optimizer/`（阶段 19 规划）
+### `app/src/main/java/com/simpleshift/scheduler/ui/leave_optimizer/`（阶段 19）
 
 - 拼假神器 UI 模块
 - `LeaveOptimizerScreen.kt`：策略卡片列表 + 说明区
+
+### `app/src/main/java/com/simpleshift/scheduler/ui/colleague_mode/`（阶段 20 规划）
+
+- 同事模式 UI 模块
+- `ColleagueModeScreen.kt`：双班组选择 + 共同休息结果卡片 + 日期列表
 
 ### `app/src/main/java/com/simpleshift/scheduler/ui/settings/`
 
@@ -984,3 +989,115 @@ class LeaveOptimizerViewModel(
 
 - `MainActivity.kt` — 新增路由 + ViewModel factory
 - `ui/profile/ProfileScreen.kt` — 新增"拼假神器"入口
+
+---
+
+## 15. 阶段 20 架构规划：同事模式（社交裂变）
+
+### 核心目标
+
+输入两个人的班组，自动计算下次同时休息日期和共同休息天数。情侣、朋友、同事都会使用，截图传播力极强。社交裂变功能。
+
+### 核心算法：双班组交叉对比
+
+对分析范围内每一天，分别计算两人的班次类型：
+```
+isRestA = (shiftA == REST || shiftA == STUDY)
+isRestB = (shiftB == REST || shiftB == STUDY)
+if isRestA && isRestB → 共同休息日
+```
+O(n)，n ≤ 365。比拼假神器的间隙桥接法更简单直接。
+
+### 新增 `domain/colleague_mode.kt`
+
+纯函数文件，不依赖 Android：
+
+```kotlin
+fun findCommonRestDays(
+    teamAId: Int,
+    teamBId: Int,
+    today: LocalDate = LocalDate.now(),
+    daysToAnalyze: Int = 365,
+    customCycle: List<ShiftType>? = null,
+    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE
+): CommonRestResult
+```
+
+### 新增 `domain/model/CommonRestResult.kt`
+
+```kotlin
+data class CommonRestResult(
+    val teamAName: String,
+    val teamBName: String,
+    val nextCommonRestDate: LocalDate?,
+    val daysUntilNext: Int?,
+    val commonRestDates: List<LocalDate>,
+    val totalCount: Int,
+    val countIn30Days: Int,
+    val countIn60Days: Int
+)
+```
+
+### 新增 `viewmodel/ColleagueModeViewModel.kt`
+
+```kotlin
+class ColleagueModeViewModel(
+    application: Application,
+    private val todayProvider: () -> LocalDate = { LocalDate.now() }
+) : AndroidViewModel(application) {
+
+    data class ColleagueModeUiState(
+        val teamAId: Int = 1,
+        val teamBId: Int = 3,
+        val result: CommonRestResult? = null,
+        val analyzedDateRange: String = "",
+        val isLoading: Boolean = true
+    )
+
+    fun setTeamA(teamId: Int)
+    fun setTeamB(teamId: Int)
+    fun refresh(customCycle: List<ShiftType>?, referenceDate: LocalDate)
+}
+```
+
+### 新增 `ui/colleague_mode/ColleagueModeScreen.kt`
+
+- TopAppBar："同事模式" + 返回按钮
+- 双班组选择区：两个 TeamDropdown 并排（"我是"/"他是"）
+- 主结果卡片（大字体日期 + 倒计时 + 渐变背景）
+- 统计卡片行（30天/60天次数）
+- 共同休息日列表（LazyColumn）
+
+### 社交传播设计
+
+- "下次同时休息：5月28日" 是大字体具体日期 → 天然对话素材
+- 结果页面信息密度高 → 截图即社交分享内容
+- 两个人一起看屏幕 → 主卡片视觉冲击力强
+- V2 可加入分享按钮（生成带二维码的分享图）
+
+### 导航集成
+
+- `MainActivity.kt`：新增 `"colleague_mode"` 路由
+- `ProfileScreen.kt`：新增"同事模式"菜单项（在拼假神器下方）
+- 不在底部导航栏新增 Tab
+
+### 洞察 NN：双班组对比是 O(n) 问题，比拼假神器简单一个量级
+
+拼假神器需要间隙检测 + 评分排序 + 去重，算法约 170 行。同事模式只需逐天对比两个班次，核心算法约 30 行。技术复杂度低，但产品价值高（社交裂变）。适合快速实施验证传播效果。
+
+### 洞察 OO：默认值设计降低使用门槛
+
+"我是"默认用户当前班组（从 RuntimeShiftSettings），"他是"默认相邻班组（teamId+2）。多数用户无需手动选择即可看到有意义的共同休息结果。零操作成本 = 更高的使用率和传播率。
+
+### 阶段 20 新增文件
+
+- `domain/model/CommonRestResult.kt` — 共同休息结果模型
+- `domain/colleague_mode.kt` — 双班组对比算法
+- `viewmodel/ColleagueModeViewModel.kt` — 同事模式 ViewModel
+- `ui/colleague_mode/ColleagueModeScreen.kt` — 同事模式 UI
+- `ColleagueModeTest.kt` — 核心算法测试（约 8 用例）
+
+### 阶段 20 改造文件
+
+- `MainActivity.kt` — 新增路由 + ViewModel factory
+- `ui/profile/ProfileScreen.kt` — 新增"同事模式"入口
