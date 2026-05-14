@@ -2,7 +2,7 @@
 
 ## 1. 当前架构阶段
 
-阶段 1-18 全部完成。阶段 19（拼假神器）已实施完成，阶段 20（同事模式）已规划待实施。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
+阶段 1-18 全部完成。阶段 19（拼假神器）和阶段 20（同事模式）已实施完成，阶段 21（工资预测）已规划待实施。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
 
 已完成的功能：
 - 阶段 1-15：全部功能（项目骨架、数据模型、核心算法、首页 UI、测试、日历页、班组切换 + 月度统计、设置页、日历提醒、代码加固、桌面 Widget）
@@ -167,10 +167,15 @@
 - 拼假神器 UI 模块
 - `LeaveOptimizerScreen.kt`：策略卡片列表 + 说明区
 
-### `app/src/main/java/com/simpleshift/scheduler/ui/colleague_mode/`（阶段 20 规划）
+### `app/src/main/java/com/simpleshift/scheduler/ui/colleague_mode/`（阶段 20）
 
 - 同事模式 UI 模块
 - `ColleagueModeScreen.kt`：双班组选择 + 共同休息结果卡片 + 日期列表
+
+### `app/src/main/java/com/simpleshift/scheduler/ui/salary_predictor/`（阶段 21 规划）
+
+- 工资预测 UI 模块
+- `SalaryPredictorScreen.kt`：薪资设置区 + 到手金额主卡片 + 班次统计 + 假设分析
 
 ### `app/src/main/java/com/simpleshift/scheduler/ui/settings/`
 
@@ -1101,3 +1106,144 @@ class ColleagueModeViewModel(
 
 - `MainActivity.kt` — 新增路由 + ViewModel factory
 - `ui/profile/ProfileScreen.kt` — 新增"同事模式"入口
+
+---
+
+## 16. 阶段 21 架构规划：工资预测系统（核武器级）
+
+### 核心目标
+
+输入基本工资、夜班补贴、餐补等薪资参数，自动统计当月各班次天数，精确预测本月到手工资。支持"如果多上 X 天夜班"的假设分析。倒班人员最关心的就是钱，粘性最强的功能。
+
+### 核心算法：班次统计 × 薪资参数
+
+```
+1. countShiftTypesInMonth(month) → {早: M, 中: A, 夜: N, 休: R, 学: S}
+   工作天数 = M + A + N + S
+
+2. 应发 = 基本工资 + 夜班补贴×N + 餐补×工作天数×折扣率
+
+3. 预估扣除（简化）:
+   社保 ≈ 社保基数 × 10.5%
+   应纳税所得额 = max(0, 应发 - 社保 - 5000)
+   个税 ≈ 应纳税所得额 × 税率 - 速算扣除数
+
+4. 预计到手 = 应发 - 社保 - 个税
+
+5. 夜班贡献 = 夜班补贴 × N
+
+6. 假设分析: 多上 X 天夜班 → +X×(夜班补贴 + 餐补×折扣率)
+```
+
+算法纯函数，不依赖 Android。复用现有 `countShiftTypeInMonth()`。
+
+### 新增 `domain/salary_calculator.kt`
+
+```kotlin
+// 统计当月各班次天数
+fun countAllShiftTypesInMonth(
+    yearMonth: YearMonth,
+    teamPhaseOffset: Int = 0,
+    customCycle: List<ShiftType>? = null,
+    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE
+): Map<ShiftType, Int>
+
+// 计算工资明细
+fun calculateSalaryBreakdown(
+    config: SalaryConfig,
+    shiftCounts: Map<ShiftType, Int>,
+    yearMonth: YearMonth
+): SalaryBreakdown
+
+// 假设分析：多上 X 天某班次
+fun simulateExtraShifts(
+    current: SalaryBreakdown,
+    extraCount: Int,
+    extraShiftType: ShiftType,
+    config: SalaryConfig
+): SalaryBreakdown
+```
+
+### 新增 `domain/model/SalaryConfig.kt`
+
+```kotlin
+data class SalaryConfig(
+    val baseSalary: Int = 0,
+    val nightShiftPremium: Int = 0,     // 每班补贴
+    val mealAllowance: Int = 0,          // 每班餐补
+    val mealDiscountRate: Float = 1.0f,  // 变现折扣率
+    val payday: Int = 15,
+    val socialInsuranceBase: Int = 0     // 社保基数
+)
+```
+
+### 新增 `domain/model/SalaryBreakdown.kt`
+
+```kotlin
+data class SalaryBreakdown(
+    val month: YearMonth,
+    val baseSalary: Int,
+    val shiftCounts: Map<ShiftType, Int>,
+    val nightShiftPremiumTotal: Int,
+    val mealAllowanceTotal: Int,
+    val grossPay: Int,
+    val socialInsurance: Int,
+    val taxableIncome: Int,
+    val incomeTax: Int,
+    val netPay: Int,
+    val nightShiftContribution: Int
+)
+```
+
+### 新增 `viewmodel/SalaryPredictorViewModel.kt`
+
+- 管理薪资配置（从 DataStore 加载/保存）
+- 管理当前查看月份（默认当月）
+- 管理"假设分析"参数（额外夜班天数）
+- StateFlow 暴露 SalaryPredictorUiState
+
+### 新增 `ui/salary_predictor/SalaryPredictorScreen.kt`
+
+- 可折叠薪资设置区（基本工资/夜班补贴/餐补/折扣/发薪日）
+- 到手金额主卡片（大字体 ¥10,876）
+- 三宫格明细（基本工资/夜班贡献/餐补合计）
+- 应发 + 预估扣除明细行
+- 班次统计标签行
+- 假设分析卡片（"如果多上 2 天夜班"滑块 + 增量金额）
+
+### DataStore 持久化扩展
+
+`SettingsRepository` 新增 5 个 key：
+```
+KEY_BASE_SALARY, KEY_NIGHT_SHIFT_PREMIUM, KEY_MEAL_ALLOWANCE,
+KEY_MEAL_DISCOUNT_RATE, KEY_PAYDAY, KEY_SOCIAL_INSURANCE_BASE
+```
+新增 `salaryConfigFlow: Flow<SalaryConfig>` + `saveSalaryConfig()`。
+
+### 导航集成
+
+- `MainActivity.kt`：新增 `"salary_predictor"` 路由
+- `ProfileScreen.kt`：新增"工资预测"菜单项（在同事模式下方）
+
+### 洞察 PP：工资预测是粘性最强的功能
+
+倒班人员每月最关心的就是"这个月能拿多少"。拼假神器是"偶尔用"（请假前查一次），同事模式是"社交用"（和朋友一起看），而工资预测是"每个月都要打开核对"的刚需功能。自动统计当月班次并预测到手 = 用户每月至少打开一次 App。粘性远超其他功能。
+
+### 洞察 QQ：假设分析提升决策价值
+
+"如果多上两天夜班能多拿 ¥600"——这种假设分析让用户在做换班决策时有数据支撑。不仅是预测，更是决策辅助工具。V2 可扩展为"如果换到 X 班组"的完整对比。
+
+### 阶段 21 新增文件
+
+- `domain/model/SalaryConfig.kt` — 薪资配置模型
+- `domain/model/SalaryBreakdown.kt` — 工资明细模型
+- `domain/salary_calculator.kt` — 工资计算纯函数
+- `viewmodel/SalaryPredictorViewModel.kt` — 工资预测 ViewModel
+- `ui/salary_predictor/SalaryPredictorScreen.kt` — 工资预测 UI
+- `SalaryCalculatorTest.kt` — 核心算法测试（约 12 用例）
+
+### 阶段 21 改造文件
+
+- `data/repository/SettingsRepository.kt` — 新增薪资配置持久化（6 个 DataStore key）
+- `MainActivity.kt` — 新增路由 + ViewModel factory + 薪资 flow 收集
+- `ui/profile/ProfileScreen.kt` — 新增"工资预测"入口

@@ -1393,3 +1393,80 @@ O(n)，n ≤ 365。约 30 行纯函数。
 - 双班组并排下拉 + 交换按钮 → 两个人一起操作体验好
 - 结果页面信息密度高 → 截图即社交分享内容
 - 默认值（"我"=当前班组，"他"=相邻班组）→ 零操作即可看到有意义结果
+
+---
+
+## 2026-05-14：阶段 21 规划（工资预测系统）
+
+### 功能概述
+
+工资预测系统是核武器级功能。输入基本工资、夜班补贴、餐补等薪资参数，自动统计当月各班次天数，精确预测本月到手工资。倒班人员最关心的就是钱，粘性最强。
+
+**核心价值**：倒班工资计算复杂（基本工资 + 夜班补贴 × 夜班次数 + 餐补 × 工作天数 × 变现折扣），手工算容易出错。App 自动统计当月班次 → 实时预测到手金额 → 用户每次发薪前都会打开核对。
+
+**输出示例**：
+- 本月预计到手：¥10,876
+- 夜班收入贡献：¥2,350
+- 如果多上两天夜班：+¥600
+
+### 技术方案
+
+| 项 | 选择 |
+|---|------|
+| 算法 | 班次统计 × 薪资参数 = 工资明细 |
+| 班次统计 | 复用 `countShiftTypeInMonth()` |
+| 个税计算 | 简化月算模型（阶梯税率 - 速算扣除数） |
+| 社保扣除 | 社保基数 × 10.5%（V2 自定义比例） |
+| 薪资持久化 | DataStore（SettingsRepository 新增 6 个 key） |
+| 假设分析 | 多上 X 天夜班 → 增量预测 |
+| UI 入口 | "我的"页 → "工资预测"菜单项（同事模式下方） |
+
+### 算法核心
+
+```
+1. countAllShiftTypesInMonth(month) → {早:M, 中:A, 夜:N, 休:R, 学:S}
+   工作天数 = M + A + N + S
+
+2. 应发 = 基本工资 + 夜班补贴×N + 餐补×工作天数×折扣率
+
+3. 社保 ≈ 社保基数 × 10.5%
+   应纳税所得额 = max(0, 应发 - 社保 - 5000)
+   个税 ≈ 应纳税所得额 × 阶梯税率 - 速算扣除数
+
+4. 预计到手 = 应发 - 社保 - 个税
+
+5. 夜班贡献 = 夜班补贴 × N
+
+6. 假设分析：多上 X 天夜班 → +X×(夜班补贴+餐补×折扣率)
+```
+
+### 为什么是"核武器级"
+
+- **刚需**：工资是倒班人员最关心的问题，拼假神器是"偶尔用"，工资预测是"每月必查"
+- **粘性**：用户发薪前必然打开核对，月活有保障
+- **精准**：自动统计当月班次，比手工计算准确
+- **决策辅助**："如果多上两天夜班能多拿 ¥600"——帮用户做换班决策
+- **竞品壁垒**：几乎没有倒班 App 提供此功能
+
+### 实施步骤（阶段 21）
+
+| Step | 内容 | 新增文件 | 改造文件 |
+|------|------|---------|---------|
+| 21.1 | 数据模型 | `SalaryConfig.kt`, `SalaryBreakdown.kt` | — |
+| 21.2 | SettingsRepository 扩展 | — | `SettingsRepository.kt`, `SettingsRepositoryTest.kt` |
+| 21.3 | 核心算法 | `salary_calculator.kt`, `SalaryCalculatorTest.kt` | — |
+| 21.4 | ViewModel | `SalaryPredictorViewModel.kt` | — |
+| 21.5 | UI | `SalaryPredictorScreen.kt` | — |
+| 21.6 | 导航集成 | — | `MainActivity.kt`, `ProfileScreen.kt` |
+| 21.7 | 文档更新 | — | memory-bank 全部 5 文件 |
+
+### 预期新增
+
+- 新增文件：6 个（SalaryConfig.kt, SalaryBreakdown.kt, salary_calculator.kt, SalaryPredictorViewModel.kt, SalaryPredictorScreen.kt, SalaryCalculatorTest.kt）
+- 改造文件：4 个（SettingsRepository.kt, MainActivity.kt, ProfileScreen.kt, SettingsRepositoryTest.kt）
+- 新增测试：约 14 个用例（SalaryCalculatorTest 12 + SettingsRepositoryTest 追加 2）
+- 总测试：132 → 约 146
+
+### 详细规划
+
+参见 `implementation-plan.md` 阶段 21。

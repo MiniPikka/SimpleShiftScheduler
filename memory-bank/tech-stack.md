@@ -139,7 +139,8 @@ app/
  │    ├── calendar/
  │    ├── settings/
  │    ├── leave_optimizer/    # 阶段 19：拼假神器
- │    ├── colleague_mode/     # 阶段 20 规划：同事模式
+ │    ├── colleague_mode/     # 阶段 20：同事模式
+ │    ├── salary_predictor/   # 阶段 21 规划：工资预测
  │    ├── profile/            # 阶段 17 新增
  │    ├── common/             # 共享组件（TeamDropdown）
  │
@@ -273,7 +274,8 @@ app/
 16. 倒班规则编辑器重设计（阶段 18，已完成）—— 两步向导式规则编辑（按钮构建序列 + 日期保存）+ 规则/提醒拆分为独立页面
 17. 首页精简 —— 移除与底部导航重复的 `TeamDropdown` / `QuickActionsRow`
 18. 拼假神器（阶段 19）—— 结合倒班表 + 法定节假日，自动分析最佳请假方案（差异化功能）
-19. 同事模式（阶段 20 规划）—— 输入两人班组，自动计算共同休息日（社交裂变功能）
+19. 同事模式（阶段 20）—— 输入两人班组，自动计算共同休息日（社交裂变功能）
+20. 工资预测（阶段 21 规划）—— 输入薪资参数，自动统计班次并预测到手工资（核武器级粘性功能）
 
 全部规划功能已完成，应用功能完整，单元测试全部通过（BUILD SUCCESSFUL）。
 V2 UI 设计系统已实施，设置页已拆分重构。
@@ -417,4 +419,55 @@ ColleagueModeScreen          ← 主卡片 + 统计行 + 日期列表
 
 * 入口：ProfileScreen → "同事模式"菜单项（拼假神器下方）
 * 路由：`navController.navigate("colleague_mode")`
+* 返回：`navController.popBackStack()`（回到"我的"页）
+
+---
+
+## 14. 工资预测技术选型（阶段 21 规划）
+
+### 核心理念
+
+* **倒班 + 薪资一体化**：App 已知倒班表 → 自动统计班次 → 免手动输入
+* **"钱"是最高频需求**：比"什么时候休"更高频的是"这个月能拿多少"
+
+### 算法选型
+
+* **班次统计 × 薪资参数** — 纯算术，纯函数，零外部依赖
+  * 复用 `countShiftTypeInMonth()` 逐类型统计
+  * 应发 = 基本 + 夜班补贴×N + 餐补×工作天数×折扣率
+  * 个税 = 阶梯税率模型（3%～45%），V1 用简化月算
+  * 假设分析 = 增量计算（多上 X 天夜班 → +X×每日增量）
+
+### 数据持久化
+
+* **DataStore**（SettingsRepository 新增 6 个 key）
+  * `base_salary`, `night_shift_premium`, `meal_allowance`, `meal_discount_rate`, `payday`, `social_insurance_base`
+  * 独立 `salaryConfigFlow`，配置变更自动重新计算
+
+### 数据流
+
+```
+Shift Schedule (getShiftTypeForDate)
+       │
+       ▼
+countAllShiftTypesInMonth()   ← 统计当月各班次天数
+       │
+       ▼
+calculateSalaryBreakdown()    ← 班次 × 薪资参数 = 工资明细
+       │
+       ├──→ 应发/扣除/到手
+       │
+       └──→ simulateExtraNightShifts() ← 假设分析
+              │
+              ▼
+       SalaryPredictorViewModel  ← StateFlow
+              │
+              ▼
+       SalaryPredictorScreen     ← 金额卡片 + 班次统计 + 滑块
+```
+
+### 导航
+
+* 入口：ProfileScreen → "工资预测"菜单项（同事模式下方）
+* 路由：`navController.navigate("salary_predictor")`
 * 返回：`navController.popBackStack()`（回到"我的"页）
