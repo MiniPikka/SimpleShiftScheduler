@@ -1113,23 +1113,18 @@ class ColleagueModeViewModel(
 
 ### 核心目标
 
-输入各班次补贴金额（早/中/夜/学各自可设）和餐补，自动统计当月各班次天数，精确计算本月倒班津贴。只算倒班直接决定的收入，不涉及基本工资、五险一金、个税等——算得准、维护简单。
+输入各班次补贴金额（早/中/夜/学各自可设），自动统计当月各班次天数，精确计算本月倒班津贴。只算倒班直接决定的收入——算得准、零维护、普适所有企业。
 
-### 核心算法：班次统计 × 津贴参数
+### 核心算法：班次统计 × 补贴单价
 
 ```
 1. countShiftTypesInMonth(month) → {早: M, 中: A, 夜: N, 休: R, 学: S}
-   工作天数 = M + A + N + S
 
-2. 班次补贴合计 = Σ(每种班次补贴 × 该班次当月天数)
+2. 本月倒班津贴 = Σ(每种班次补贴 × 该班次当月天数)
    每个班次补贴由用户自行设置，默认 0
 
-3. 餐补合计 = 餐补 × 工作天数 × 折扣率
-
-4. 本月倒班津贴 = 班次补贴合计 + 餐补合计
-
-5. 假设分析: 多上 X 天某班次（用户可选类型）
-   → +X×(该班次补贴 + 餐补×折扣率)
+3. 假设分析: 多上 X 天某班次（用户可选类型）
+   → +X×该班次补贴
 ```
 
 算法纯函数，不依赖 Android。复用现有 `countShiftTypeInMonth()`。
@@ -1163,10 +1158,9 @@ fun simulateExtraShifts(
 
 ### DataStore 持久化扩展
 
-`SettingsRepository` 新增 3 个 key 存储津贴配置：
+`SettingsRepository` 新增 1 个 key 存储津贴配置：
 ```
-KEY_SHIFT_PREMIUMS (逗号分隔 "MORNING=0,AFTERNOON=50,NIGHT=200,STUDY=0"),
-KEY_MEAL_ALLOWANCE, KEY_MEAL_DISCOUNT_RATE
+KEY_SHIFT_PREMIUMS (逗号分隔 "MORNING=0,AFTERNOON=50,NIGHT=200,STUDY=0")
 ```
 新增 `salaryConfigFlow: Flow<SalaryConfig>` + `saveSalaryConfig()`。
 
@@ -1174,9 +1168,7 @@ KEY_MEAL_ALLOWANCE, KEY_MEAL_DISCOUNT_RATE
 
 ```kotlin
 data class SalaryConfig(
-    val shiftPremiums: Map<ShiftType, Int> = emptyMap(), // 每种班次每班补贴
-    val mealAllowance: Int = 0,          // 每班餐补
-    val mealDiscountRate: Float = 1.0f   // 变现折扣率
+    val shiftPremiums: Map<ShiftType, Int> = emptyMap() // 每种班次每班补贴
 )
 ```
 
@@ -1186,9 +1178,7 @@ data class SalaryConfig(
 data class SalaryBreakdown(
     val month: YearMonth,
     val shiftCounts: Map<ShiftType, Int>,
-    val shiftPremiumTotal: Int,          // 班次补贴合计
-    val mealAllowanceTotal: Int,         // 餐补合计
-    val grandTotal: Int                  // 本月倒班津贴 = 补贴 + 餐补
+    val shiftPremiumTotal: Int  // 本月倒班津贴 = Σ(每种班次补贴 × 当月天数)
 )
 ```
 
@@ -1201,9 +1191,9 @@ data class SalaryBreakdown(
 
 ### 新增 `ui/salary_predictor/SalaryPredictorScreen.kt`
 
-- 可折叠津贴设置区（各班次补贴金额 + 餐补 + 折扣）
-- 到手金额主卡片（大字体 ¥10,876）
-- 三宫格明细（班次补贴合计/餐补合计/总计）
+- 可折叠津贴设置区（各班次补贴金额）
+- 津贴金额主卡片（大字体 ¥1,750）
+- 大字体津贴金额 + 各班次贡献明细
 - 应发 + 预估扣除明细行
 - 班次统计标签行
 - 假设分析卡片（天数 + 班次类型可选 + 增量金额）
@@ -1215,7 +1205,7 @@ data class SalaryBreakdown(
 
 ### 洞察 PP：倒班津贴是唯一完全由倒班表决定的收入
 
-基本工资、五险一金、个税都和倒班表无关。只有班次补贴和餐补直接取决于当月排班。只算这部分：算得准（不涉及企业差异化政策）、维护简单（不追税率变化）、用户理解清晰（"这是倒班带来的额外收入"）。
+只有班次补贴直接取决于当月排班。基本工资、餐补、五险一金、个税都和倒班表无关。只算班次补贴：算得准（不涉及企业差异化政策）、零维护（不追任何政策变化）、普适所有倒班企业。
 
 ### 洞察 QQ：假设分析帮助换班决策
 
@@ -1232,6 +1222,6 @@ data class SalaryBreakdown(
 
 ### 阶段 21 改造文件
 
-- `data/repository/SettingsRepository.kt` — 新增津贴配置持久化（3 个 DataStore key）
+- `data/repository/SettingsRepository.kt` — 新增津贴配置持久化（1 个 DataStore key）
 - `MainActivity.kt` — 新增路由 + ViewModel factory
 - `ui/profile/ProfileScreen.kt` — 新增"倒班津贴"入口
