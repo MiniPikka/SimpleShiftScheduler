@@ -2,10 +2,14 @@
 
 ## 1. 当前架构阶段
 
-项目处于 **阶段 8：设置页（自定义倒班规则）** 已完成。架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
+阶段 1-17 全部完成。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
 
-已完成的阶段：
-- 阶段 1-8：全部功能（项目骨架、数据模型、核心算法、首页 UI、测试、日历页、班组切换 + 月度统计、设置页）
+已完成的功能：
+- 阶段 1-15：全部功能（项目骨架、数据模型、核心算法、首页 UI、测试、日历页、班组切换 + 月度统计、设置页、日历提醒、代码加固、桌面 Widget）
+- 阶段 16：首页精品化升级（NewHomeScreen + 组件化 UI）
+- 2026-05-14a：日历独立路由（NavHost 三路由）、TodayShiftCard 横向重设计、Widget 美化（距休 + 简化进度）
+- 阶段 17：V2 UI 设计系统（Design Token + 深色主题 + 底部导航栏 + Profile 页 + 牛马指数）
+- 夜班提醒日期修复（NIGHT 班次日历事件前移一天）
 
 当前原则：
 
@@ -23,32 +27,37 @@
 ### `app/src/main/java/com/simpleshift/scheduler/MainActivity.kt`
 
 - 应用入口 Activity
-- 承载 Compose `setContent` 容器并装配 `HomeScreen` + `CalendarScreen` 同屏布局
-- 使用 Activity 级 ViewModel（`HomeViewModel`、`CalendarViewModel`）作为状态来源
-- 在 `onResume()` 中触发 `refreshToday()` + `refresh()`，确保应用回到前台时刷新数据
-- **班组切换接线**：当 `HomeScreen` 触发 `onTeamSelected` 时，同步调用 `homeViewModel.selectTeam()` 和 `calendarViewModel.setTeam()`
+- 使用 Navigation Compose 管理三个独立路由：`"main"`（首页）→ `"calendar"`（日历页）→ `"settings"`（设置页）
+- 在 `onResume()` 中触发 `refreshToday()` + `refresh()` + `syncFromCurrentState()` + `notifyWidgetUpdate()`
+- 持有 `MutableStateFlow<RuntimeShiftSettings>` 作为跨 ViewModel 共享状态
+- 通过编译时常量 `USE_NEW_HOME` 控制首页走 NewHomeScreen（当前 `true`）或旧 HomeScreen
+- 底部显示日历同步错误 Snackbar（10 秒自动消失）
 
 ### `app/src/main/java/com/simpleshift/scheduler/ui/home/`
 
 - 首页 UI 模块目录
-- 已实现 `HomeScreen`，展示四类核心信息：
-  - 班组下拉框（`ExposedDropdownMenuBox`，6 个班组选项）
-  - 今日日期（本地化可读格式）
-  - 今日班次（`早/中/休/夜/学`）
-  - 周期进度（`dayOfCycle / 42`）
-- 保持“纯展示 + 事件上抛”职责，不放排班计算逻辑
-- `HomeScreen` 接受 `onTeamSelected: (Int) -> Unit` 回调通知班组切换
-- 当前调整为可嵌入布局（`fillMaxWidth`），支持与日历模块同屏展示
+- **旧首页** `HomeScreen`（保留，`USE_NEW_HOME=false` 时启用）：四行平铺班组下拉框 + 日期 + 班次 + 进度
+- **新首页** `NewHomeScreen`（默认，`USE_NEW_HOME=true`）：组件化布局
+  - `TeamDropdown` — 班组下拉框（6 班组）
+  - `GreetingHeader` — 时段问候 + 班组名 + 日期
+  - `TodayShiftCard` — 横向班次主卡片（4dp 左侧强调条 + 64dp 圆形徽章 + 距休标识 + `LinearProgressIndicator`）
+  - `StatsGrid` — 三宫格指标（本月上班/连续上班/距休班）
+  - `QuickActionsRow` — 快捷操作（日历/提醒/设置）
+  - `MotivationFooter` — 底部随机励志文案
+- `components/` 子目录存放 5 个独立 UI 组件，各有独立 Preview
+- 保持”纯展示 + 事件上抛”职责，不放排班计算逻辑
 
 ### `app/src/main/java/com/simpleshift/scheduler/ui/calendar/`
 
 - 日历 UI 模块目录
 - 已实现 `CalendarScreen`：
-  - 顶部“上月/下月”切换按钮 + "统计"按钮
+  - `Scaffold` + `TopAppBar`（返回箭头 + 标题”倒班日历”）
+  - `TeamDropdown` 班组下拉框（切换同步首页 ViewModel）
+  - 月份导航栏（上月/下月 + “今天”按钮（非当前月时显示）+ 统计按钮）
   - 周标题（`日~六`）
-  - 42 格（6×7）日历，每格展示“日期 + 班次简写”
-  - 统计按钮点击后弹出 `AlertDialog`（`StatsDialog`），展示当月早/中/休/夜/学天数
-- 接受回调：`onPreviousMonthClick`、`onNextMonthClick`、`onStatsClick`、`onDismissStats`
+  - 42 格（6×7）日历，每格展示”日期 + 班次简写”，`aspectRatio(0.85f)` 自适应
+  - `StatsDialog`（`AlertDialog`）展示当月早/中/休/夜/学天数
+- 接受回调：`onPreviousMonthClick`、`onNextMonthClick`、`onTodayClick`、`onStatsClick`、`onDismissStats`、`onNavigateBack`、`onTeamSelected`
 
 ### `app/src/main/java/com/simpleshift/scheduler/viewmodel/`
 
@@ -261,6 +270,10 @@
 
 ---
 
+## 5. 阶段 9 架构更新：闹钟提醒（已完成，后续被阶段 10 替换）
+
+阶段 9 实现了 AlarmManager + BroadcastReceiver 闹钟方案（每班次独立时间、7 天前瞻调度、BootReceiver 重启恢复），随后在阶段 10 被 Calendar Provider 方案替换以解决国产手机杀后台问题。数据模型 `AlarmTime` / `AlarmSettings` 保留，UI 基本不变。
+
 ---
 
 ## 6. 阶段 8 架构更新：设置页自定义规则（已完成）
@@ -449,7 +462,7 @@ data class CalendarEventIds(
 
 ---
 
-## 9. 阶段 15 架构更新：桌面小组件（规划中）
+## 9. 阶段 15 架构更新：桌面小组件（已完成）
 
 2026-05-13 规划桌面 Widget 功能，使用 Jetpack Glance 实现 Compose 式 Widget 开发。
 
@@ -474,8 +487,8 @@ GlanceAppWidget 实现：
 - `ShiftWidget : GlanceAppWidget` — `provideGlance()` 中从 `SettingsRepository` 读取最新配置，调用 `computeWidgetShiftData()` 计算数据
 - `ShiftWidgetContent(data, context)` — Widget UI 布局（Compose 风格但使用 GlanceModifier）
   - 班组名 + 日期
-  - 今日班次（大字彩色）
-  - 周期进度（当前/总天数 + 简易进度条）
+  - 今日班次（圆角徽章 + 彩色底白字）
+  - 周期进度文本"第 X/Y 天" + 距休信息
   - 点击打开 `MainActivity`
 
 ### `ShiftWidgetReceiver.kt`
@@ -515,3 +528,283 @@ Glance 不支持 `LazyColumn`、动画、Canvas、`remember` 等 Compose 动态�
 - `AndroidManifest.xml` — 注册 `ShiftWidgetReceiver`
 - `MainActivity.kt` — 新增 `notifyWidgetUpdate()`，在设置保存/onResume 中调用
 - `res/values/strings.xml` — 新增 widget_description / widget_name
+
+---
+
+## 10. 阶段 16 架构更新：首页精品化升级（已完成）
+
+### 架构决策
+
+采用"双轨制"渐进升级首页 UI：保留 `HomeScreen.kt`，新增 `NewHomeScreen.kt` + `ui/home/components/` 组件包。`MainActivity` 通过编译时常量 `USE_NEW_HOME` 控制走新/旧路径。
+
+### 新增组件包
+
+`app/src/main/java/com/simpleshift/scheduler/ui/home/components/` 承载首页独立组件：
+
+- `GreetingHeader.kt` — 欢迎头部（时段问候 + 班组名 + 日期）
+- `TodayShiftCard.kt` — 今日班次主卡片（横向布局：左侧4dp强调条 + 圆形徽章(64dp)白字班次 + 标题/距休徽章 + LinearProgressIndicator + 分数）
+- `StatsGrid.kt` — 三宫格指标（本月上班、连续上班、距休天数）
+- `QuickActionsRow.kt` — 快捷操作按钮行（日历/提醒/设置）
+- `MotivationFooter.kt` — 底部随机文案
+
+### 新增 domain 指标函数
+
+`domain/shift_metrics.kt` 承载跨月份统计和趋势计算：
+
+- `countShiftTypeInMonth(yearMonth, shiftType, teamPhaseOffset, customCycle)` — 月度某班次计数
+- `countWorkDaysInMonth(yearMonth, teamPhaseOffset, customCycle)` — 月度上班天数
+- `consecutiveWorkDays(today, teamPhaseOffset, customCycle)` — 连续上班天数（往前回溯）
+- `daysUntilNextRest(today, teamPhaseOffset, customCycle)` — 距下次休息天数（往后查找）
+
+所有函数复用 `getShiftTypeForDate()`，纯函数、可独立测试。
+
+### HomeUiState 扩展
+
+新增 5 个字段：
+```kotlin
+val teamName: String        // 从 selectedTeamId + availableTeams 派生
+val daysUntilRest: Int      // 距下次休班天数
+val consecutiveWorkDays: Int // 连续上班天数
+val monthlyWorkDays: Int    // 本月上班天数
+val totalDaysInMonth: Int   // 本月总天数
+```
+
+### 洞察 DD：双轨制降低 UI 升级风险
+
+保留旧 `HomeScreen.kt` 完整不变，新 `NewHomeScreen.kt` 渐进开发，通过 `USE_NEW_HOME` 编译时常量控制分支。任意一步出问题，改回 `false` 即可回滚。新旧代码无耦合，旧路径字节码完全不变。
+
+### 洞察 EE：domain 纯函数使指标计算可独立测试
+
+`consecutiveWorkDays` 和 `daysUntilNextRest` 作为 domain 纯函数（接受可注入参数），可在 `ShiftMetricsTest` 中独立验证，不依赖 ViewModel 或 Android 框架。
+
+### 洞察 FF：组件化 UI 使 Preview 可逐个验证
+
+每个 component 独立接受参数、独立 Preview，无需启动完整 App 即可验证视觉效果。`NewHomeScreen` 仅做组装，不包含业务逻辑。
+
+### 阶段 16 新增文件
+
+- `domain/shift_metrics.kt` — 4 个统计纯函数
+- `ui/home/components/GreetingHeader.kt`
+- `ui/home/components/TodayShiftCard.kt`
+- `ui/home/components/StatsGrid.kt`
+- `ui/home/components/QuickActionsRow.kt`
+- `ui/home/components/MotivationFooter.kt`
+- `ui/home/NewHomeScreen.kt`
+- `ShiftMetricsTest.kt` — 约 8 个用例
+
+### 阶段 16 改造文件
+
+- `viewmodel/HomeViewModel.kt` — HomeUiState 扩展 + refreshToday 计算
+- `MainActivity.kt` — USE_NEW_HOME 开关 + NewHomeScreen 接线
+- `HomeViewModelTest.kt` — 扩展覆盖新字段
+
+---
+
+## 11. 阶段 16 后续（2026-05-14）：日历独立路由 + Widget 美化
+
+### 日历独立路由
+
+`"main"` 路由不再包含 `CalendarScreen`。日历通过 NavHost 新路由 `"calendar"` 独立访问：
+
+```
+NavHost: "main" → "calendar" → "settings"
+```
+
+**导航变化**：
+- `QuickActionsRow.onCalendarClick` → `navController.navigate("calendar")`
+- `CalendarScreen` 新增 `onNavigateBack`（`popBackStack()`）、`onTeamSelected`、`availableTeams` 参数
+- `CalendarScreen` 包装 `Scaffold` + `TopAppBar`（返回按钮 + 标题"倒班日历"）+ `TeamDropdown`
+- 日历页班组切换同步更新 `homeViewModel.selectTeam()` 和 `calendarViewModel.setTeam()`
+
+**CalendarUiState 扩展**：
+- 新增 `selectedTeamId: Int = 1` 字段，供日历页 `TeamDropdown` 读取
+
+### TodayShiftCard 重设计
+
+将纵向堆叠文字改为横向信息卡片：
+
+- **左侧强调条**：4dp 宽 `Box`，班次强调色背景，`fillMaxHeight()`
+- **圆形徽章**：64dp `Surface(CircleShape)`，班次强调色底 + 白色大字
+- **标题行**：`Text("今日班次")` + `RestBadge`（距休=0 → 绿色"休息日"，>0 → "距休 X天"）
+- **进度区**：`LinearProgressIndicator`（班次颜色）+ "X / Y" 文本
+- **Card 背景**：班次颜色 6% 透明度
+
+### Widget 美化
+
+对齐首页卡片风格，但避免 Glance 不支持的特性：
+
+- **`WidgetShiftData`** 新增 `daysUntilRest: Int` 字段（由 `daysUntilNextRest()` 计算）
+- **布局重设计**：圆角 Box 徽章（`cornerRadius(12.dp)` + 彩色底 + 白字）+ 班组名/"第 X/Y 天" + 距休/休息日标识 + 日期页脚
+- **`colors.xml`** 新增 5 个强调色 + 5 个背景色（`_accent` / 无后缀）
+- **无进度条**：Glance 没有 `LinearProgressIndicator`、没有 `fillMaxWidth(fraction)`、`defaultWeight()` 不支持分数，用文字"第 X/Y 天"表达
+- **Widget 尺寸**：4×1（`targetCellWidth=4`, `targetCellHeight=1`）
+
+### 洞察 GG：Glance Widget 应比 App UI 更克制
+
+Glance 编译到 RemoteViews，能力远弱于 Compose。强行在 Widget 上复刻 App 的进度条、圆形、分层背景等效果会导致跨设备不一致。Widget 设计应优先保证**信息清晰 + 渲染可靠**，而非像素级对齐 App UI。
+
+---
+
+## 12. 阶段 17 架构更新：V2 UI 设计系统（已完成）
+
+2026-05-14 实施深色主题 + 底部导航 + 组件化首页升级。
+
+### 设计语言
+
+Dark Productivity Design — 深色背景（`#0B0D10`）、卡片表面（`#1B1F26`）、金色强调（`#FACC15`）、5 色班次系统。全部通过 `ui/theme/` 目录的 Design Token 系统管理。
+
+### 新增 theme 包
+
+`app/src/main/java/com/simpleshift/scheduler/ui/theme/` 承载全局 Design Token：
+
+- `Color.kt` — 15 个颜色 Token + `v2ShiftColor(ShiftType): Color` 辅助函数
+- `Type.kt` — 5 级字体规格（`ShiftSchedulerTypography`）
+- `Shape.kt` — 4 级圆角（Button/Card/MainCard/Sheet）
+- `Theme.kt` — `ShiftSchedulerTheme`（`darkColorScheme` + 自定义 Typography）
+
+### 底部导航栏
+
+V2 路径使用 `NavigationBar` + 3 个 `NavigationBarItem`（首页/日历/我的）替代平级 NavHost。子页面（如设置）仍通过 NavHost `navigate()` 推入。
+
+```
+Scaffold(bottomBar = NavigationBar { ... })
+  └── NavHost(startDestination = "home")
+       ├── "home" → NewHomeScreenV2
+       ├── "calendar" → CalendarScreen
+       ├── "profile" → ProfileScreen
+       └── "settings" → SettingsScreen
+```
+
+### V2 首页组件
+
+`app/src/main/java/com/simpleshift/scheduler/ui/home/components/` 新增 5 个 V2 组件：
+
+- `V2GreetingHeader.kt` — 时段问候 + 班组名 + 提醒时间
+- `V2TodayShiftCard.kt` — 240dp 横向主卡：72dp 圆形徽章 + 牛马指数（≤40绿/41-70黄/>70红）+ `LinearProgressIndicator`
+- `V2StatsGrid.kt` — 三宫格指标卡片
+- `V2QuickActionsRow.kt` — `FilledTonalButton` 三个快捷操作
+- `V2MotivationFooter.kt` — 随机励志文案
+
+`NewHomeScreenV2.kt` 组装全部 V2 组件，带 `fadeIn` + `slideInVertically` 进场动效。
+
+### HomeUiState V2 扩展
+
+```kotlin
+val shiftTimeRange: String?        // 今日班次的提醒时间（来自 AlarmSettings），格式 "HH:MM"
+val monthlyShiftTypeCount: Int     // 今日班次类型在本月出现天数
+val workIntensity: Int             // 牛马指数 = monthlyWorkDays * 100 / today.dayOfMonth
+```
+
+`HomeViewModel.updateAlarmSettings()` 接收 `AlarmSettings` 并触发 `refreshToday()` 重新计算。
+
+### 浅色/深色双主题
+
+`ShiftSchedulerTheme` 同时定义 `LightColors`（`lightColorScheme`）和 `DarkColors`（`darkColorScheme`），通过 `isSystemInDarkTheme()` 自动选择。所有 V2 组件使用 `MaterialTheme.colorScheme.onBackground`/`.surface`/`.onSurfaceVariant` 等主题引用替代硬编码暗色常量。系统切换深色模式时 App 即时响应，功能与布局不变。
+
+### 日历页适配
+
+- `CalendarDayCell` 背景改为班次色 12% 透明度，文字改为班次色着色（亮暗双主题自适应）
+- 今天边框：`MaterialTheme.colorScheme.primary`（金色）
+- 统计从 `AlertDialog` 弹窗改为日历下方内联 `StatsCard`（5 列均布）
+- `computeStats()` 改为 toggle 模式
+
+### Profile 页
+
+`app/src/main/java/com/simpleshift/scheduler/ui/profile/ProfileScreen.kt`：
+
+- 卡片式菜单布局（`V2CardShape` + `V2CardSurface`）
+- 当前班组选择（`TeamDropdown` 内嵌）
+- 倒班规则 → `navController.navigate("settings")`
+- 提醒设置 → `navController.navigate("settings")`
+- 给个好评 / 关于（占位）
+
+### 双轨制安全策略
+
+- `USE_NEW_HOME_V2 = true`（默认）— 启用 V2 布局（底部导航 + 新首页 + Profile），主题跟随系统深色模式
+- `USE_NEW_HOME_V2 = false` — 完全回退 V1 路径
+- `USE_NEW_HOME = true`（默认）— V1 路径中使用升级版首页（NewHomeScreen）
+- V1 全部组件完整保留，改值即刻回滚
+
+### 洞察 HH：Design Token 先行降低视觉漂移
+
+将颜色、字体、圆角定义为全局 Token 后，所有 V2 组件统一引用 Token 而非硬编码，避免了"每个组件各自调色"导致的视觉不一致。后续添加新页面只需引用 Token 即可自动融入设计系统。
+
+### 洞察 II：双轨制让大型 UI 重构风险可控
+
+`USE_NEW_HOME`（阶段 16 开关）和 `USE_NEW_HOME_V2`（阶段 17 开关）两级编译时常量实现了渐进升级。每个阶段的回滚都是改一个布尔值，V1 字节码完全不受影响。
+
+### 洞察 JJ：主题感知色优于硬编码色
+
+最初 V2 组件直接引用 `V2PrimaryText`（#F5F7FA，白色）、`V2CardSurface`（#1B1F26，暗蓝灰）等暗色常量。浅色模式下这些颜色完全不可用。改为 `MaterialTheme.colorScheme.onBackground`/`.surface` 后，组件自动适配当前主题。原则：组件层只引用语义 Token（`onBackground`、`surface`、`onSurfaceVariant`），具体色值由 `ColorScheme` 定义，实现"换主题不改组件"。
+
+### 阶段 17 新增文件
+
+- `ui/theme/Color.kt`、`Type.kt`、`Shape.kt`、`Theme.kt`
+- `ui/home/components/V2GreetingHeader.kt`、`V2TodayShiftCard.kt`、`V2StatsGrid.kt`、`V2QuickActionsRow.kt`、`V2MotivationFooter.kt`
+- `ui/home/NewHomeScreenV2.kt`
+- `ui/profile/ProfileScreen.kt`
+
+### 阶段 17 改造文件
+
+- `HomeViewModel.kt` — HomeUiState +3 V2 字段 + `updateAlarmSettings()`
+- `MainActivity.kt` — `USE_NEW_HOME_V2` 开关 + 底部导航 + V2 路由 + alarm 接线
+- `CalendarViewModel.kt` — `computeStats()` toggle
+- `CalendarScreen.kt` — 深色颜色 + 内联统计 + 移除 dialog 代码
+
+---
+
+## 13. 阶段 18 架构更新：倒班规则编辑器重设计（已完成）
+
+2026-05-14 实施规则编辑器两步向导式重设计，同时拆分规则与提醒为独立页面。
+
+### 核心改动：referenceDate 贯穿全栈
+
+`RuntimeShiftSettings` 新增 `referenceDate: LocalDate` 字段，作为可配置的轮班起始日期。所有 domain 函数（`getShiftTypeForDate`、`getShiftInfo`、4 个 metrics 函数、`generateMonthCalendarDays`、`syncShiftEvents`）新增 `referenceDate` 参数（默认 `REFERENCE_DATE`），零调用点改动。
+
+### 设置页拆分
+
+```
+ProfileScreen
+  ├── "倒班规则" → ShiftRuleEditorScreen（两步向导）
+  └── "提醒设置" → AlarmSettingsScreen（纯闹钟 UI）
+```
+
+**ShiftRuleEditorScreen** 两步向导流程：
+- Step 1：5 个彩色 `FilledTonalButton`（早/中/休/夜/学）→ 点击添加 → `FlowRow` Chip 展示（右上角红色 X 删除）→ "下一步"
+- Step 2：Material3 `DatePickerDialog` 起始日期 + 可选结束日期（日历同步截止）+ `TeamDropdown` + 序列预览 + "保存并生成排班表"
+
+**AlarmSettingsScreen**：从旧 SettingsScreen 提取闹钟 UI，无保存/取消按钮（闹钟即时生效）。
+
+### 新 ViewModel
+
+- `ShiftRuleViewModel`：管理两步状态（step/rotationSequence/startDate/endDate/defaultTeamId），`save()` 构造完整的 `RuntimeShiftSettings`（含 `referenceDate`）
+- `AlarmSettingsViewModel`：纯闹钟管理，`updateAlarmTime()` 立即回调自动保存
+
+### 导航
+
+```
+"shift_rule_editor" → ShiftRuleEditorScreen + ShiftRuleViewModel factory
+"alarm_settings" → AlarmSettingsScreen + AlarmSettingsViewModel factory
+"settings" → 旧 SettingsScreen（USE_NEW_SETTINGS=false 时使用）
+```
+
+### 首页精简
+
+`NewHomeScreenV2` 移除 `TeamDropdown`（与"我的"页重复）和 `V2QuickActionsRow`（与底部导航栏重复），只保留核心信息展示：问候语 + 班次卡片 + 指标 + 文案。
+
+### 洞察 KK：默认参数是向后兼容的最强工具
+
+Phase A 在 6 个 domain/data 层文件中新增 `referenceDate` 参数，全部使用默认值，约 20 处现有调用点无需修改。所有现有测试直接通过，零回归。
+
+### 阶段 18 新增文件
+
+- `viewmodel/ShiftRuleViewModel.kt`、`viewmodel/AlarmSettingsViewModel.kt`
+- `ui/settings/ShiftRuleEditorScreen.kt`、`ui/settings/AlarmSettingsScreen.kt`
+
+### 阶段 18 改造文件
+
+- `domain/model/RuntimeShiftSettings.kt`、`domain/shift_calculator.kt`、`domain/shift_metrics.kt`、`domain/calendar_generator.kt`、`domain/widget_data.kt`
+- `data/repository/SettingsRepository.kt`
+- `viewmodel/HomeViewModel.kt`、`viewmodel/CalendarViewModel.kt`
+- `calendar/CalendarEventManager.kt`、`calendar/CalendarSyncManager.kt`
+- `MainActivity.kt`

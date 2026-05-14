@@ -3,14 +3,17 @@ package com.simpleshift.scheduler.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.unit.ColorProvider
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -49,6 +52,8 @@ class ShiftWidget : GlanceAppWidget() {
 @Composable
 private fun ShiftWidgetContent(data: WidgetShiftData) {
     val context = LocalContext.current
+    val accentColor = shiftAccentRes(data.shiftType)
+
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -56,45 +61,72 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
             .padding(12.dp)
             .clickable(actionStartActivity(Intent(context, MainActivity::class.java)))
     ) {
-        // Row 1: Team name + date
+        // Row 1: Badge + team info + rest info
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = data.teamName,
-                style = TextStyle(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+            // Shift badge
+            Column(
+                modifier = GlanceModifier
+                    .background(accentColor)
+                    .cornerRadius(12.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = data.shiftLabel,
+                    style = TextStyle(
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ColorProvider(Color.White)
+                    )
                 )
-            )
-            Spacer(modifier = GlanceModifier.defaultWeight())
-            Text(
-                text = data.dateLabel,
-                style = TextStyle(fontSize = 10.sp)
-            )
-        }
+            }
 
-        Spacer(modifier = GlanceModifier.height(6.dp))
-
-        // Row 2: Shift label (large) + progress
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = data.shiftLabel,
-                style = TextStyle(
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            )
             Spacer(modifier = GlanceModifier.width(12.dp))
-            Text(
-                text = "进度: ${data.dayOfCycle}/${data.totalDays}",
-                style = TextStyle(fontSize = 12.sp)
-            )
+
+            // Info column
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                Text(
+                    text = data.teamName,
+                    style = TextStyle(
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+                Text(
+                    text = "第 ${data.dayOfCycle}/${data.totalDays} 天",
+                    style = TextStyle(fontSize = 12.sp)
+                )
+            }
+
+            // Rest info
+            if (data.daysUntilRest == 0) {
+                Text(
+                    text = "休息日",
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ColorProvider(com.simpleshift.scheduler.R.color.shift_widget_rest_accent)
+                    )
+                )
+            } else {
+                Text(
+                    text = "距休${data.daysUntilRest}天",
+                    style = TextStyle(fontSize = 12.sp)
+                )
+            }
         }
+
+        Spacer(modifier = GlanceModifier.height(8.dp))
+
+        // Row 2: Date
+        Text(
+            text = data.dateLabel,
+            style = TextStyle(fontSize = 10.sp),
+            modifier = GlanceModifier.fillMaxWidth()
+        )
     }
 }
 
@@ -104,4 +136,12 @@ private fun shiftBackgroundRes(shiftType: ShiftType): Int = when (shiftType) {
     ShiftType.REST      -> com.simpleshift.scheduler.R.color.shift_widget_rest
     ShiftType.NIGHT     -> com.simpleshift.scheduler.R.color.shift_widget_night
     ShiftType.STUDY     -> com.simpleshift.scheduler.R.color.shift_widget_study
+}
+
+private fun shiftAccentRes(shiftType: ShiftType): Int = when (shiftType) {
+    ShiftType.MORNING   -> com.simpleshift.scheduler.R.color.shift_widget_morning_accent
+    ShiftType.AFTERNOON -> com.simpleshift.scheduler.R.color.shift_widget_afternoon_accent
+    ShiftType.REST      -> com.simpleshift.scheduler.R.color.shift_widget_rest_accent
+    ShiftType.NIGHT     -> com.simpleshift.scheduler.R.color.shift_widget_night_accent
+    ShiftType.STUDY     -> com.simpleshift.scheduler.R.color.shift_widget_study_accent
 }

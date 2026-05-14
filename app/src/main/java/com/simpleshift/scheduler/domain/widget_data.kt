@@ -15,7 +15,8 @@ data class WidgetShiftData(
     val shiftType: ShiftType,
     val dayOfCycle: Int,
     val totalDays: Int,
-    val teamName: String
+    val teamName: String,
+    val daysUntilRest: Int
 )
 
 fun computeWidgetShiftData(
@@ -30,13 +31,14 @@ fun computeWidgetShiftData(
             shiftType = ShiftType.REST,
             dayOfCycle = 0,
             totalDays = 0,
-            teamName = ""
+            teamName = "",
+            daysUntilRest = 0
         )
     }
 
     val teamPhaseOffset = (settings.defaultTeamId - 1) *
         (settings.shiftCycle.size / Team.TOTAL_TEAMS)
-    val shiftInfo = getShiftInfo(today, teamPhaseOffset, settings.shiftCycle)
+    val shiftInfo = getShiftInfo(today, teamPhaseOffset, settings.shiftCycle, settings.referenceDate)
     val team = Team.ALL_TEAMS.find { it.id == settings.defaultTeamId }
         ?: Team.ALL_TEAMS.first()
     val dateFormatter = DateTimeFormatter
@@ -49,6 +51,7 @@ fun computeWidgetShiftData(
         shiftType = shiftInfo.shiftType,
         dayOfCycle = shiftInfo.dayOfCycle,
         totalDays = settings.shiftCycle.size,
-        teamName = team.name
+        teamName = team.name,
+        daysUntilRest = daysUntilNextRest(today, teamPhaseOffset, settings.shiftCycle, settings.referenceDate)
     )
 }

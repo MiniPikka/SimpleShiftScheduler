@@ -11,10 +11,12 @@ import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.CalendarEventIds
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
+import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "shift_settings")
 
@@ -24,6 +26,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_CYCLE_LENGTH = intPreferencesKey("cycle_length")
         private val KEY_SHIFT_CYCLE = stringPreferencesKey("shift_cycle")
         private val KEY_DEFAULT_TEAM = intPreferencesKey("default_team")
+        private val KEY_REFERENCE_DATE = stringPreferencesKey("reference_date")
         private val KEY_CALENDAR_EVENT_IDS = stringPreferencesKey("calendar_event_ids")
 
         private val KEY_ALARM_TIME: Map<ShiftType, Preferences.Key<String>> =
@@ -54,6 +57,7 @@ class SettingsRepository(private val context: Context) {
         val cycleLength = prefs[KEY_CYCLE_LENGTH]
         val shiftCycleStr = prefs[KEY_SHIFT_CYCLE]
         val defaultTeam = prefs[KEY_DEFAULT_TEAM]
+        val referenceDate = parseReferenceDate(prefs[KEY_REFERENCE_DATE])
 
         if (cycleLength != null && shiftCycleStr != null) {
             val cycle = deserializeShiftCycle(shiftCycleStr)
@@ -61,13 +65,14 @@ class SettingsRepository(private val context: Context) {
                 RuntimeShiftSettings(
                     cycleLength = cycleLength,
                     shiftCycle = cycle,
-                    defaultTeamId = defaultTeam ?: 1
+                    defaultTeamId = defaultTeam ?: 1,
+                    referenceDate = referenceDate
                 )
             } else {
-                RuntimeShiftSettings()
+                RuntimeShiftSettings(referenceDate = referenceDate)
             }
         } else {
-            RuntimeShiftSettings()
+            RuntimeShiftSettings(referenceDate = referenceDate)
         }
     }
 
@@ -76,6 +81,7 @@ class SettingsRepository(private val context: Context) {
             prefs[KEY_CYCLE_LENGTH] = settings.cycleLength
             prefs[KEY_SHIFT_CYCLE] = serializeShiftCycle(settings.shiftCycle)
             prefs[KEY_DEFAULT_TEAM] = settings.defaultTeamId
+            prefs[KEY_REFERENCE_DATE] = settings.referenceDate.toString()
         }
     }
 
@@ -122,6 +128,15 @@ class SettingsRepository(private val context: Context) {
         if (serialized == current) return
         context.dataStore.edit { prefs ->
             prefs[KEY_CALENDAR_EVENT_IDS] = serialized
+        }
+    }
+
+    private fun parseReferenceDate(raw: String?): LocalDate {
+        if (raw.isNullOrBlank()) return ShiftCycleConfig.REFERENCE_DATE
+        return try {
+            LocalDate.parse(raw)
+        } catch (_: Exception) {
+            ShiftCycleConfig.REFERENCE_DATE
         }
     }
 

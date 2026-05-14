@@ -190,6 +190,47 @@ class CalendarEventManagerTest {
         assertEquals("Should have events before delete", 7, result.eventIds.size)
         manager.deleteAllEvents(result)
     }
+
+    @Test
+    fun `night shift events are created on previous day`() {
+        val alarmSettings = AlarmSettings(
+            mapOf(ShiftType.NIGHT to AlarmTime(22, 0))
+        )
+        val allNight = List(7) { ShiftType.NIGHT }
+        val today = LocalDate.now()
+
+        val result = manager.syncShiftEvents(
+            alarmSettings, allNight, 0, CalendarEventIds(),
+            daysAhead = 7
+        )
+
+        assertTrue("Should create at least one event", result.eventIds.isNotEmpty())
+
+        val dayOffsetsWithEvents = (0 until 7).filter { dayOffset ->
+            val date = today.plusDays(dayOffset.toLong())
+            val key = CalendarEventIds.eventKey(date.toString(), ShiftType.NIGHT)
+            key in result.eventIds
+        }
+
+        for (dayOffset in dayOffsetsWithEvents) {
+            val date = today.plusDays(dayOffset.toLong())
+            val key = CalendarEventIds.eventKey(date.toString(), ShiftType.NIGHT)
+            val eventId = result.eventIds[key]!!
+
+            val storedEvent = fakeResolver.events.find {
+                it.getAsLong(CalendarContract.Events._ID) == eventId
+            }
+            assertTrue("Event $eventId should exist in resolver", storedEvent != null)
+
+            val expectedDate = date.minusDays(1)
+            val expectedStart = AlarmTime(22, 0).toEpochMillis(expectedDate)
+            val actualStart = storedEvent!!.getAsLong(CalendarContract.Events.DTSTART)
+            assertEquals(
+                "NIGHT event for $date should start on $expectedDate",
+                expectedStart, actualStart
+            )
+        }
+    }
 }
 
 /**
@@ -200,7 +241,7 @@ internal class FakeCalendarResolver : CalendarResolver {
 
     private var nextId = 1L
     private val calendars = mutableListOf<ContentValues>()
-    private val events = mutableListOf<ContentValues>()
+    val events = mutableListOf<ContentValues>()
     private val reminders = mutableListOf<ContentValues>()
 
     private fun newId(): Long = nextId++

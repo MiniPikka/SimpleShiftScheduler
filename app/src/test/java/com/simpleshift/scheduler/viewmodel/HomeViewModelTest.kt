@@ -1,11 +1,15 @@
 package com.simpleshift.scheduler.viewmodel
 
 import androidx.test.core.app.ApplicationProvider
+import com.simpleshift.scheduler.domain.model.AlarmSettings
+import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.domain.model.Team
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -133,6 +137,89 @@ class HomeViewModelTest {
         viewModel.selectTeam(3)
         assertEquals(ShiftType.NIGHT, viewModel.uiState.value.shiftType)
         assertEquals("夜", viewModel.uiState.value.shiftLabel)
+    }
+
+    @Test
+    fun `teamName is derived from selectedTeamId`() {
+        val viewModel = HomeViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            currentDateProvider = { ShiftCycleConfig.REFERENCE_DATE },
+            localeProvider = { Locale.SIMPLIFIED_CHINESE }
+        )
+        assertEquals("一值", viewModel.uiState.value.teamName)
+
+        viewModel.selectTeam(3)
+        assertEquals("三值", viewModel.uiState.value.teamName)
+    }
+
+    @Test
+    fun `metric fields are populated after refresh`() {
+        val testDate = ShiftCycleConfig.REFERENCE_DATE
+        val viewModel = HomeViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            currentDateProvider = { testDate },
+            localeProvider = { Locale.SIMPLIFIED_CHINESE }
+        )
+        val state = viewModel.uiState.value
+        assertTrue("totalDaysInMonth should be > 0", state.totalDaysInMonth > 0)
+        assertTrue("monthlyWorkDays should be >= 0", state.monthlyWorkDays >= 0)
+        assertTrue("monthlyWorkDays should be <= totalDaysInMonth",
+            state.monthlyWorkDays <= state.totalDaysInMonth)
+        assertTrue("consecutiveWorkDays should be >= 0", state.consecutiveWorkDays >= 0)
+        assertTrue("daysUntilRest should be >= 0", state.daysUntilRest >= 0)
+    }
+
+    @Test
+    fun `shiftTimeRange is null when no alarm configured`() {
+        val viewModel = HomeViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            currentDateProvider = { ShiftCycleConfig.REFERENCE_DATE },
+            localeProvider = { Locale.SIMPLIFIED_CHINESE }
+        )
+        assertNull(viewModel.uiState.value.shiftTimeRange)
+    }
+
+    @Test
+    fun `shiftTimeRange is populated after updateAlarmSettings`() {
+        val testDate = ShiftCycleConfig.REFERENCE_DATE
+        val viewModel = HomeViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            currentDateProvider = { testDate },
+            localeProvider = { Locale.SIMPLIFIED_CHINESE }
+        )
+        val alarmTime = AlarmTime(6, 30)
+        val alarms = mapOf(ShiftType.MORNING to alarmTime)
+        viewModel.updateAlarmSettings(AlarmSettings(alarms))
+
+        assertEquals("06:30", viewModel.uiState.value.shiftTimeRange)
+    }
+
+    @Test
+    fun `workIntensity is computed in valid range`() {
+        val testDate = ShiftCycleConfig.REFERENCE_DATE
+        val viewModel = HomeViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            currentDateProvider = { testDate },
+            localeProvider = { Locale.SIMPLIFIED_CHINESE }
+        )
+        val state = viewModel.uiState.value
+        assertTrue("workIntensity >= 0", state.workIntensity >= 0)
+        assertTrue("workIntensity <= 100", state.workIntensity <= 100)
+    }
+
+    @Test
+    fun `monthlyShiftTypeCount is positive for existing shift type`() {
+        val testDate = ShiftCycleConfig.REFERENCE_DATE
+        val viewModel = HomeViewModel(
+            application = ApplicationProvider.getApplicationContext(),
+            currentDateProvider = { testDate },
+            localeProvider = { Locale.SIMPLIFIED_CHINESE }
+        )
+        val state = viewModel.uiState.value
+        assertEquals(ShiftType.MORNING, state.shiftType)
+        assertTrue("monthlyShiftTypeCount > 0", state.monthlyShiftTypeCount > 0)
+        assertTrue("monthlyShiftTypeCount <= totalDaysInMonth",
+            state.monthlyShiftTypeCount <= state.totalDaysInMonth)
     }
 
     private fun findDateForShiftType(shiftType: ShiftType): LocalDate {

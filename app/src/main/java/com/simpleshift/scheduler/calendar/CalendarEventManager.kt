@@ -10,6 +10,7 @@ import com.simpleshift.scheduler.domain.getShiftTypeForDate
 import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.CalendarEventIds
+import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.util.ShiftLabelMapper
 import java.time.LocalDate
@@ -118,7 +119,8 @@ class CalendarEventManager(
         shiftCycle: List<ShiftType>,
         teamPhaseOffset: Int,
         existingEventIds: CalendarEventIds,
-        daysAhead: Int = 365
+        daysAhead: Int = 365,
+        referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE
     ): CalendarEventIds {
         val calendarId = getOrCreateLocalCalendar()
         if (calendarId == -1L) return existingEventIds
@@ -131,10 +133,12 @@ class CalendarEventManager(
 
         for (dayOffset in 0 until daysAhead) {
             val date = today.plusDays(dayOffset.toLong())
-            val shiftType = getShiftTypeForDate(date, teamPhaseOffset, shiftCycle)
+            val shiftType = getShiftTypeForDate(date, teamPhaseOffset, shiftCycle, referenceDate)
             val alarmTime = alarmSettings.alarms[shiftType] ?: continue
 
-            val triggerAtMillis = alarmTime.toEpochMillis(date)
+            val eventDate = if (shiftType == ShiftType.NIGHT) date.minusDays(1) else date
+
+            val triggerAtMillis = alarmTime.toEpochMillis(eventDate)
             if (triggerAtMillis <= now) continue
 
             val key = CalendarEventIds.eventKey(date.toString(), shiftType)
@@ -143,13 +147,13 @@ class CalendarEventManager(
             if (newEventIds.containsKey(key)) continue
 
             // Check for existing event in system calendar (safety net for stale tracking)
-            val existingEventId = findExistingEvent(calendarId, date, shiftType)
+            val existingEventId = findExistingEvent(calendarId, eventDate, shiftType)
             if (existingEventId != -1L) {
                 newEventIds[key] = existingEventId
                 continue
             }
 
-            val eventId = insertEvent(calendarId, date, shiftType, alarmTime)
+            val eventId = insertEvent(calendarId, eventDate, shiftType, alarmTime)
             if (eventId != -1L) {
                 newEventIds[key] = eventId
             }

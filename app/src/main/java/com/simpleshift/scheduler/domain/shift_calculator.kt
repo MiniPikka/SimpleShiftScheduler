@@ -19,10 +19,11 @@ fun normalizeCycleIndex(offsetDays: Int, cycleLength: Int = ShiftCycleConfig.CYC
 fun getShiftTypeForDate(
     date: LocalDate,
     teamPhaseOffset: Int = 0,
-    customCycle: List<ShiftType>? = null
+    customCycle: List<ShiftType>? = null,
+    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE
 ): ShiftType {
     val cycle = customCycle ?: ShiftCycleConfig.SHIFT_CYCLE
-    val offsetDays = calculateDayOffset(date) + teamPhaseOffset
+    val offsetDays = calculateDayOffset(date, referenceDate) + teamPhaseOffset
     val cycleIndex = normalizeCycleIndex(offsetDays, cycle.size)
     return cycle[cycleIndex]
 }
@@ -30,10 +31,11 @@ fun getShiftTypeForDate(
 fun getShiftInfo(
     date: LocalDate,
     teamPhaseOffset: Int = 0,
-    customCycle: List<ShiftType>? = null
+    customCycle: List<ShiftType>? = null,
+    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE
 ): ShiftInfo {
     val cycle = customCycle ?: ShiftCycleConfig.SHIFT_CYCLE
-    val offsetDays = calculateDayOffset(date) + teamPhaseOffset
+    val offsetDays = calculateDayOffset(date, referenceDate) + teamPhaseOffset
     val cycleIndex = normalizeCycleIndex(offsetDays, cycle.size)
     return ShiftInfo(
         date = date,

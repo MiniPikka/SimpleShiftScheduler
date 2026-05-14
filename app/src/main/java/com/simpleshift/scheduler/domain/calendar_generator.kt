@@ -1,6 +1,7 @@
 package com.simpleshift.scheduler.domain
 
 import com.simpleshift.scheduler.domain.model.CalendarDayInfo
+import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -12,7 +13,8 @@ fun generateMonthCalendarDays(
     yearMonth: YearMonth,
     firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY,
     teamPhaseOffset: Int = 0,
-    customCycle: List<ShiftType>? = null
+    customCycle: List<ShiftType>? = null,
+    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE
 ): List<CalendarDayInfo> {
     val firstDay = yearMonth.atDay(1)
     val leadingDays = ((firstDay.dayOfWeek.value - firstDayOfWeek.value) + 7) % 7
@@ -22,7 +24,7 @@ fun generateMonthCalendarDays(
         val date = gridStartDate.plusDays(offset.toLong())
         CalendarDayInfo(
             date = date,
-            shiftType = getShiftTypeForDate(date, teamPhaseOffset, customCycle),
+            shiftType = getShiftTypeForDate(date, teamPhaseOffset, customCycle, referenceDate),
             isCurrentMonth = date.month == yearMonth.month
         )
     }

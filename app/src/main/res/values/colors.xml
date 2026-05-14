@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Widget background colors by shift type -->
+    <!-- Widget background colors by shift type (pastel) -->
     <color name="shift_widget_morning">#FFFFF3E0</color>
     <color name="shift_widget_afternoon">#FFE3F2FD</color>
     <color name="shift_widget_rest">#FFE8F5E9</color>
     <color name="shift_widget_night">#FFEDE7F6</color>
     <color name="shift_widget_study">#FFFFF8E1</color>
+    <!-- Widget badge colors by shift type (saturated) -->
+    <color name="shift_widget_morning_accent">#FFE67E22</color>
+    <color name="shift_widget_afternoon_accent">#FF3498DB</color>
+    <color name="shift_widget_rest_accent">#FF2ECC71</color>
+    <color name="shift_widget_night_accent">#FF9B59B6</color>
+    <color name="shift_widget_study_accent">#FFF1C40F</color>
 </resources>

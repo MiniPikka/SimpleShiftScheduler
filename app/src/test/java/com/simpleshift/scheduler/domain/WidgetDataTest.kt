@@ -4,6 +4,7 @@ import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
 import com.simpleshift.scheduler.domain.model.ShiftType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 import java.time.LocalDate
 import java.util.Locale
@@ -26,6 +27,7 @@ class WidgetDataTest {
         assertTrue("dayOfCycle should be positive", data.dayOfCycle > 0)
         assertEquals(42, data.totalDays)
         assertEquals("一值", data.teamName)
+        assertTrue("daysUntilRest should be >= 0", data.daysUntilRest >= 0)
     }
 
     @Test
@@ -67,6 +69,7 @@ class WidgetDataTest {
         assertEquals(0, data.totalDays)
         assertEquals("", data.teamName)
         assertEquals("", data.dateLabel)
+        assertEquals(0, data.daysUntilRest)
     }
 
     @Test

@@ -19,10 +19,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +44,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.simpleshift.scheduler.calendar.CalendarEventManager
 import com.simpleshift.scheduler.widget.ShiftWidget
@@ -48,14 +54,28 @@ import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
 import com.simpleshift.scheduler.ui.calendar.CalendarScreen
 import com.simpleshift.scheduler.ui.home.HomeScreen
+import com.simpleshift.scheduler.ui.home.NewHomeScreen
+import com.simpleshift.scheduler.ui.home.NewHomeScreenV2
+import com.simpleshift.scheduler.ui.profile.ProfileScreen
+import com.simpleshift.scheduler.ui.settings.AlarmSettingsScreen
 import com.simpleshift.scheduler.ui.settings.SettingsScreen
+import com.simpleshift.scheduler.ui.settings.ShiftRuleEditorScreen
+import com.simpleshift.scheduler.ui.theme.ShiftSchedulerTheme
+import com.simpleshift.scheduler.viewmodel.AlarmSettingsViewModel
 import com.simpleshift.scheduler.viewmodel.CalendarViewModel
 import com.simpleshift.scheduler.viewmodel.HomeViewModel
 import com.simpleshift.scheduler.viewmodel.SettingsViewModel
+import com.simpleshift.scheduler.viewmodel.ShiftRuleViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        private const val USE_NEW_HOME = true
+        private const val USE_NEW_HOME_V2 = true
+        private const val USE_NEW_SETTINGS = true
+    }
+
     private val homeViewModel: HomeViewModel by viewModels()
     private val calendarViewModel: CalendarViewModel by viewModels()
     private lateinit var settingsRepository: SettingsRepository
@@ -85,7 +105,9 @@ class MainActivity : ComponentActivity() {
                 if (settings.isValid) {
                     runtimeSettingsFlow.value = settings
                     homeViewModel.customCycle = settings.shiftCycle
+                    homeViewModel.customReferenceDate = settings.referenceDate
                     calendarViewModel.customCycle = settings.shiftCycle
+                    calendarViewModel.customReferenceDate = settings.referenceDate
                     homeViewModel.selectTeam(settings.defaultTeamId)
                     calendarViewModel.setTeam(settings.defaultTeamId)
                 }
@@ -105,6 +127,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 settingsRepository.alarmSettingsFlow.collect { alarmSettings ->
                     currentAlarmSettings = alarmSettings
+                    homeViewModel.updateAlarmSettings(alarmSettings)
                 }
             }
 
@@ -116,29 +139,310 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    NavHost(
-                        navController = navController,
-                        startDestination = "main"
-                    ) {
-                    composable("main") {
-                        val homeUiState by homeViewModel.uiState.collectAsState()
-                        val calendarUiState by calendarViewModel.uiState.collectAsState()
+            if (USE_NEW_HOME_V2) {
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
+                val bottomNavRoutes = listOf("home", "calendar", "profile")
 
-                        Column(
+                ShiftSchedulerTheme {
+                    androidx.compose.material3.Scaffold(
+                        bottomBar = {
+                            if (currentRoute in bottomNavRoutes) {
+                                NavigationBar {
+                                    NavigationBarItem(
+                                        selected = currentRoute == "home",
+                                        onClick = {
+                                            navController.navigate("home") {
+                                                popUpTo("home") { inclusive = true }
+                                            }
+                                        },
+                                        icon = { Icon(Icons.Filled.Home, contentDescription = "首页") },
+                                        label = { Text("首页") }
+                                    )
+                                    NavigationBarItem(
+                                        selected = currentRoute == "calendar",
+                                        onClick = {
+                                            navController.navigate("calendar") {
+                                                popUpTo("home") { inclusive = true }
+                                            }
+                                        },
+                                        icon = { Icon(Icons.Filled.DateRange, contentDescription = "日历") },
+                                        label = { Text("日历") }
+                                    )
+                                    NavigationBarItem(
+                                        selected = currentRoute == "profile",
+                                        onClick = {
+                                            navController.navigate("profile") {
+                                                popUpTo("home") { inclusive = true }
+                                            }
+                                        },
+                                        icon = { Icon(Icons.Filled.Person, contentDescription = "我的") },
+                                        label = { Text("我的") }
+                                    )
+                                }
+                            }
+                        }
+                    ) { paddingValues ->
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 16.dp, vertical = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(20.dp)
+                                .padding(paddingValues)
                         ) {
-                            HomeScreen(
-                                uiState = homeUiState,
-                                onTeamSelected = { teamId ->
+                            NavHost(
+                                navController = navController,
+                                startDestination = "home"
+                            ) {
+                                composable("home") {
+                                    val homeUiState by homeViewModel.uiState.collectAsState()
+
+                                    NewHomeScreenV2(
+                                        uiState = homeUiState
+                                    )
+                                }
+
+                                composable("calendar") {
+                                    val calendarUiState by calendarViewModel.uiState.collectAsState()
+
+                                    val onCalendarTeamSelected: (Int) -> Unit = { teamId ->
+                                        homeViewModel.selectTeam(teamId)
+                                        calendarViewModel.setTeam(teamId)
+                                        if (runtimeSettings.defaultTeamId != teamId) {
+                                            runtimeSettingsFlow.value =
+                                                runtimeSettings.copy(defaultTeamId = teamId)
+                                            scope.launch {
+                                                settingsRepository.saveSettings(runtimeSettingsFlow.value)
+                                            }
+                                        }
+                                    }
+
+                                    CalendarScreen(
+                                        uiState = calendarUiState,
+                                        onPreviousMonthClick = { calendarViewModel.goToPreviousMonth() },
+                                        onNextMonthClick = { calendarViewModel.goToNextMonth() },
+                                        onTodayClick = { calendarViewModel.goToToday() },
+                                        onStatsClick = { calendarViewModel.computeStats() },
+                                        onNavigateBack = { navController.popBackStack() },
+                                        onTeamSelected = onCalendarTeamSelected,
+                                        availableTeams = com.simpleshift.scheduler.domain.model.Team.ALL_TEAMS
+                                    )
+                                }
+
+                                composable("profile") {
+                                    val homeUiState by homeViewModel.uiState.collectAsState()
+
+                                    val onProfileTeamSelected: (Int) -> Unit = { teamId ->
+                                        homeViewModel.selectTeam(teamId)
+                                        calendarViewModel.setTeam(teamId)
+                                        if (runtimeSettings.defaultTeamId != teamId) {
+                                            runtimeSettingsFlow.value =
+                                                runtimeSettings.copy(defaultTeamId = teamId)
+                                            scope.launch {
+                                                settingsRepository.saveSettings(runtimeSettingsFlow.value)
+                                            }
+                                        }
+                                    }
+
+                                    ProfileScreen(
+                                        selectedTeamId = homeUiState.selectedTeamId,
+                                        availableTeams = homeUiState.availableTeams,
+                                        onTeamSelected = onProfileTeamSelected,
+                                        onRulesClick = {
+                                            if (USE_NEW_SETTINGS) navController.navigate("shift_rule_editor")
+                                            else navController.navigate("settings")
+                                        },
+                                        onAlarmClick = {
+                                            if (USE_NEW_SETTINGS) navController.navigate("alarm_settings")
+                                            else navController.navigate("settings")
+                                        }
+                                    )
+                                }
+
+                                composable("shift_rule_editor") {
+                                    val shiftRuleViewModel: ShiftRuleViewModel = viewModel(
+                                        factory = object : ViewModelProvider.Factory {
+                                            @Suppress("UNCHECKED_CAST")
+                                            override fun <T : androidx.lifecycle.ViewModel> create(
+                                                modelClass: Class<T>
+                                            ): T {
+                                                return ShiftRuleViewModel(
+                                                    application,
+                                                    runtimeSettings,
+                                                    onSettingsSaved = { saved ->
+                                                        runtimeSettingsFlow.value = saved
+                                                        homeViewModel.customCycle = saved.shiftCycle
+                                                        homeViewModel.customReferenceDate = saved.referenceDate
+                                                        calendarViewModel.customCycle = saved.shiftCycle
+                                                        calendarViewModel.customReferenceDate = saved.referenceDate
+                                                        homeViewModel.selectTeam(saved.defaultTeamId)
+                                                        calendarViewModel.setTeam(saved.defaultTeamId)
+                                                        scope.launch {
+                                                            settingsRepository.saveSettings(saved)
+                                                        }
+                                                        calendarSyncManager.syncFromCurrentState()
+                                                        notifyWidgetUpdate()
+                                                    }
+                                                ) as T
+                                            }
+                                        }
+                                    )
+                                    val shiftRuleUiState by shiftRuleViewModel.uiState.collectAsState()
+
+                                    ShiftRuleEditorScreen(
+                                        uiState = shiftRuleUiState,
+                                        onAddToSequence = { shiftRuleViewModel.addToSequence(it) },
+                                        onRemoveFromSequence = { shiftRuleViewModel.removeFromSequence(it) },
+                                        onGoToStep2 = { shiftRuleViewModel.goToStep2() },
+                                        onGoBackToStep1 = { shiftRuleViewModel.goBackToStep1() },
+                                        onSetStartDate = { shiftRuleViewModel.setStartDate(it) },
+                                        onSetHasEndDate = { shiftRuleViewModel.setHasEndDate(it) },
+                                        onSetEndDate = { shiftRuleViewModel.setEndDate(it) },
+                                        onSetDefaultTeam = { shiftRuleViewModel.setDefaultTeam(it) },
+                                        onSave = { shiftRuleViewModel.save() },
+                                        onNavigateBack = { navController.popBackStack() }
+                                    )
+                                }
+
+                                composable("alarm_settings") {
+                                    val alarmViewModel: AlarmSettingsViewModel = viewModel(
+                                        factory = object : ViewModelProvider.Factory {
+                                            @Suppress("UNCHECKED_CAST")
+                                            override fun <T : androidx.lifecycle.ViewModel> create(
+                                                modelClass: Class<T>
+                                            ): T {
+                                                return AlarmSettingsViewModel(
+                                                    application,
+                                                    currentAlarmSettings,
+                                                    onAlarmSettingsChanged = { alarmSettings ->
+                                                        currentAlarmSettings = alarmSettings
+                                                        scope.launch {
+                                                            settingsRepository.saveAlarmSettings(alarmSettings)
+                                                        }
+                                                        calendarSyncManager.syncFromCurrentState()
+                                                    }
+                                                ) as T
+                                            }
+                                        }
+                                    )
+                                    val alarmUiState by alarmViewModel.uiState.collectAsState()
+
+                                    AlarmSettingsScreen(
+                                        alarmSettings = alarmUiState.alarmSettings,
+                                        onUpdateAlarmTime = { type, time ->
+                                            alarmViewModel.updateAlarmTime(type, time)
+                                        },
+                                        onNavigateBack = { navController.popBackStack() }
+                                    )
+                                }
+
+                                composable("settings") {
+                                    val settingsViewModel: SettingsViewModel = viewModel(
+                                        factory = object : ViewModelProvider.Factory {
+                                            @Suppress("UNCHECKED_CAST")
+                                            override fun <T : androidx.lifecycle.ViewModel> create(
+                                                modelClass: Class<T>
+                                            ): T {
+                                                return SettingsViewModel(
+                                                    application,
+                                                    runtimeSettings,
+                                                    currentAlarmSettings,
+                                                    onSettingsSaved = { saved ->
+                                                        runtimeSettingsFlow.value = saved
+                                                        homeViewModel.customCycle = saved.shiftCycle
+                                                        calendarViewModel.customCycle = saved.shiftCycle
+                                                        homeViewModel.selectTeam(saved.defaultTeamId)
+                                                        calendarViewModel.setTeam(saved.defaultTeamId)
+                                                        scope.launch {
+                                                            settingsRepository.saveSettings(saved)
+                                                        }
+                                                        calendarSyncManager.syncFromCurrentState()
+                                                        notifyWidgetUpdate()
+                                                    },
+                                                    onAlarmSettingsChanged = { alarmSettings ->
+                                                        currentAlarmSettings = alarmSettings
+                                                        scope.launch {
+                                                            settingsRepository.saveAlarmSettings(alarmSettings)
+                                                        }
+                                                        calendarSyncManager.syncFromCurrentState()
+                                                    }
+                                                ) as T
+                                            }
+                                        }
+                                    )
+                                    val settingsUiState by settingsViewModel.uiState.collectAsState()
+
+                                    SettingsScreen(
+                                        uiState = settingsUiState,
+                                        onUpdateCycleLength = { settingsViewModel.updateCycleLength(it) },
+                                        onSetDayShift = { idx, type -> settingsViewModel.setDayShift(idx, type) },
+                                        onSelectDefaultTeam = { settingsViewModel.selectDefaultTeam(it) },
+                                        onUpdateAlarmTime = { type, time ->
+                                            settingsViewModel.updateAlarmTime(type, time)
+                                        },
+                                        onSave = { settingsViewModel.save() },
+                                        onCancel = { settingsViewModel.cancel() },
+                                        onNavigateBack = { navController.popBackStack() }
+                                    )
+                                }
+                            }
+
+                            syncError?.let { error ->
+                                Surface(
+                                    modifier = Modifier
+                                        .align(androidx.compose.ui.Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer,
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = error,
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        IconButton(
+                                            onClick = { calendarSyncManager.clearSyncError() }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Close,
+                                                contentDescription = "关闭",
+                                                tint = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        NavHost(
+                            navController = navController,
+                            startDestination = "main"
+                        ) {
+                        composable("main") {
+                            val homeUiState by homeViewModel.uiState.collectAsState()
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(horizontal = 16.dp, vertical = 20.dp),
+                                verticalArrangement = Arrangement.spacedBy(20.dp)
+                            ) {
+                                val onTeamSelected: (Int) -> Unit = { teamId ->
                                     homeViewModel.selectTeam(teamId)
                                     calendarViewModel.setTeam(teamId)
                                     if (runtimeSettings.defaultTeamId != teamId) {
@@ -148,123 +452,152 @@ class MainActivity : ComponentActivity() {
                                             settingsRepository.saveSettings(runtimeSettingsFlow.value)
                                         }
                                     }
-                                },
-                                modifier = Modifier
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "倒班助手",
-                                    style = MaterialTheme.typography.headlineSmall
-                                )
-                                IconButton(
-                                    onClick = { navController.navigate("settings") }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Settings,
-                                        contentDescription = "设置"
+                                }
+
+                                if (USE_NEW_HOME) {
+                                    NewHomeScreen(
+                                        uiState = homeUiState,
+                                        onTeamSelected = onTeamSelected,
+                                        onCalendarClick = { navController.navigate("calendar") },
+                                        onSettingsClick = { navController.navigate("settings") }
                                     )
+                                } else {
+                                    HomeScreen(
+                                        uiState = homeUiState,
+                                        onTeamSelected = onTeamSelected,
+                                        modifier = Modifier
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "倒班助手",
+                                            style = MaterialTheme.typography.headlineSmall
+                                        )
+                                        IconButton(
+                                            onClick = { navController.navigate("settings") }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Settings,
+                                                contentDescription = "设置"
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                            Text(
-                                text = "倒班日历",
-                                style = MaterialTheme.typography.headlineSmall
-                            )
+                        }
+
+                        composable("calendar") {
+                            val calendarUiState by calendarViewModel.uiState.collectAsState()
+
+                            val onCalendarTeamSelected: (Int) -> Unit = { teamId ->
+                                homeViewModel.selectTeam(teamId)
+                                calendarViewModel.setTeam(teamId)
+                                if (runtimeSettings.defaultTeamId != teamId) {
+                                    runtimeSettingsFlow.value =
+                                        runtimeSettings.copy(defaultTeamId = teamId)
+                                    scope.launch {
+                                        settingsRepository.saveSettings(runtimeSettingsFlow.value)
+                                    }
+                                }
+                            }
+
                             CalendarScreen(
                                 uiState = calendarUiState,
                                 onPreviousMonthClick = { calendarViewModel.goToPreviousMonth() },
                                 onNextMonthClick = { calendarViewModel.goToNextMonth() },
                                 onTodayClick = { calendarViewModel.goToToday() },
                                 onStatsClick = { calendarViewModel.computeStats() },
-                                onDismissStats = { calendarViewModel.dismissStats() }
+                                onNavigateBack = { navController.popBackStack() },
+                                onTeamSelected = onCalendarTeamSelected,
+                                availableTeams = com.simpleshift.scheduler.domain.model.Team.ALL_TEAMS
+                            )
+                        }
+
+                        composable("settings") {
+                            val settingsViewModel: SettingsViewModel = viewModel(
+                                factory = object : ViewModelProvider.Factory {
+                                    @Suppress("UNCHECKED_CAST")
+                                    override fun <T : androidx.lifecycle.ViewModel> create(
+                                        modelClass: Class<T>
+                                    ): T {
+                                        return SettingsViewModel(
+                                            application,
+                                            runtimeSettings,
+                                            currentAlarmSettings,
+                                            onSettingsSaved = { saved ->
+                                                runtimeSettingsFlow.value = saved
+                                                homeViewModel.customCycle = saved.shiftCycle
+                                                calendarViewModel.customCycle = saved.shiftCycle
+                                                homeViewModel.selectTeam(saved.defaultTeamId)
+                                                calendarViewModel.setTeam(saved.defaultTeamId)
+                                                scope.launch {
+                                                    settingsRepository.saveSettings(saved)
+                                                }
+                                                calendarSyncManager.syncFromCurrentState()
+                                                notifyWidgetUpdate()
+                                            },
+                                            onAlarmSettingsChanged = { alarmSettings ->
+                                                currentAlarmSettings = alarmSettings
+                                                scope.launch {
+                                                    settingsRepository.saveAlarmSettings(alarmSettings)
+                                                }
+                                                calendarSyncManager.syncFromCurrentState()
+                                            }
+                                        ) as T
+                                    }
+                                }
+                            )
+                            val settingsUiState by settingsViewModel.uiState.collectAsState()
+
+                            SettingsScreen(
+                                uiState = settingsUiState,
+                                onUpdateCycleLength = { settingsViewModel.updateCycleLength(it) },
+                                onSetDayShift = { idx, type -> settingsViewModel.setDayShift(idx, type) },
+                                onSelectDefaultTeam = { settingsViewModel.selectDefaultTeam(it) },
+                                onUpdateAlarmTime = { type, time ->
+                                    settingsViewModel.updateAlarmTime(type, time)
+                                },
+                                onSave = { settingsViewModel.save() },
+                                onCancel = { settingsViewModel.cancel() },
+                                onNavigateBack = { navController.popBackStack() }
                             )
                         }
                     }
 
-                    composable("settings") {
-                        val settingsViewModel: SettingsViewModel = viewModel(
-                            factory = object : ViewModelProvider.Factory {
-                                @Suppress("UNCHECKED_CAST")
-                                override fun <T : androidx.lifecycle.ViewModel> create(
-                                    modelClass: Class<T>
-                                ): T {
-                                    return SettingsViewModel(
-                                        application,
-                                        runtimeSettings,
-                                        currentAlarmSettings,
-                                        onSettingsSaved = { saved ->
-                                            runtimeSettingsFlow.value = saved
-                                            homeViewModel.customCycle = saved.shiftCycle
-                                            calendarViewModel.customCycle = saved.shiftCycle
-                                            homeViewModel.selectTeam(saved.defaultTeamId)
-                                            calendarViewModel.setTeam(saved.defaultTeamId)
-                                            scope.launch {
-                                                settingsRepository.saveSettings(saved)
-                                            }
-                                            calendarSyncManager.syncFromCurrentState()
-                                            notifyWidgetUpdate()
-                                        },
-                                        onAlarmSettingsChanged = { alarmSettings ->
-                                            currentAlarmSettings = alarmSettings
-                                            scope.launch {
-                                                settingsRepository.saveAlarmSettings(alarmSettings)
-                                            }
-                                            calendarSyncManager.syncFromCurrentState()
-                                        }
-                                    ) as T
-                                }
-                            }
-                        )
-                        val settingsUiState by settingsViewModel.uiState.collectAsState()
-
-                        SettingsScreen(
-                            uiState = settingsUiState,
-                            onUpdateCycleLength = { settingsViewModel.updateCycleLength(it) },
-                            onSetDayShift = { idx, type -> settingsViewModel.setDayShift(idx, type) },
-                            onSelectDefaultTeam = { settingsViewModel.selectDefaultTeam(it) },
-                            onUpdateAlarmTime = { type, time ->
-                                settingsViewModel.updateAlarmTime(type, time)
-                            },
-                            onSave = { settingsViewModel.save() },
-                            onCancel = { settingsViewModel.cancel() },
-                            onNavigateBack = { navController.popBackStack() }
-                        )
-                    }
-                }
-
-                    syncError?.let { error ->
-                        Surface(
-                            modifier = Modifier
-                                .align(androidx.compose.ui.Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            shape = MaterialTheme.shapes.medium
-                        ) {
-                            Row(
+                        syncError?.let { error ->
+                            Surface(
                                 modifier = Modifier
+                                    .align(androidx.compose.ui.Alignment.BottomCenter)
                                     .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                    .padding(16.dp),
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = MaterialTheme.shapes.medium
                             ) {
-                                Text(
-                                    text = error,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                IconButton(
-                                    onClick = { calendarSyncManager.clearSyncError() }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = "关闭",
-                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                    Text(
+                                        text = error,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.weight(1f)
                                     )
+                                    IconButton(
+                                        onClick = { calendarSyncManager.clearSyncError() }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = "关闭",
+                                            tint = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
                                 }
                             }
                         }

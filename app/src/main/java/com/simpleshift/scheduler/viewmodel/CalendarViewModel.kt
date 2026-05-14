@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.simpleshift.scheduler.domain.generateMonthCalendarDays
 import com.simpleshift.scheduler.domain.teamPhaseStepFor
 import com.simpleshift.scheduler.domain.model.MonthlyStats
+import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,8 @@ data class CalendarUiState(
     val weekLabels: List<String> = emptyList(),
     val days: List<CalendarDayUiState> = emptyList(),
     val stats: MonthlyStats? = null,
-    val isCurrentMonth: Boolean = true
+    val isCurrentMonth: Boolean = true,
+    val selectedTeamId: Int = 1
 )
 
 class CalendarViewModel(
@@ -52,6 +54,7 @@ class CalendarViewModel(
     private var selectedTeamId: Int = 1
 
     var customCycle: List<ShiftType>? = null
+    var customReferenceDate: LocalDate? = null
 
     init {
         refresh()
@@ -78,11 +81,18 @@ class CalendarViewModel(
     }
 
     fun computeStats() {
+        // Toggle: if already showing stats, dismiss; otherwise compute
+        if (_uiState.value.stats != null) {
+            dismissStats()
+            return
+        }
+        val refDate = customReferenceDate ?: ShiftCycleConfig.REFERENCE_DATE
         val teamPhaseOffset = (selectedTeamId - 1) * teamPhaseStepFor(customCycle)
         val days = generateMonthCalendarDays(
             currentMonth,
             teamPhaseOffset = teamPhaseOffset,
-            customCycle = customCycle
+            customCycle = customCycle,
+            referenceDate = refDate
         )
         val currentMonthDays = days.filter { it.isCurrentMonth }
         val stats = MonthlyStats(
@@ -103,12 +113,14 @@ class CalendarViewModel(
         val locale = localeProvider()
         val monthFormatter = DateTimeFormatter.ofPattern("yyyy年M月", locale)
         val weekLabels = listOf("日", "一", "二", "三", "四", "五", "六")
+        val refDate = customReferenceDate ?: ShiftCycleConfig.REFERENCE_DATE
         val teamPhaseOffset = (selectedTeamId - 1) * teamPhaseStepFor(customCycle)
 
         val days = generateMonthCalendarDays(
             currentMonth,
             teamPhaseOffset = teamPhaseOffset,
-            customCycle = customCycle
+            customCycle = customCycle,
+            referenceDate = refDate
         )
             .map { day ->
                 CalendarDayUiState(
@@ -125,7 +137,8 @@ class CalendarViewModel(
             weekLabels = weekLabels,
             days = days,
             stats = null,
-            isCurrentMonth = currentMonth == monthProvider()
+            isCurrentMonth = currentMonth == monthProvider(),
+            selectedTeamId = selectedTeamId
         )
     }
 

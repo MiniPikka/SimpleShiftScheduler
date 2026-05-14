@@ -132,19 +132,30 @@ implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android")
 ```id="structure1"
 app/
  ├── ui/
+ │    ├── theme/              # 阶段 17 新增：Design Token 系统
  │    ├── home/
+ │    │    ├── components/    # V1 组件（阶段 16）+ V2 组件（阶段 17）
+ │    │    ├── NewHomeScreenV2.kt   # 阶段 17：V2 首页
  │    ├── calendar/
  │    ├── settings/
+ │    ├── profile/            # 阶段 17 新增
+ │    ├── common/             # 共享组件（TeamDropdown）
  │
  ├── viewmodel/
  │
+ ├── calendar/                # Calendar Provider 日程管理
+ │
+ ├── widget/                  # Glance AppWidget
+ │
  ├── data/
- │    ├── datastore/
- │    ├── model/            # 数据库实体、持久化扩展模型
+ │    ├── repository/         # DataStore 持久化仓储
+ │    ├── model/              # 数据库实体、持久化扩展模型
  │
  ├── domain/
- │    ├── model/            # 核心业务模型（如 ShiftType/ShiftInfo）
- │    └── shift_calculator.kt
+ │    ├── model/              # 核心业务模型（如 ShiftType/ShiftInfo）
+ │    ├── shift_calculator.kt
+ │    ├── calendar_generator.kt
+ │    └── shift_metrics.kt
  │
  └── MainActivity.kt
 ```
@@ -212,9 +223,36 @@ app/
 
 ---
 
+## 11. V2 UI 设计系统（阶段 17）
+
+### 设计语言
+
+* **Dark Productivity Design**（深色高级 + 克制 + 效率感）
+  * 页面底色 `#0B0D10`，次级区域 `#15181D`，卡片表面 `#1B1F26`
+  * 强调金色 `#FACC15`
+  * 班次色：早=橙 `#FFB347`、中=蓝 `#4DA3FF`、夜=紫 `#7C5CFF`、休=绿 `#35D07F`、学=黄 `#F2D94E`
+
+### 双轨制
+
+* **`USE_NEW_HOME`** — 控制 V1 升级版首页 vs 旧首页
+* **`USE_NEW_HOME_V2`** — 控制深色主题 + 底部导航 + 全 App V2 体验
+* 两级编译时常量，改值即刻切换回滚，V1 字节码完全不变
+
+### 导航
+
+* **底部导航栏（V2）**：`NavigationBar` + 3 个 `NavigationBarItem`（首页 / 日历 / 我的）
+* **NavHost 保留**：子页面（设置等）通过 `navigate()` 推入，底部导航仅在 3 个顶级路由时显示
+* **路由结构**：`home` / `calendar` / `profile`（顶级）+ `settings`（子级）
+
+### 动画
+
+* `AnimatedVisibility` + `fadeIn` + `slideInVertically`（450ms 错步入场）
+
+---
+
 ## 9. 当前进度与后续建议
 
-已完成（阶段 1-14，功能完整 + 代码加固；阶段 15 桌面 Widget 规划中）：
+已完成（阶段 1-14，功能完整 + 代码加固；阶段 15 桌面 Widget 已完成）：
 1. 搭项目（Compose 模板）✅
 2. 做首页（班组下拉框 + 今日班次 + 进度）✅
 3. 实现"倒班计算核心逻辑"（含班组偏移支持）✅
@@ -223,9 +261,18 @@ app/
 6. 设置页（自定义倒班规则 + DataStore 持久化 + Navigation Compose 导航）✅
 7. 日历提醒（Calendar Provider 本地日历日程 + 每班次独立时间 + 系统提醒 + 跨品牌兼容 + 365 天覆盖）✅
 8. 代码加固与测试补全（阶段 11-14，已完成）✅
-9. 桌面小组件（阶段 15，规划中）—— Jetpack Glance 实现 Compose 式 Widget，在桌面显示今日班次与进度
+9. 桌面小组件（阶段 15，已完成）—— Jetpack Glance 实现 Compose 式 Widget，在桌面显示今日班次与进度
+10. 夜班提醒日期修复（已完成）—— NIGHT 班次日历事件前移一天
+11. 首页精品化升级（阶段 16，已完成）—— 组件化 UI 升级，双轨制渐进接入
+12. 日历独立路由（2026-05-14，已完成）—— 日历从首页拆分为独立导航页面，Scaffold + TopAppBar + TeamDropdown
+13. TodayShiftCard 重设计（2026-05-14，已完成）—— 横向布局 + 进度条 + 圆形班次徽章 + 距休标识
+14. Widget 美化（2026-05-14，已完成）—— 对齐首页卡片风格，简化设计，新增距休信息
+15. V2 完整 UI 设计系统（阶段 17，已完成）—— Design Token 系统 + Dark Productivity Design + 底部导航（首页/日历/我的）+ 牛马指数 + Profile 页
+16. 倒班规则编辑器重设计（阶段 18，已完成）—— 两步向导式规则编辑（按钮构建序列 + 日期保存）+ 规则/提醒拆分为独立页面
+17. 首页精简 —— 移除与底部导航重复的 `TeamDropdown` / `QuickActionsRow`
 
-全部规划功能已完成，应用功能完整，单元测试全部通过（75 用例，9 个测试文件，BUILD SUCCESSFUL）。
+全部规划功能已完成，应用功能完整，单元测试全部通过（BUILD SUCCESSFUL）。
+V2 UI 设计系统已实施，设置页已拆分重构。
 
 ---
 
@@ -246,7 +293,7 @@ app/
 SettingsRepository (DataStore)
        │
        ▼
-computeWidgetShiftData()   ← domain 层纯函数，复用 getShiftInfo()
+computeWidgetShiftData()   ← domain 层纯函数，复用 getShiftInfo() + daysUntilNextRest()
        │
        ▼
 ShiftWidget.provideGlance()  ← GlanceAppWidget，读取 DataStore + 计算 + 渲染
@@ -255,8 +302,11 @@ ShiftWidget.provideGlance()  ← GlanceAppWidget，读取 DataStore + 计算 + �
 ShiftWidgetReceiver         ← 系统 Receiver，注册在 AndroidManifest
 ```
 
+Widget 布局对齐首页卡片：圆角 Box 徽章（白字班次）+ 班组名/"第 X/Y 天" + 距休/休息日标识 + 日期页脚。进度用纯文字（Glance 不支持进度条组件）。
+
 ### 更新策略
 
 * **系统周期**：`updatePeriodMillis=3600000`（1小时）
 * **App 内主动**：设置保存后 + onResume 广播 `ACTION_APPWIDGET_UPDATE`
 * **用户触发**：点击 Widget 打开 App → onResume → 刷新
+* **Widget 尺寸**：`minWidth=250dp`, `minHeight=40dp`, `targetCellWidth=4`, `targetCellHeight=1`

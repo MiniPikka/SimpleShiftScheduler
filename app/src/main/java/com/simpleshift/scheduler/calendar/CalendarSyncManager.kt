@@ -107,7 +107,8 @@ class CalendarSyncManager(
         val phaseOffset = (shiftSettings.defaultTeamId - 1) *
             (shiftSettings.shiftCycle.size / Team.TOTAL_TEAMS)
         val newEventIds = calendarEventManager.syncShiftEvents(
-            alarmSettings, shiftSettings.shiftCycle, phaseOffset, eventIds
+            alarmSettings, shiftSettings.shiftCycle, phaseOffset, eventIds,
+            referenceDate = shiftSettings.referenceDate
         )
         settingsRepository.saveCalendarEventIds(newEventIds)
     }
