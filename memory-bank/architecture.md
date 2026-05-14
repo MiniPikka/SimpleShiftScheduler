@@ -1200,3 +1200,209 @@ KEY_SHIFT_PREMIUMS = stringPreferencesKey("shift_premiums")
 - `SettingsRepositoryTest.kt` — 追加 2 个津贴配置测试用例
 - `MainActivity.kt` — 新增 `"salary_predictor"` 路由 + ViewModel factory + `currentSalaryConfig` 状态流
 - `ui/profile/ProfileScreen.kt` — 新增"倒班津贴"入口 + `onSalaryPredictorClick` 回调
+
+---
+
+## 17. 阶段 22 架构更新：图片分享功能（已完成）
+
+将同事模式的共同休息结果转化为一张精美的分享长图（含 QR 码），调起系统原生分享面板。首期仅覆盖同事模式。
+
+### 技术背景：Compose BOM 2023.10.01 约束
+
+Compose BOM 2023.10.01 对应 Compose UI ~1.5.x，**不支持 `GraphicsLayer.toBitmap()`**（1.7+ 才加入）。最终采用的离屏渲染方案：
+1. `suspend fun Activity.renderComposableToBitmap()` — 临时 attach ComposeView 到 decorView（alpha=0）
+2. `setContent { LaunchedEffect(Unit) { resume() } }` 等待首帧组合完成
+3. `measure(EXACTLY)` + `layout(0, 0, w, h)` 强制像素布局
+4. `draw(Canvas(bitmap))` 绘制到目标 Bitmap
+5. `finally { decorView.removeView(composeView) }` 保证清理
+
+初版尝试 `ComposeView` 不 attach 到 Window 直接 `setContent`，结果报错 `Cannot locate windowRecomposer; View is not attached to a window`。`ComposeView` 必须附着到 Window 才能获取 `WindowRecomposer`。
+
+### 架构分层
+
+```
+domain/qr_code_generator.kt        ← 纯函数：String → Bitmap（ZXing QRCodeWriter）
+       │
+       ▼
+util/ShareImageRenderer.kt         ← ComposeView 离屏渲染 + 文件缓存 + 清理
+       │
+       ▼
+ui/colleague_mode/ShareCardLayout.kt ← @Composable 分享图布局 + ShareCardData 数据模型
+       │
+       ▼
+ColleagueModeViewModel.startShare()  ← 状态管理（isSharing/shareUri/shareError）+ 异步流程
+       │
+       ▼
+ColleagueModeScreen ShareButton      ← LaunchedEffect 监听 shareUri → 弹出系统分享面板
+```
+
+### FileProvider 安全模型
+
+```
+App 私有目录 (cacheDir/share_images/)
+       │
+       ▼
+FileProvider.getUriForFile() → content://com.simpleshift.scheduler.fileprovider/share_images/xxx.png
+       │
+       ▼
+Intent + FLAG_GRANT_READ_URI_PERMISSION → 微信/QQ 等第三方 App 获得临时读取权限
+```
+
+- `exported="false"`：外部 App 不可直接访问 FileProvider
+- `grantUriPermissions="true"`：允许通过 Intent Flag 临时授权
+- `cache-path`：存入缓存目录，系统空间不足时自动清理
+
+### ShareCardData 数据模型（ViewModel-agnostic）
+
+```kotlin
+data class ShareCardData(
+    val teamAName: String,
+    val teamBName: String,
+    val nextCommonRestDate: String,    // "5月28日"
+    val nextCommonRestWeekday: String, // "星期三"
+    val daysUntilNext: Int,
+    val countIn30Days: Int,
+    val countIn60Days: Int,
+    val commonRestDateItems: List<String>, // 最多 12 项
+    val dateRange: String,
+    val qrCodeBitmap: Bitmap
+)
+```
+
+> 数据模型不含任何 ViewModel/Context 引用，`ShareCardLayout` 可独立 Preview 和离屏渲染。
+
+### ColleagueModeViewModel 分享状态
+
+```kotlin
+data class ColleagueModeUiState(
+    // ... 现有字段 ...
+    val isSharing: Boolean = false,   // 正在生成分享图（UI 显示 loading）
+    val shareUri: Uri? = null,        // 非 null → LaunchedEffect 弹出分享
+    val shareError: String? = null    // 生成失败时显示错误
+)
+```
+
+### 线程编排
+
+```
+用户点击分享
+  → isSharing = true（UI 立即反馈）
+  → viewModelScope.launch {
+        Dispatchers.Default: 构建 ShareCardData + generateQrCodeBitmap()
+        Dispatchers.Main:    renderComposableToBitmap(1080, 1920)
+        Dispatchers.IO:      saveBitmapToShareCache() → content:// Uri
+        Main (implicit):     shareUri = uri, isSharing = false
+    }
+  → LaunchedEffect(shareUri): startActivity(Intent.ACTION_SEND)
+  → onShareComplete(): shareUri = null
+```
+
+### 缓存清理策略
+
+- 触发点：`MainActivity.onCreate()` + 每次 `startShare()` 前
+- 策略：删除 24 小时前修改的文件
+- 位置：`context.cacheDir/share_images/`
+- 权限：无额外权限需求（`cacheDir` 是 App 私有目录）
+
+### 分享图 Layout 关键参数
+
+- 宽度：固定 1080px（360dp × 3x，主流分享图分辨率，微信朋友圈适配好）
+- 高度：约 1920px（9:16 比例，内容自适应）
+- 背景：V2 `DarkBackground`（`#0B0D10`）
+- 主卡片：V2 渐变背景 + `V2CardShape` 28dp 圆角
+- 日期字号：48sp Bold（与 V2TodayShiftCard 的吨位一致）
+- QR 码：200×200dp，居中展示
+- 字体：使用 `MaterialTheme.typography`（自动跟随系统深浅模式不会影响 Bitmap 输出——Bitmap 没有主题切换概念）
+
+### 洞察 RR：离屏渲染要避开 View 生命周期
+
+`ComposeView` 在未 attach 到 Window 时不会有 `onDraw` 回调，但 `setContent` 会立即触发 Compose 组合。`measure/layout` 强制执行后，`draw(Canvas)` 能将已组合的内容同步绘制到 Bitmap。整个过程不依赖 Choreographer、不等待下一帧。
+
+### 洞察 SS：QR 码 URL 集中管理是低耦合关键
+
+`SHARE_QR_URL` 常量在 `qr_code_generator.kt` 顶部，全 App 唯一引用点。上架后替换为应用商店链接时只需改一行。后续可持续为远程配置（Firebase Remote Config / API 下发）——改动范围仍局限在该文件内。
+
+### 洞察 TT：首期只做同事模式是最优范围决策
+
+同事模式的 `CommonRestResult` 数据模型扁平（一个日期 + 列表 + 两个计数），一张图即可覆盖全部信息。拼假神器需要处理"多条策略 + MiniCalendarBar"的分页渲染、倒班津贴涉及收入隐私。先验证同事模式的传播效果，再决定是否扩展到其他页面。
+
+### 阶段 22 新增文件
+
+- `domain/qr_code_generator.kt` — QR 码生成纯函数（~35 行）
+- `util/ShareImageRenderer.kt` — ComposeView 离屏渲染 + 缓存管理（~70 行）
+- `ui/colleague_mode/ShareCardLayout.kt` — 分享图 Composable + ShareCardData（~180 行）
+- `res/xml/file_paths.xml` — FileProvider 路径配置
+- `ShareImageTest.kt` — 8 个单元测试
+
+### 阶段 22 改造文件
+
+- `app/build.gradle.kts` — 新增 `zxing:core:3.5.3`
+- `AndroidManifest.xml` — 新增 FileProvider `<provider>`
+- `viewmodel/ColleagueModeViewModel.kt` — isSharing/shareUri/shareError + startShare/onShareComplete
+- `ui/colleague_mode/ColleagueModeScreen.kt` — 分享按钮 + LaunchedEffect 弹出分享
+- `MainActivity.kt` — cleanupOldShareImages() 调用
+
+---
+
+## 18. 阶段 23 架构更新：提醒时间选择器改进（已完成）
+
+### 问题
+
+`AlarmSettingsScreen.AlarmTimePickerDialog` 使用两个独立 `OutlinedTextField`（时/分分离输入），键盘弹出遮挡、易出错、不符合用户习惯。
+
+### 方案决策
+
+经对比 Android 原生 `TimePickerDialog` vs 升级 Compose BOM + Material3 `TimePicker`，**选择方案 B**：
+- Kotlin `1.9.20→1.9.24` + Compiler `1.5.4→1.5.14` + BOM `2023.10.01→2024.04.00`
+- Material3 `1.1.2→1.2.1` → 获得 `TimePicker` + `rememberTimePickerState` + `AutoMirrored` icons
+- 升级路径全在同主版本内（Kotlin 1.9.x / Compiler 1.5.x），非跨大版本，150 个测试零回归
+
+### Material3 TimePicker 实现
+
+`ShiftAlarmRow` 中：
+```kotlin
+val state = rememberTimePickerState(
+    initialHour = alarmTime?.hour ?: 7,
+    initialMinute = alarmTime?.minute ?: 0,
+    is24Hour = true
+)
+
+AlertDialog(
+    title = { Text("${label}班 提醒时间") },
+    text = { TimePicker(state = state) },
+    confirmButton = { TextButton { onEdit(AlarmTime(state.hour, state.minute)) } },
+    dismissButton = {
+        Row {
+            if (alarmTime != null) {
+                TextButton(onClick = onRemove) { Text("关闭提醒", color = error) }
+            }
+            TextButton(onClick = { showDialog = false }) { Text("取消") }
+        }
+    }
+)
+```
+
+`TimePicker` 自动应用 V2 Design Token 主题色，`rememberTimePickerState` 管理时钟状态。删除整个 `AlarmTimePickerDialog` composable（~70 行）。
+
+### 工具链升级
+
+| 组件 | 旧 | 新 |
+|------|----|----|
+| Kotlin | 1.9.20 | 1.9.24 |
+| Compose Compiler | 1.5.4 | 1.5.14 |
+| Compose BOM | 2023.10.01 | 2024.04.00 |
+| Material3 | 1.1.2 | 1.2.1 |
+
+AGP 8.2.0 / Gradle 8.4 不变。所有升级在同主版本内，零编译错误、零测试回归。
+
+### 洞察 UU：升级 BOM 的一次投入、长期受益
+
+BOM 2023.10.01 是 2023 年 10 月版本，一年半未更新。升级到 2024.04.00 后：
+- Material3 `TimePicker` / `DateRangePicker` / `BottomSheet` 改进等新 API 开放
+- `AutoMirrored` icons 自动处理 RTL 布局（之前用的 `ArrowBack` 不会在 RTL 下翻转）
+- Compose 1.6.x 渲染管线性能提升（`LazyColumn` / `LazyVerticalGrid` 滚动优化）
+- 解锁后续：`GraphicsLayer.toBitmap()` 在 Compose 1.7+ 可用，图片分享可省去 `suspendCoroutine` 等待
+
+### 洞察 VV：TimePicker 实验性 API 标记不影响生产使用
+
+Material3 1.2.x 中 `TimePicker` / `rememberTimePickerState` 标记 `@ExperimentalMaterial3Api`，但 Material3 的实验性 API 通常在次版本变为稳定。加 `@OptIn` 即可编译通过，不影响运行时行为。

@@ -1458,3 +1458,176 @@ O(n)，n ≤ 365。约 30 行纯函数。
 ### 为何只算班次补贴
 
 基本工资、餐补、五险一金、个税——每个企业发放方式不同，算不准反而失信。班次补贴是唯一 100% 由倒班表决定的收入，算得准、零维护、普适所有倒班企业。
+
+---
+
+## 2026-05-14：阶段 22 实施完成
+
+### 阶段 22：图片分享功能（社交传播）✅
+
+**22.1 ZXing 依赖 + FileProvider 配置**
+- 新增：`res/xml/file_paths.xml` — cache-path 定义
+- 改造：`app/build.gradle.kts` — 新增 `zxing:core:3.5.3`
+- 改造：`AndroidManifest.xml` — 新增 FileProvider `<provider>`
+
+**22.2 Domain 层 QR 码生成**
+- 新增：`domain/qr_code_generator.kt`（~35 行）— QRCodeWriter 编码 + BitMatrix → Bitmap
+- 常量 `SHARE_QR_URL = "https://www.bilibili.com"` 集中管理，上架后替换
+
+**22.3 图片渲染工具**
+- 新增：`util/ShareImageRenderer.kt`（~80 行）
+  - `renderComposableToBitmap()` — suspend 函数，临时 attach ComposeView 到 Activity decorView（alpha=0），用 `suspendCoroutine` + `LaunchedEffect(Unit)` 等待首帧，measure/layout/draw 后 finally 移除
+  - `saveBitmapToShareCache()` — PNG 写入 cacheDir → FileProvider Uri
+  - `cleanupOldShareImages()` — 24h TTL 过期文件清理
+
+**22.4 分享图 Composable 布局**
+- 新增：`ui/colleague_mode/ShareCardLayout.kt`（~220 行）— ShareCardData 数据模型 + ShareCardLayout @Composable
+- 1080px 宽固定像素级布局，V2 Dark Productivity Design 风格
+
+**22.5 ViewModel 分享状态**
+- 改造：`viewmodel/ColleagueModeViewModel.kt`
+- `ColleagueModeUiState` 新增：`isSharing`/`shareUri`/`shareError`
+- 新增方法：`startShare(activity)`/`onShareComplete()`/`clearShareError()`/`buildShareCardData()`
+
+**22.6 UI 分享按钮 + 触发系统分享**
+- 改造：`ui/colleague_mode/ColleagueModeScreen.kt`
+- TopAppBar 新增 Share IconButton（有结果且不同班组时可用）
+- `LaunchedEffect(shareUri)` → `Intent.ACTION_SEND` + `FLAG_GRANT_READ_URI_PERMISSION`
+- `SnackbarHost` + error 显示
+
+**22.7 缓存清理**
+- 改造：`MainActivity.kt` — `onCreate()` 中调用 `cleanupOldShareImages()`
+
+**22.8 单元测试** — 8 个测试全部通过
+- 新增：`ShareImageTest.kt`（8 用例）
+- 覆盖：QR 非空/尺寸/黑白像素/不同内容差异/URL 合法性/ShareCardData 构造/缓存过期清理/空目录处理
+
+### 离线渲染修复
+
+初版 `renderComposableToBitmap` 直接创建未 attach 的 `ComposeView`，报错 `Cannot locate windowRecomposer; View is not attached to a window`。
+
+**修复**：改为 `suspend fun Activity.renderComposableToBitmap()`：
+1. `decorView.addView(composeView)` 临时 attach（alpha=0 不可见）
+2. `setContent { LaunchedEffect(Unit) { resume() } }` 等待首帧组合
+3. `measure/layout` → `draw(Canvas(bitmap))`
+4. `finally { decorView.removeView(composeView) }`
+
+### 新增/改造文件汇总
+
+| 新增（5 个） | 改造（5 个） |
+|-------------|-------------|
+| `domain/qr_code_generator.kt` | `app/build.gradle.kts` |
+| `util/ShareImageRenderer.kt` | `AndroidManifest.xml` |
+| `ui/colleague_mode/ShareCardLayout.kt` | `viewmodel/ColleagueModeViewModel.kt` |
+| `res/xml/file_paths.xml` | `ui/colleague_mode/ColleagueModeScreen.kt` |
+| `ShareImageTest.kt`（8 用例） | `MainActivity.kt` |
+
+### 构建与测试
+
+```bash
+./gradlew assembleDebug        # BUILD SUCCESSFUL（零警告）
+./gradlew testDebugUnitTest    # BUILD SUCCESSFUL（150 个测试全部通过）
+```
+
+零回归。测试覆盖从 142 扩展到 150 个用例（+8），16 个测试文件。
+
+### 线程安全编排
+
+```
+用户点击分享 → isSharing = true (UI loading)
+  → Dispatchers.Default: buildShareCardData + generateQrCodeBitmap
+  → Main (suspend):      Activity.renderComposableToBitmap (decorView attach + 等待首帧 + draw)
+  → Dispatchers.IO:      saveBitmapToShareCache (PNG 写入)
+  → LaunchedEffect:      Intent.ACTION_SEND 弹出系统分享面板
+```
+
+### 分享图 Layout 尺寸
+
+- 宽：1080px 固定（360dp × 3x），微信朋友圈标准分辨率
+- 高：~1920px（内容自适应，9:16 比例）
+- 格式：PNG 无损
+
+### 暂缓（V2.2+）
+
+- 拼假神器分享图（需分页渲染策略卡片列表）
+- 倒班津贴分享图（收入隐私敏感）
+- 多分辨率适配（动态缩放）
+- SHARE_QR_URL 远程配置（Firebase Remote Config）
+
+---
+
+## 2026-05-14：阶段 23 实施完成
+
+### 阶段 23：提醒时间选择器改进 ✅
+
+**方案决策**：经对比 Android 原生 `TimePickerDialog` vs 升级 BOM + Material3 `TimePicker`，**选择方案 B（升级 BOM）**。理由：升级路径全在 Kotlin 1.9.x / Compiler 1.5.x 同主版本内，风险可控；一次升级长期受益（后续开发不受 BOM 2023.10.01 限制）；Material3 TimePicker 视觉与 V2 Design Token 完全一致。
+
+**23.1 工具链升级**
+- 改造：`build.gradle.kts` (root) — Kotlin `1.9.20` → `1.9.24`
+- 改造：`app/build.gradle.kts` — Compose Compiler `1.5.4` → `1.5.14`；BOM `2023.10.01` → `2024.04.00`
+- Material3 自动从 `1.1.2` → `1.2.1`（TimePicker + AutoMirrored icons 等新 API）
+- AGP 8.2.0 / Gradle 8.4 保持不变
+
+**23.2 构建 + 测试验证**（安全检查点）
+- `./gradlew assembleDebug` — BUILD SUCCESSFUL（6 个新 deprecation warnings：`LinearProgressIndicator` lambda 形式、`ArrowBack` AutoMirrored、`KeyboardArrowLeft/Right` AutoMirrored，均为 Material3 1.2.x 正常 API 迁移）
+- `./gradlew testDebugUnitTest` — BUILD SUCCESSFUL（150 测试全部通过，零回归）
+
+**23.3 Material3 TimePicker 实现**
+- 改造：`ui/settings/AlarmSettingsScreen.kt`
+  - 删除 `AlarmTimePickerDialog` composable（~70 行，两个 `OutlinedTextField` 时/分分离输入）
+  - `ShiftAlarmRow` 中改用 `rememberTimePickerState` + `TimePicker` + `AlertDialog`
+  - "关闭提醒"：`dismissButton` Row 中两个按钮（红色"关闭提醒" + "取消"）
+  - `ArrowBack` 迁移至 `Icons.AutoMirrored.Filled.ArrowBack`（消除新 BOM 的 deprecation warning）
+  - 新增 `@OptIn(ExperimentalMaterial3Api::class)`（TimePicker 在 Material3 1.2.x 为实验性 API）
+
+**23.4 最终验证**
+- `./gradlew assembleDebug` — BUILD SUCCESSFUL（零警告）
+- `./gradlew testDebugUnitTest` — BUILD SUCCESSFUL（150 测试全部通过）
+
+### 升级汇总
+
+| 组件 | 旧版本 | 新版本 |
+|------|--------|--------|
+| Kotlin | 1.9.20 | 1.9.24 |
+| Compose Compiler | 1.5.4 | 1.5.14 |
+| Compose BOM | 2023.10.01 | 2024.04.00 |
+| Material3 | 1.1.2 | 1.2.1 |
+| Compose UI | 1.5.4 | 1.6.1 |
+
+### 改造成果
+
+| 文件 | 改动 | 净效果 |
+|------|------|--------|
+| `build.gradle.kts` (root) | Kotlin 版本号 | 1 行 |
+| `app/build.gradle.kts` | Compiler + BOM 版本号 | 2 行 |
+| `AlarmSettingsScreen.kt` | AlarmTimePickerDialog → Material3 TimePicker | 删除 ~70 行，新增 ~40 行，净减 ~30 行 |
+
+---
+
+## 2026-05-14：阶段 24 实施完成
+
+### 阶段 24：Material3 1.2.x deprecation cleanup ✅
+
+阶段 23 BOM 升级后 Material3 1.2.x 引入了 13 个 deprecation warnings（分布在 9 个文件中），全部清零。
+
+**ArrowBack → Icons.AutoMirrored.Filled.ArrowBack**（6 文件）：
+- `CalendarScreen.kt`、`ColleagueModeScreen.kt`、`LeaveOptimizerScreen.kt`、`SalaryPredictorScreen.kt`、`SettingsScreen.kt`、`ShiftRuleEditorScreen.kt`
+
+**KeyboardArrowLeft/Right → AutoMirrored**（2 文件）：
+- `CalendarScreen.kt`、`SalaryPredictorScreen.kt`
+
+**LinearProgressIndicator(Float) → lambda**（2 文件）：
+- `V2TodayShiftCard.kt`：`progress = progress` → `progress = { progress }`
+- `TodayShiftCard.kt`：`progress = dayOfCycle.toFloat() / totalDays.toFloat()` → `progress = { dayOfCycle.toFloat() / totalDays.toFloat() }`
+
+**测试 "No cast needed"**（1 文件）：
+- `AlarmSettingsTest.kt`：`null as AlarmTime?` → `null`（+ 显式类型声明）
+
+### 构建与测试
+
+```bash
+./gradlew clean assembleDebug     # BUILD SUCCESSFUL（零警告！）
+./gradlew testDebugUnitTest       # BUILD SUCCESSFUL（150 测试零回归）
+```
+
+全部机械替换，零逻辑变更，零风险。

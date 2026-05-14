@@ -26,7 +26,7 @@ class AlarmSettingsTest {
 
     @Test
     fun `isAnyEnabled returns true when at least one enabled`() {
-        val alarms = ShiftType.entries.associateWith { null as AlarmTime? } +
+        val alarms: Map<ShiftType, AlarmTime?> = ShiftType.entries.associateWith { null } +
                 (ShiftType.MORNING to AlarmTime(6, 0))
         val settings = AlarmSettings(alarms)
         assertTrue(settings.isAnyEnabled())

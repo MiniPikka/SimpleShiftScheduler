@@ -65,6 +65,7 @@ import com.simpleshift.scheduler.ui.settings.AlarmSettingsScreen
 import com.simpleshift.scheduler.ui.settings.SettingsScreen
 import com.simpleshift.scheduler.ui.settings.ShiftRuleEditorScreen
 import com.simpleshift.scheduler.ui.theme.ShiftSchedulerTheme
+import com.simpleshift.scheduler.util.cleanupOldShareImages
 import com.simpleshift.scheduler.viewmodel.AlarmSettingsViewModel
 import com.simpleshift.scheduler.viewmodel.CalendarViewModel
 import com.simpleshift.scheduler.viewmodel.ColleagueModeViewModel
@@ -99,6 +100,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        cleanupOldShareImages()
 
         settingsRepository = SettingsRepository(applicationContext)
         val calendarEventManager = CalendarEventManager(this)
@@ -399,7 +402,6 @@ class MainActivity : ComponentActivity() {
                                         }
                                     )
                                     val colleagueUiState by colleagueModeViewModel.uiState.collectAsState()
-                                    val homeUiState by homeViewModel.uiState.collectAsState()
 
                                     LaunchedEffect(runtimeSettings) {
                                         // Set default team A to user's current team
@@ -415,7 +417,10 @@ class MainActivity : ComponentActivity() {
                                         onTeamASelected = { colleagueModeViewModel.setTeamA(it) },
                                         onTeamBSelected = { colleagueModeViewModel.setTeamB(it) },
                                         onSwapTeams = { colleagueModeViewModel.swapTeams() },
-                                        onNavigateBack = { navController.popBackStack() }
+                                        onNavigateBack = { navController.popBackStack() },
+                                        onShareClick = { activity -> colleagueModeViewModel.startShare(activity) },
+                                        onShareComplete = { colleagueModeViewModel.onShareComplete() },
+                                        onClearShareError = { colleagueModeViewModel.clearShareError() }
                                     )
                                 }
 

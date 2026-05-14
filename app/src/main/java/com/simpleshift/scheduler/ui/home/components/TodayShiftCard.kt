@@ -103,7 +103,7 @@ fun TodayShiftCard(
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         LinearProgressIndicator(
-                            progress = dayOfCycle.toFloat() / totalDays.toFloat(),
+                            progress = { dayOfCycle.toFloat() / totalDays.toFloat() },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(8.dp),

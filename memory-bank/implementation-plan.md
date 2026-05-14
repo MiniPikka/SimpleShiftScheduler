@@ -3064,6 +3064,557 @@ class SalaryPredictorViewModel(
 | 改造 | `MainActivity.kt` — 新增路由 + ViewModel factory |
 | 改造 | `ui/profile/ProfileScreen.kt` — 新增"倒班津贴"入口 |
 
+# ✅ 阶段 22：图片分享功能（社交传播）
+
+## 核心目标
+
+实现一个稳健的图片生成与分享流程：将同事模式的共同休息结果转化为一张精美的分享长图，包含应用二维码，并调起系统原生分享面板。首期只覆盖同事模式（传播价值最高），拼假神器/倒班津贴分享暂缓。
+
+## 背景：外部提案评估
+
+收到了一份"图片分享功能开发计划"，经代码库对齐后修订如下：
+
+| 原提案 | 评估 | 修正 |
+|--------|------|------|
+| 引用 `HolidayViewModel` | **不存在** — 实际为 `LeaveOptimizerViewModel` | 首期只做 `ColleagueModeViewModel` |
+| `ImageShareManager` 接口 | **过度抽象** — 项目无 DI，domain 层是纯函数 | 拆为 domain 纯函数 + util 工具类 |
+| 二维码无目标 URL | **装饰元素** | `SHARE_QR_URL` 常量集中管理，当前 `"https://www.bilibili.com"` |
+| 三页面同时做 | **范围过大** | 首期只做同事模式（社交裂变核心） |
+| Compose-to-Bitmap `Picture` 方案 | **未确认版本** | Compose BOM 2023.10.01 → `ComposeView` 离屏方案 |
+| 无 Layout 规格 | **无法执行** | 给出完整 1080×~1920px 像素级 Layout |
+| 无测试用例 | **不可验证** | 明确 8 个测试用例 |
+
+## 技术方案
+
+| 项 | 选择 |
+|---|------|
+| 二维码生成 | `com.google.zxing:core:3.5.3`（纯 QR 编码，不需要 embedded 包） |
+| 离屏渲染 | `ComposeView` + `measure/layout/draw` → `Bitmap`（`Dispatchers.Main`） |
+| 输出规格 | 宽度固定 1080px，高度自适应内容（约 1920px），PNG |
+| 文件存储 | `context.cacheDir/share_images/` → FileProvider `content://` Uri |
+| 分享 Intent | `ACTION_SEND` + `image/png` + `EXTRA_STREAM` + `FLAG_GRANT_READ_URI_PERMISSION` |
+| 缓存清理 | App 启动时 + 每次分享前，清理 24h 前文件 |
+| QR URL | 常量 `SHARE_QR_URL`（上架后替换为应用商店链接） |
+
+## 分享图 Layout 设计（ShareCardLayout — 1080px 宽）
+
+```
+┌──────────────────────────────────────┐
+│                                      │
+│           倒班助手                    │  App 名称
+│                                      │
+│         下次同时休息                   │  Section 标题
+│                                      │
+│  ┌──────────────────────────────┐   │
+│  │                              │   │  V2 风格主卡片
+│  │         5月28日               │   │  48sp Bold + 渐变背景
+│  │         星期三                │   │
+│  │        距今 14 天             │   │  倒计时
+│  │      我是一值，他是三值        │   │  班组信息
+│  └──────────────────────────────┘   │
+│                                      │
+│  ┌──────────────┬──────────────┐    │
+│  │  未来30天      │  未来60天     │    │  统计行
+│  │   共同休息     │   共同休息    │    │
+│  │    3 次       │    7 次     │    │
+│  └──────────────┴──────────────┘    │
+│                                      │
+│  共同休息日：                         │
+│  • 5月28日 星期三                    │  前 12 条日期列表
+│  • 6月03日 星期二                    │
+│  • ...                              │
+│                                      │
+│  ┌─ QR Code (200×200dp) ───┐       │
+│  │    扫码下载倒班助手       │       │  二维码 + 引导文案
+│  └──────────────────────────┘       │
+│                                      │
+│    倒班助手 · 你的智能排班管家         │  Slogan
+│    分析范围：2026/05/14 — 12/31       │  数据范围说明
+└──────────────────────────────────────┘
+```
+
+## 实施步骤
+
+| Step | 内容 | 新增文件 | 改造文件 |
+|------|------|---------|---------|
+| 22.1 | ZXing 依赖 + FileProvider 配置 | `res/xml/file_paths.xml` | `app/build.gradle.kts`, `AndroidManifest.xml` |
+| 22.2 | Domain 层 QR 码生成工具 | `domain/qr_code_generator.kt` | — |
+| 22.3 | 图片渲染工具（离屏渲染 + 缓存） | `util/ShareImageRenderer.kt` | — |
+| 22.4 | 分享图 Composable 布局 + 数据模型 | `ui/colleague_mode/ShareCardLayout.kt` | — |
+| 22.5 | ViewModel 扩展（分享状态 + 生成流程） | — | `viewmodel/ColleagueModeViewModel.kt` |
+| 22.6 | UI — 分享按钮 + 触发系统分享面板 | — | `ui/colleague_mode/ColleagueModeScreen.kt` |
+| 22.7 | 缓存清理 + MainActivity 集成 | — | `MainActivity.kt` |
+| 22.8 | 单元测试（8 用例） | `ShareImageTest.kt` | — |
+| 22.9 | 文档更新 | — | memory-bank 全部 5 文件 |
+
+---
+
+## Step 22.1：ZXing 依赖 + FileProvider 配置
+
+**目标**：引入二维码编码库，配置安全的文件分享 Uri 基础设施。
+
+### 22.1a — `app/build.gradle.kts`
+
+在 `datastore-preferences` 依赖下方新增：
+```kotlin
+// QR code generation (ZXing core only — no camera scanning needed)
+implementation("com.google.zxing:core:3.5.3")
+```
+
+> 为什么是 `zxing:core` 而非 `zxing-android-embedded`？后者捆绑了相机扫描 Activity 和额外的 UI 组件，本项目仅需 `QRCodeWriter` 做编码，`core` 体积更小。
+
+### 22.1b — `res/xml/file_paths.xml`（新增）
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <cache-path name="share_images" path="share_images/" />
+</paths>
+```
+
+> `cache-path`：文件存入内部缓存目录。系统清理缓存时自动删除，应用卸载时一并清除。比 `files-path` 更安全——不会永久占用用户存储。
+
+### 22.1c — `AndroidManifest.xml`
+
+在 `<application>` 内、`<activity>` 之前新增：
+```xml
+<provider
+    android:name="androidx.core.content.FileProvider"
+    android:authorities="${applicationId}.fileprovider"
+    android:exported="false"
+    android:grantUriPermissions="true">
+    <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/file_paths" />
+</provider>
+```
+
+> `exported="false"` + `grantUriPermissions="true"`：只有本 App 可以直接访问文件；通过 `Intent.FLAG_GRANT_READ_URI_PERMISSION` 临时授权给目标 App（微信等）。
+
+---
+
+## Step 22.2：Domain 层 QR 码生成
+
+**目标**：纯函数将链接字符串编码为 Android `Bitmap`。
+
+**新增文件**：`domain/qr_code_generator.kt`（~35 行）
+
+```kotlin
+package com.simpleshift.scheduler.domain
+
+import android.graphics.Bitmap
+import android.graphics.Color
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
+
+/** QR 码链接。上架后替换为应用商店 URL */
+const val SHARE_QR_URL = "https://www.bilibili.com"
+
+/**
+ * 生成 QR 码 Bitmap。ZXing QRCodeWriter → BitMatrix → Android Bitmap。
+ * @param content 编码内容
+ * @param sizePx 输出边长（像素），默认 600（200dp × 3x 密度）
+ * @return ARGB_8888 Bitmap，黑前景白背景
+ */
+fun generateQrCodeBitmap(content: String, sizePx: Int = 600): Bitmap {
+    val bitMatrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, sizePx, sizePx)
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    for (x in 0 until sizePx) {
+        for (y in 0 until sizePx) {
+            bitmap.setPixel(x, y, if (bitMatrix[x, y]) Color.BLACK else Color.WHITE)
+        }
+    }
+    return bitmap
+}
+```
+
+> 虽然 `android.graphics.Bitmap` 引入 Android 平台依赖，但它属于 Android 基础设施类型（如同 `Context`、`Uri`）。测试可通过 `Bitmap.getPixel()` 验证编码正确性，无需 Robolectric。
+
+---
+
+## Step 22.3：图片渲染工具
+
+**目标**：将任意 `@Composable` 离屏渲染为 `Bitmap`，保存到缓存并返回 FileProvider Uri。
+
+**新增文件**：`util/ShareImageRenderer.kt`（~70 行）
+
+```kotlin
+package com.simpleshift.scheduler.util
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.net.Uri
+import android.view.View
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.ComposeView
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.FileOutputStream
+
+/**
+ * 将 [content] Composable 离屏渲染为固定尺寸的 Bitmap。
+ * 必须在主线程调用 — ComposeView.setContent 需要 Looper。
+ */
+fun Context.renderComposableToBitmap(
+    widthPx: Int,
+    heightPx: Int,
+    content: @Composable () -> Unit
+): Bitmap {
+    val composeView = ComposeView(this).apply {
+        setContent { content() }
+        measure(
+            View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY)
+        )
+        layout(0, 0, widthPx, heightPx)
+    }
+    val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    composeView.draw(canvas)
+    return bitmap
+}
+
+/** 将 Bitmap 按 PNG 格式写入 share_images 缓存目录，返回 content:// URI */
+fun Context.saveBitmapToShareCache(bitmap: Bitmap, filename: String): Uri {
+    val shareDir = File(cacheDir, "share_images").apply { mkdirs() }
+    val file = File(shareDir, "$filename.png")
+    FileOutputStream(file).use { fos ->
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+    }
+    return FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+}
+
+/** 清理 24 小时前的分享缓存文件 */
+fun Context.cleanupOldShareImages() {
+    val shareDir = File(cacheDir, "share_images")
+    if (!shareDir.exists()) return
+    val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+    shareDir.listFiles()?.forEach { file ->
+        if (file.lastModified() < cutoff) file.delete()
+    }
+}
+```
+
+> **ComposeView 离屏渲染原理**：创建未 attach 到 Window 的 `ComposeView` → `setContent` 触发 Compose 组合 → `measure/layout` 强制执行布局 → `draw(Canvas)` 将 View 绘制到目标 Bitmap。整个过程在主线程同步完成，不依赖 Choreographer 回调。已在 Android 5.0+（API 21+）验证可行。
+
+---
+
+## Step 22.4：分享图 Composable 布局
+
+**目标**：定义分享图的数据模型和 Compose 布局。布局独立于 ViewModel，仅接收纯数据对象。
+
+**新增文件**：`ui/colleague_mode/ShareCardLayout.kt`（~180 行）
+
+```kotlin
+data class ShareCardData(
+    val teamAName: String,              // "一值"
+    val teamBName: String,              // "三值"
+    val nextCommonRestDate: String,     // "5月28日"
+    val nextCommonRestWeekday: String,  // "星期三"
+    val daysUntilNext: Int,             // 14
+    val countIn30Days: Int,             // 3
+    val countIn60Days: Int,             // 7
+    val commonRestDateItems: List<String>, // ["5月28日 星期三", ...] 最多12项
+    val dateRange: String,              // "2026/05/14 — 12/31"
+    val qrCodeBitmap: Bitmap            // 由 qr_code_generator 生成
+)
+
+@Composable
+fun ShareCardLayout(data: ShareCardData) {
+    // 1080px 宽布局（像素级，非 dp — 输出到 Bitmap 不需要密度适配）
+    // 结构：App 名称 → 标题 → 主卡片（日期 + 倒计时 + 班组）→ 统计行 →
+    //       共同休息日列表 → 二维码 + 引导文案 → Slogan → 数据范围
+}
+```
+
+> 设计要点：
+> - 宽度固定 1080px（360dp × 3x），主流微信分享图分辨率
+> - 背景色使用 V2 Design Token（`V2Background` = `#0B0D10`）
+> - 主卡片使用 V2 渐变背景 + `V2CardShape`（28dp）圆角
+> - 日期使用 48sp Bold（与 V2TodayShiftCard 风格一致）
+> - 二维码 200×200dp 居中，下方 "扫码下载倒班助手" 引导文案
+> - 列表最多显示前 12 个共同休息日，超出省略
+
+---
+
+## Step 22.5：ViewModel 扩展
+
+**目标**：在 `ColleagueModeViewModel` 中新增分享状态管理和异步图片生成流程。
+
+**改造文件**：`viewmodel/ColleagueModeViewModel.kt`
+
+`ColleagueModeUiState` 新增字段：
+```kotlin
+val isSharing: Boolean = false,   // 正在生成分享图
+val shareUri: Uri? = null,        // 生成完成后非 null
+val shareError: String? = null    // 生成/分享失败时的错误信息
+```
+
+新增方法：
+```kotlin
+fun startShare(context: Context) {
+    // 流程：
+    // 1. set isSharing = true, shareError = null
+    // 2. viewModelScope.launch {
+    //      try {
+    //        构建 ShareCardData（从 result + Team.ALL_TEAMS）
+    //        QR Bitmap = generateQrCodeBitmap(SHARE_QR_URL)  // Default
+    //        ShareCardLayout Bitmap = renderComposableToBitmap(1080, ~1920) // Main
+    //        Uri = saveBitmapToShareCache(...)  // IO
+    //        set shareUri = uri, isSharing = false
+    //      } catch (e: Exception) {
+    //        set shareError = e.message, isSharing = false
+    //      }
+    //    }
+}
+
+fun onShareComplete() {
+    _uiState.value = _uiState.value.copy(shareUri = null)
+}
+
+fun clearShareError() {
+    _uiState.value = _uiState.value.copy(shareError = null)
+}
+```
+
+> 线程编排：`Dispatchers.Main`（renderComposableToBitmap 要求主线程）→ `Dispatchers.IO`（saveBitmapToShareCache 文件写入）。`generateQrCodeBitmap` 可在 Default 执行。
+
+---
+
+## Step 22.6：UI — 分享按钮 + 触发系统分享
+
+**目标**：在同事模式结果页面新增分享按钮，监听 `shareUri` 弹出系统分享面板。
+
+**改造文件**：`ui/colleague_mode/ColleagueModeScreen.kt`
+
+改动点：
+1. TopAppBar `actions` 新增分享 IconButton（`Icons.Default.Share`）
+   - 仅在有结果（`result != null`）且不在生成中时可用
+   - `isSharing` → 显示 `CircularProgressIndicator(strokeWidth = 2.dp)`
+2. `LaunchedEffect(shareUri)`：当 `shareUri != null` 时：
+   ```kotlin
+   val intent = Intent(Intent.ACTION_SEND).apply {
+       type = "image/png"
+       putExtra(Intent.EXTRA_STREAM, shareUri)
+       addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+   }
+   context.startActivity(Intent.createChooser(intent, "分享到"))
+   onShareComplete()
+   ```
+3. Try-catch 包裹 `startActivity`：部分设备可能无支持图片分享的 App → Snackbar 提示
+4. `shareError` 非 null → Snackbar 显示错误 + 可关闭
+
+---
+
+## Step 22.7：缓存清理 + MainActivity 集成
+
+**目标**：App 启动时清理过期分享缓存。
+
+**改造文件**：`MainActivity.kt`
+
+在 `onCreate()` 开头（`super.onCreate()` 之后）新增：
+```kotlin
+cleanupOldShareImages()
+```
+
+无需额外权限、无需 WorkManager。`cacheDir` 内文件操作不需要存储权限。
+
+---
+
+## Step 22.8：单元测试
+
+**新增文件**：`ShareImageTest.kt`（约 8 用例）
+
+| # | 测试用例 | 验证内容 |
+|---|---------|---------|
+| 1 | `generateQrCode returns non-null bitmap` | Bitmap 非 null |
+| 2 | `generateQrCode correct size` | Bitmap.width/height = 指定尺寸 |
+| 3 | `generateQrCode has black pixels` | 遍历像素确认存在 Color.BLACK（编码成功） |
+| 4 | `different content produces different bitmaps` | 两个不同 URL → 像素不同的 Bitmap |
+| 5 | `SHARE_QR_URL is parseable` | `URL(SHARE_QR_URL)` 不抛异常 |
+| 6 | `ShareCardData all fields populated correctly` | 构建后所有字段匹配 |
+| 7 | `cleanupOldShareImages removes expired files` | 旧文件删除，新文件保留 |
+| 8 | `cleanupOldShareImages handles empty/non-existent dir` | 目录不存在时不崩溃 |
+
+---
+
+## 阶段 22 文件变更汇总
+
+| 类型 | 文件 |
+|------|------|
+| 新增 | `domain/qr_code_generator.kt` — QR 码生成纯函数（~35 行） |
+| 新增 | `util/ShareImageRenderer.kt` — ComposeView 离屏渲染 + 缓存管理（~70 行） |
+| 新增 | `ui/colleague_mode/ShareCardLayout.kt` — 分享图 Composable + ShareCardData（~180 行） |
+| 新增 | `res/xml/file_paths.xml` — FileProvider 路径配置 |
+| 新增 | `ShareImageTest.kt` — 8 个测试用例 |
+| 改造 | `app/build.gradle.kts` — 新增 `zxing:core:3.5.3` |
+| 改造 | `AndroidManifest.xml` — 新增 FileProvider `<provider>` |
+| 改造 | `viewmodel/ColleagueModeViewModel.kt` — isSharing/shareUri/shareError/startShare/onShareComplete |
+| 改造 | `ui/colleague_mode/ColleagueModeScreen.kt` — 分享按钮 + LaunchedEffect 弹出分享面板 |
+| 改造 | `MainActivity.kt` — cleanupOldShareImages() |
+
+## 预期新增
+
+- 新增文件：5 个（domain/qr_code_generator.kt, util/ShareImageRenderer.kt, ui/colleague_mode/ShareCardLayout.kt, res/xml/file_paths.xml, ShareImageTest.kt）
+- 改造文件：5 个（build.gradle.kts, AndroidManifest.xml, ColleagueModeViewModel.kt, ColleagueModeScreen.kt, MainActivity.kt）
+- 新增测试：8 个用例
+- 总测试：142 → 150
+
+---
+
+## 暂缓（V2.2+）
+
+| 功能 | 原因 |
+|------|------|
+| 拼假神器分享图 | 策略卡片列表较长需分页渲染，Layout 需独立设计 |
+| 倒班津贴分享图 | 收入信息隐私敏感，分享场景弱 |
+| 多分辨率适配 | 首期固定 1080px，后续根据设备密度动态缩放 |
+| 分享图模板/配色可选 | 多套主题增加复杂度，先验证单模板传播效果 |
+| SHARE_QR_URL 动态化 | 上架后用 Firebase Remote Config 或自身 API 下发 |
+
+---
+
+# ✅ 阶段 23：提醒时间选择器改进
+
+## 方案决策
+
+经评估**方案 B（升级 BOM + Material3 TimePicker）**。理由：
+- 升级路径全在同一主版本内（Kotlin 1.9.x / Compiler 1.5.x），非跨大版本
+- Material3 TimePicker 视觉与 V2 Design Token 一致，可嵌入布局
+- 一次升级，长期受益（Compose 1.6.x + Material3 1.2.x 新 API 对后续开发开放）
+- 150 个测试是安全网
+
+## 技术方案
+
+| 项 | 选择 |
+|---|------|
+| Kotlin | `1.9.20` → `1.9.24` |
+| Compose Compiler | `1.5.4` → `1.5.14` |
+| Compose BOM | `2023.10.01` → `2024.04.00` |
+| Material3 | `1.1.2` → `1.2.1`（随 BOM 自动升级） |
+| 时间选择器 | Material3 `TimePicker` + `rememberTimePickerState` + `AlertDialog` |
+| "关闭提醒" | AlertDialog `dismissButton` 扩展为关闭提醒按钮 |
+
+## 实施步骤
+
+| Step | 内容 | 新增文件 | 改造文件 |
+|------|------|---------|---------|
+| 23.1 | 升级工具链（Kotlin + Compiler + BOM） | — | `build.gradle.kts` (root + app) |
+| 23.2 | 构建 + 测试验证（安全检查点） | — | — |
+| 23.3 | 替换 AlarmTimePickerDialog 为 Material3 TimePicker | — | `AlarmSettingsScreen.kt` |
+| 23.4 | 最终构建 + 测试验证 | — | — |
+| 23.5 | 文档更新 | — | memory-bank 全部 5 文件 |
+
+## Step 23.1：工具链升级
+
+**改造文件**：
+
+1. `build.gradle.kts`（root）：
+   - `kotlin.android` 插件版本：`1.9.20` → `1.9.24`
+
+2. `app/build.gradle.kts`：
+   - `kotlinCompilerExtensionVersion`：`1.5.4` → `1.5.14`
+   - Compose BOM：`2023.10.01` → `2024.04.00`
+
+> Kotlin 1.9.24 ↔ Compose Compiler 1.5.14 是官方验证的组合。
+> AGP 8.2.0 / Gradle 8.4 保持不变。
+
+## Step 23.3：Material3 TimePicker 实现
+
+**改造文件**：`ui/settings/AlarmSettingsScreen.kt`
+
+删除：`AlarmTimePickerDialog` @Composable 函数（~70 行）
+
+替换：`ShiftAlarmRow` 中用 Material3 `TimePicker` + `AlertDialog`：
+
+```kotlin
+if (showDialog) {
+    val state = rememberTimePickerState(
+        initialHour = alarmTime?.hour ?: 7,
+        initialMinute = alarmTime?.minute ?: 0,
+        is24Hour = true
+    )
+
+    AlertDialog(
+        onDismissRequest = { showDialog = false },
+        title = { Text("${label}班 提醒时间") },
+        text = {
+            TimePicker(state = state)
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onEdit(AlarmTime(state.hour, state.minute))
+                showDialog = false
+            }) { Text("确定") }
+        },
+        dismissButton = {
+            Row {
+                if (alarmTime != null) {
+                    TextButton(onClick = {
+                        onRemove()
+                        showDialog = false
+                    }) {
+                        Text("关闭提醒", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = { showDialog = false }) { Text("取消") }
+            }
+        }
+    )
+}
+```
+
+> 改动要点：
+> - `rememberTimePickerState(initialHour, initialMinute, is24Hour = true)` 管理时钟状态
+> - `TimePicker(state)` 渲染 Material3 时钟表盘（V2 主题色自动应用）
+> - `confirmButton` 读出 `state.hour` + `state.minute` 构造 `AlarmTime`
+> - `dismissButton` Row 中两个按钮："关闭提醒"（仅已有提醒时显示，红色）+ "取消"
+> - 删除整个 `AlarmTimePickerDialog` 私有函数（约 70 行，不再需要）
+> - 新增 `import`：`androidx.compose.material3.TimePicker`、`androidx.compose.material3.rememberTimePickerState`
+
+## 阶段 23 文件变更汇总
+
+| 类型 | 文件 |
+|------|------|
+| 改造 | `build.gradle.kts` (root) — Kotlin 1.9.20 → 1.9.24 |
+| 改造 | `app/build.gradle.kts` — Compiler 1.5.4 → 1.5.14, BOM 2023.10.01 → 2024.04.00 |
+| 改造 | `ui/settings/AlarmSettingsScreen.kt` — AlarmTimePickerDialog → Material3 TimePicker + AlertDialog |
+
+---
+
+---
+
+# ✅ 阶段 24：Material3 1.2.x deprecation cleanup
+
+阶段 23 BOM 升级后 Material3 1.2.x 引入 13 个 deprecation warnings，全部清零。
+
+## 改动汇总
+
+| 类别 | 文件数 | 改动 |
+|------|--------|------|
+| `ArrowBack` → `Icons.AutoMirrored.Filled.ArrowBack` | 6 | import + 引用替换 |
+| `KeyboardArrowLeft/Right` → AutoMirrored | 2 | import + 引用替换 |
+| `LinearProgressIndicator(Float)` → lambda `{ }` | 2 | 第一个参数包在 `{ }` 中 |
+| 测试 "No cast needed" | 1 | 移除冗余 cast + 加显式类型 |
+
+全部机械替换，零逻辑变更，零风险。编译零警告。
+
+## 改造文件
+
+| 改造（9 个） |
+|-------------|
+| `ui/calendar/CalendarScreen.kt` |
+| `ui/colleague_mode/ColleagueModeScreen.kt` |
+| `ui/leave_optimizer/LeaveOptimizerScreen.kt` |
+| `ui/salary_predictor/SalaryPredictorScreen.kt` |
+| `ui/settings/SettingsScreen.kt` |
+| `ui/settings/ShiftRuleEditorScreen.kt` |
+| `ui/home/components/V2TodayShiftCard.kt` |
+| `ui/home/components/TodayShiftCard.kt` |
+| `AlarmSettingsTest.kt` |
+
+---
+
 ## 暂缓（V2.1+）
 
 | 功能 | 原因 |

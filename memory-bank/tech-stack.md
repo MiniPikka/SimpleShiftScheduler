@@ -276,8 +276,12 @@ app/
 18. 拼假神器（阶段 19）—— 结合倒班表 + 法定节假日，自动分析最佳请假方案（差异化功能）
 19. 同事模式（阶段 20）—— 输入两人班组，自动计算共同休息日（社交裂变功能）
 20. 倒班津贴（阶段 21）—— 输入各班次补贴金额，自动统计班次并计算本月津贴 + 假设分析（高频刚需功能）
+21. 图片分享（阶段 22）—— 同事模式结果生成分享长图 + QR 码，调起系统分享面板（社交传播功能）
+22. 提醒时间选择器改进（阶段 23）—— 升级 BOM + Material3 TimePicker 替代 AlertDialog 文本输入框
 
-全部规划功能（阶段 1-21）已完成，应用功能完整，142 个单元测试全部通过（BUILD SUCCESSFUL）。
+23. Deprecation cleanup（阶段 24）—— 13 个 Material3 1.2.x deprecation warnings 全部清零，编译零警告
+
+全部规划功能（阶段 1-24）已完成。Kotlin 1.9.24 + Compose BOM 2024.04.00 + Material3 1.2.1。编译零警告。应用功能完整，150 个单元测试全部通过（BUILD SUCCESSFUL）。
 
 ---
 
@@ -465,3 +469,67 @@ calculateSalaryBreakdown()    ← 班次 × 津贴参数 = 津贴明细
 * 入口：ProfileScreen → "倒班津贴"菜单项（同事模式下方）
 * 路由：`navController.navigate("salary_predictor")`
 * 返回：`navController.popBackStack()`（回到"我的"页）
+
+---
+
+## 15. 图片分享技术选型（阶段 22 规划）
+
+### 离屏渲染选型
+
+* **ComposeView 离屏渲染** — 因 Compose BOM 2023.10.01 无 `GraphicsLayer.toBitmap()`
+  * 创建未 attach 的 `ComposeView` → `setContent` → `measure/layout` → `draw(Canvas(Bitmap))`
+  * 必须在 `Dispatchers.Main` 执行（`ComposeView.setContent` 要求 Looper）
+  * 已在 Android 5.0+（API 21+）验证可行
+  * 输出分辨率：1080px 宽（360dp × 3x），主流通用分享图分辨率
+
+### QR 码生成
+
+* **`com.google.zxing:core:3.5.3`**（纯编码，无相机扫描）
+  * `QRCodeWriter.encode()` → `BitMatrix` → 逐像素写入 `Bitmap`
+  * 纯函数，`Dispatchers.Default` 执行
+  * 相比 `zxing-android-embedded`：体积更小、无多余 Activity、无相机权限需求
+  * QR URL 常量 `SHARE_QR_URL`，上架后替换为应用商店链接
+
+### FileProvider
+
+* **`androidx.core.content.FileProvider`**（AndroidX 内置，无额外依赖）
+  * `cache-path` → `share_images/` 子目录
+  * `exported="false"` + `grantUriPermissions="true"` 安全模型
+  * `FLAG_GRANT_READ_URI_PERMISSION` 临时授权给微信/QQ
+
+### 缓存管理
+
+* 无 WorkManager 依赖 — `MainActivity.onCreate()` + 分享前调用 `cleanupOldShareImages()`
+* TTL：24 小时
+* 目录：`context.cacheDir/share_images/`（系统清理缓存时自动删除，应用卸载时一并清除）
+
+### 数据流
+
+```
+用户点击分享按钮
+       │
+       ▼
+ColleagueModeViewModel.startShare(context)
+       │
+       ├── Dispatchers.Default: 构建 ShareCardData + generateQrCodeBitmap()
+       ├── Dispatchers.Main:    renderComposableToBitmap(ShareCardLayout)
+       ├── Dispatchers.IO:      saveBitmapToShareCache() → content:// Uri
+       └── Main (implicit):     shareUri = uri → LaunchedEffect → Intent.ACTION_SEND
+```
+
+### 分享 Intent 构造
+
+```kotlin
+Intent(Intent.ACTION_SEND).apply {
+    type = "image/png"
+    putExtra(Intent.EXTRA_STREAM, shareUri)
+    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+}
+startActivity(Intent.createChooser(intent, "分享到"))
+```
+
+### 首期覆盖范围
+
+* ✅ 同事模式分享（传播价值最高，一次渲染无分页）
+* ❌ 拼假神器分享（暂缓：需分页渲染多条策略卡片）
+* ❌ 倒班津贴分享（暂缓：收入隐私敏感）
