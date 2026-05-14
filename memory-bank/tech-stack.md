@@ -140,7 +140,7 @@ app/
  │    ├── settings/
  │    ├── leave_optimizer/    # 阶段 19：拼假神器
  │    ├── colleague_mode/     # 阶段 20：同事模式
- │    ├── salary_predictor/   # 阶段 21 规划：工资预测
+ │    ├── salary_predictor/   # 阶段 21 规划：倒班津贴
  │    ├── profile/            # 阶段 17 新增
  │    ├── common/             # 共享组件（TeamDropdown）
  │
@@ -275,7 +275,7 @@ app/
 17. 首页精简 —— 移除与底部导航重复的 `TeamDropdown` / `QuickActionsRow`
 18. 拼假神器（阶段 19）—— 结合倒班表 + 法定节假日，自动分析最佳请假方案（差异化功能）
 19. 同事模式（阶段 20）—— 输入两人班组，自动计算共同休息日（社交裂变功能）
-20. 工资预测（阶段 21 规划）—— 输入薪资参数，自动统计班次并预测到手工资（核武器级粘性功能）
+20. 倒班津贴（阶段 21 规划）—— 输入各班次补贴和餐补，自动统计班次并计算本月津贴（高频刚需功能）
 
 全部规划功能已完成，应用功能完整，单元测试全部通过（BUILD SUCCESSFUL）。
 V2 UI 设计系统已实施，设置页已拆分重构。
@@ -423,26 +423,25 @@ ColleagueModeScreen          ← 主卡片 + 统计行 + 日期列表
 
 ---
 
-## 14. 工资预测技术选型（阶段 21 规划）
+## 14. 倒班津贴技术选型（阶段 21 规划）
 
 ### 核心理念
 
-* **倒班 + 薪资一体化**：App 已知倒班表 → 自动统计班次 → 免手动输入
-* **"钱"是最高频需求**：比"什么时候休"更高频的是"这个月能拿多少"
+* **只算倒班决定的收入**：班次补贴 + 餐补，不涉及基本工资/五险一金/个税
+* **算得准、维护简单**：不依赖企业差异化政策，不追税率变化
 
 ### 算法选型
 
-* **班次统计 × 薪资参数** — 纯算术，纯函数，零外部依赖
+* **班次统计 × 津贴参数** — 纯算术，纯函数，零外部依赖
   * 复用 `countShiftTypeInMonth()` 逐类型统计
   * 班次补贴合计 = Σ(每种班次补贴 × 当月天数)，每种班次可单独配置（默认 0）
-  * 应发 = 基本 + 班次补贴合计 + 餐补×工作天数×折扣率
-  * 个税 = 阶梯税率模型（3%～45%），V1 用简化月算
+  * 本月倒班津贴 = 班次补贴合计 + 餐补×工作天数×折扣率
   * 假设分析 = 增量计算（多上 X 天某班次 → +X×每日增量），班次类型可选
 
 ### 数据持久化
 
-* **DataStore**（SettingsRepository 新增 6 个 key）
-  * `base_salary`, `shift_premiums`, `meal_allowance`, `meal_discount_rate`, `payday`, `social_insurance_base`
+* **DataStore**（SettingsRepository 新增 3 个 key）
+  * `shift_premiums`, `meal_allowance`, `meal_discount_rate`
   * `shift_premiums` 以逗号分隔格式序列化（如 `"MORNING=0,AFTERNOON=50,NIGHT=200,STUDY=0"`），与现有 `shift_cycle` 序列化风格一致
 
 ### 数据流
@@ -454,9 +453,7 @@ Shift Schedule (getShiftTypeForDate)
 countAllShiftTypesInMonth()   ← 统计当月各班次天数
        │
        ▼
-calculateSalaryBreakdown()    ← 班次 × 薪资参数 = 工资明细
-       │
-       ├──→ 应发/扣除/到手
+calculateSalaryBreakdown()    ← 班次 × 津贴参数 = 津贴明细
        │
        └──→ simulateExtraShifts() ← 假设分析（可选班次类型）
               │
@@ -464,11 +461,11 @@ calculateSalaryBreakdown()    ← 班次 × 薪资参数 = 工资明细
        SalaryPredictorViewModel  ← StateFlow
               │
               ▼
-       SalaryPredictorScreen     ← 金额卡片 + 班次统计 + 滑块
+       SalaryPredictorScreen     ← 津贴卡片 + 班次统计 + 假设分析
 ```
 
 ### 导航
 
-* 入口：ProfileScreen → "工资预测"菜单项（同事模式下方）
+* 入口：ProfileScreen → "倒班津贴"菜单项（同事模式下方）
 * 路由：`navController.navigate("salary_predictor")`
 * 返回：`navController.popBackStack()`（回到"我的"页）
