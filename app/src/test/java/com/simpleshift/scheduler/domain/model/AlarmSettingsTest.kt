@@ -59,4 +59,5 @@ class AlarmSettingsTest {
         assertTrue(settings.isEnabled(ShiftType.NIGHT))
         assertFalse(settings.isEnabled(ShiftType.STUDY))
     }
+
 }

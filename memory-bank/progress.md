@@ -1631,3 +1631,270 @@ O(n)，n ≤ 365。约 30 行纯函数。
 ```
 
 全部机械替换，零逻辑变更，零风险。
+
+---
+
+## 2026-05-15：首页 V2 精品化重构规划
+
+### 背景
+
+当前首页（V2）已完成组件化和 Design Token 体系，但存在"工程页面"感——信息层级扁平、休息日无氛围差异、"牛马指数"命名不专业、距休倒计时埋在主卡片内部视觉权重不足。需要进行一轮精品化审计和重构规划。
+
+### 审计范围
+
+- 完整阅读 memory-bank 全部文件（progress.md、implementation-plan.md、architecture.md、app-design-document.md）
+- 完整审查当前首页链路：`NewHomeScreenV2.kt` + 5 个 V2 组件 + `HomeViewModel.kt` + `MainActivity.kt` + theme 文件
+- 检查 `HomeUiState` 21 个字段的使用情况和信息层级
+
+### 审计结论
+
+**优点**（7 项）：组件化架构成熟、Design Token 完整、双轨制安全网、Domain 纯函数、导航清晰、深浅色双主题、动画已有基础。
+
+**问题**（17 项）：
+- UI 层级问题 5 项：240dp 卡片过高、信息重复（距休两处出现）、间距均匀无分组、底部文案无上下文、班组名占首行
+- 组件耦合问题 3 项：参数列表过长、无语义化聚合对象、数据共享缺语义
+- 可维护性问题 3 项：refreshToday() 过长、牛马指数内联、三轨并存复杂度
+- 工程页面感 7 项："牛马指数"命名、数字无解读、休息日无氛围切换、进度条冷冰冰、无 0.5 秒信息层级、主卡片空间低效、缺少每日必看锚点
+
+### V3 规划核心决策
+
+1. **距休倒计时独立强化**：从 TodayShiftCard 内部提升为独立 RestCountdownCard，作为"每日必看锚点"
+2. **融合问候+班次为氛围横幅**：ShiftHeroBanner 替代 GreetingHeader + TodayShiftCard，休息日/工作日氛围不同
+3. **"牛马指数"重新定义为"劳逸比"**：去掉负面命名，移入月度概览折叠区
+4. **底部文案从随机池改为上下文决策树**：根据班次类型 + 距休 + 连续上班天数匹配文案
+5. **信息间距分 3 级**（12/16/24dp）替代统一 20dp
+6. **零新字段**：HomeUiState 无需扩展，V3 是纯 UI 层重构
+7. **不改 domain 层、不改 HomeViewModel 逻辑**
+
+### V3 组件结构
+
+```
+NewHomeScreenV3
+├── V3ShiftHeroBanner       全宽氛围横幅（48sp 班次大字 + 渐变背景）
+├── V3RestCountdownCard     距休倒计时独立卡片（每日必看锚点）
+├── V3FeatureHub            特色功能入口行（拼假神器 / 同事模式 / 倒班津贴）
+├── V3ProgressIndicator     轻量周期进度（一行高度）
+├── V3MonthlyOverview       月度概览（折叠/展开）
+└── V3ContextualMessage     上下文共情文案（决策树匹配）
+```
+
+### 实施策略
+
+- 双轨制：`USE_NEW_HOME_V3` 编译时常量，V2 全部保留
+- 10 个 Step，每步 build + test 可通过
+- 新增 7-8 个文件（~480 行），改造 2-3 个文件（~15 行）
+- 不变：domain 层、HomeViewModel、theme 体系、所有 V1/V2 组件
+- FeatureHub 入口在首页，但"我的"页保留相同的三个菜单项作为次级入口
+
+### 详细规划
+
+参见 `memory-bank/implementation-plan.md` 阶段 25。
+
+---
+
+## 2026-05-15：阶段 25 实施完成 — 首页 V3 精品化重构
+
+### 阶段 25：首页 V3 精品化重构 ✅
+
+**V3.1 V3ShiftHeroBanner**
+- 新增：`ui/home/components/V3ShiftHeroBanner.kt`（~85 行）
+- 全宽氛围横幅：班次颜色渐变背景 + 时段问候 + 日期 + 48sp 大字班次 + 可选提醒时间
+- 替代 V2GreetingHeader + V2TodayShiftCard 上半部分
+
+**V3.2 V3RestCountdownCard**
+- 新增：`ui/home/components/V3RestCountdownCard.kt`（~120 行）
+- 三态卡片：今日休息（绿色氛围）/ 明天休息（预提醒）/ 距休 N 天 + 预计日期
+- 从今日班次卡片中独立出来，作为"每日必看锚点"强化视觉权重
+
+**V3.3 V3FeatureHub**
+- 新增：`ui/home/components/V3FeatureHub.kt`（~110 行）
+- 三列等宽特色功能入口卡片（拼假神器 / 同事模式 / 倒班津贴）
+- 从"我的"页二级菜单提升到首页直接曝光，一次点击可达
+- Primary 色图标 + 诱惑文案（"请最少假·连休最久"等）
+
+**V3.4 V3ProgressIndicator**
+- 新增：`ui/home/components/V3ProgressIndicator.kt`（~65 行）
+- 轻量周期进度：一行"本轮周期 · 第 X 天 · 共 Y 天" + 4dp 进度条
+
+**V3.5 V3MonthlyOverview**
+- 新增：`ui/home/components/V3MonthlyOverview.kt`（~120 行）
+- 折叠/展开月度概览："本月上班 X/Y 天 · 劳逸充裕/平衡/辛苦劳作"
+- "牛马指数"重新定义为"劳逸比"，展开显示连续上班 + 上班占比 + 月度评价
+
+**V3.6 V3ContextualMessage**
+- 新增：`ui/home/components/V3ContextualMessage.kt`（~80 行）
+- 上下文共情文案决策树（5 个优先级 × 多文本池），替代随机池
+- 提取 `getContextualMessage()` 纯函数，可独立单元测试
+
+**V3.7 NewHomeScreenV3 组装**
+- 新增：`ui/home/NewHomeScreenV3.kt`（~80 行）
+- 6 组件组装，4 级差异化间距（12/16/20/24dp），stagger 入场动画
+
+**V3.8 MainActivity 双轨接入**
+- 改造：`MainActivity.kt`（+15 行）
+- 新增 `USE_NEW_HOME_V3 = true` 编译时常量
+- `composable("home")` 内 V2/V3 分支 + 3 个导航回调
+
+**V3.9 测试覆盖**
+- 新增：`ContextualMessageTest.kt`（10 用例）
+- 覆盖：休息日/夜班/连续上班5+天/距休0-1天/普通工作日/优先级覆盖/多种子遍历
+
+**V3.10 切换默认首页**
+- `USE_NEW_HOME_V3` 改为 `true`
+
+### 新增/改造文件汇总
+
+| 新增（8 个） | 改造（2 个） |
+|-------------|-------------|
+| `ui/home/components/V3ShiftHeroBanner.kt`（~85 行） | `MainActivity.kt`（+15 行） |
+| `ui/home/components/V3RestCountdownCard.kt`（~120 行） | memory-bank 更新 |
+| `ui/home/components/V3FeatureHub.kt`（~110 行） | |
+| `ui/home/components/V3ProgressIndicator.kt`（~65 行） | |
+| `ui/home/components/V3MonthlyOverview.kt`（~120 行） | |
+| `ui/home/components/V3ContextualMessage.kt`（~80 行） | |
+| `ui/home/NewHomeScreenV3.kt`（~80 行） | |
+| `ContextualMessageTest.kt`（10 用例） | |
+
+### 构建与测试
+
+```bash
+./gradlew clean assembleDebug     # BUILD SUCCESSFUL（零警告）
+./gradlew testDebugUnitTest       # BUILD SUCCESSFUL（160 个测试全部通过）
+```
+
+零回归。测试覆盖从 150 扩展到 160 个用例（+10），17 个测试文件。
+
+### 回滚
+
+`MainActivity.kt` 中将 `USE_NEW_HOME_V3` 改为 `false` 即恢复 V2 首页。所有 V2 组件完整保留不变。
+
+### V2 vs V3 关键变化
+
+| 方面 | V2 | V3 |
+|------|----|----|
+| 顶部区域 | GreetingHeader + TodayShiftCard 两个区块 | ShiftHeroBanner 一个融合氛围横幅 |
+| 今日班次 | 72dp 圆形徽章 | 48sp 全宽大字 + 渐变背景 |
+| 距休信息 | 卡片内一行正文 | 独立 RestCountdownCard（三态视觉） |
+| 特色功能入口 | "我的"页二级菜单 | 首页 FeatureHub 直接曝光 |
+| 进度展示 | LinearProgressIndicator + 分数 | 轻量一行 + 自然语言 |
+| 月度指标 | 三宫格 | 折叠摘要 + 劳逸比（替代牛马指数） |
+| 底部文案 | 随机池 7 条 | 上下文决策树 5 级优先级 |
+| 间距 | 统一 20dp | 4 级差异化（12/16/20/24dp） |
+
+---
+
+## 2026-05-15：阶段 26 规划（提醒设置增强）
+
+### 背景
+
+当前提醒设置页（`AlarmSettingsScreen`）无说明文字，用户不知道设置提醒后会发生什么。此外，日历提醒是通知级别，部分用户希望有更强烈的"闹钟式"提醒。
+
+### 方案（2026-05-15 更新：基于跨厂商日历提醒能力实测）
+
+经实测：`METHOD_ALARM`（值=4）在任何 Android 品牌上都不会被系统处理。不同厂商 `METHOD_ALERT` 表现差异巨大——小米仅底部弹窗、三星/Pixel 通知栏提醒、华为/OPPO 严重受限。基于此调整为**三层提醒体系**：
+
+**Part A（说明卡片）**：提醒设置页顶部新增说明卡片，解释三层提醒机制。纯 UI 新增。
+
+**Part B1（小米 ExtendedProperties 修复）**：`CalendarEventManager.insertEvent()` 额外写入 `ExtendedProperties` 表（`{"need_alarm":true}`）。小米用户提醒从底部弹窗升级为闹钟响铃。非小米设备静默跳过。
+
+**Part B2（系统闹钟增强）**：AlarmManager `setAlarmClock()` 独立通道（所有品牌统一强提醒）。用户可选开启，默认关闭，权限缺失时优雅降级。
+
+### 实施步骤（8 步）
+
+| Step | 内容 | 新增文件 | 改造文件 |
+|------|------|---------|---------|
+| 26.1 | 说明卡片 | 0 | `AlarmSettingsScreen.kt`, `strings.xml` |
+| 26.2 | 小米 ExtendedProperties 修复 | 0 | `CalendarEventManager.kt` |
+| 26.3 | B2 数据层（useSystemAlarm） | 0 | `AlarmSettings.kt`, `SettingsRepository.kt` |
+| 26.4 | B2 闹钟调度引擎 | `alarm/SystemAlarmScheduler.kt`, `alarm/SystemAlarmReceiver.kt` | 0 |
+| 26.5 | B2 Manifest + 权限 + 通知渠道 | 0 | `AndroidManifest.xml`, `MainActivity.kt` |
+| 26.6 | B2 ViewModel + UI + CalendarSyncManager 接线 | 0 | `AlarmSettingsViewModel.kt`, `AlarmSettingsScreen.kt`, `CalendarSyncManager.kt` |
+| 26.7 | 单元测试 | `SystemAlarmSchedulerTest.kt` | `SettingsRepositoryTest.kt`, `AlarmSettingsTest.kt` |
+| 26.8 | 文档更新 | 0 | memory-bank |
+
+### 预期新增
+
+- 新增文件：3 个（~180 行）
+- 改造文件：10-12 个（~120 行净增）
+- 新增测试：约 8 用例
+- 总测试：160 → 约 168
+
+### 详细规划
+
+参见 `memory-bank/implementation-plan.md` 阶段 26。
+
+---
+
+## 2026-05-15：阶段 26 实施完成
+
+### 阶段 26：提醒设置增强 ✅
+
+**26.1 Part A：说明卡片**
+- 改造：`AlarmSettingsScreen.kt`（+40 行）
+- 新增信息卡片：解释日历提醒机制、夜班前移、小米自动响铃、系统闹钟增强
+
+**26.2 Part B1：小米 ExtendedProperties 修复**
+- 改造：`CalendarEventManager.kt`（+20 行）
+- `insertExtendedProperties()` 写入 `{"need_alarm":true}`，小米用户提醒从底部弹窗升级为闹钟响铃
+- 非小米设备 insert 失败静默跳过
+
+**26.3 Part B2：数据层（useSystemAlarm）**
+- 改造：`AlarmSettings.kt` — 新增 `useSystemAlarm: Boolean = false`
+- 改造：`SettingsRepository.kt` — 新增 `KEY_USE_SYSTEM_ALARM` 布尔 key + 读写
+
+**26.4 Part B2：闹钟调度引擎**
+- 新增：`alarm/SystemAlarmScheduler.kt`（~95 行）— `setAlarmClock()` 调度 + 确定性 requestCode + 权限降级
+- 新增：`alarm/SystemAlarmReceiver.kt`（~55 行）— 高优先级通知 + 点击打开 App
+
+**26.5 Part B2：Manifest + 权限 + 通知渠道**
+- 改造：`AndroidManifest.xml` — `SCHEDULE_EXACT_ALARM` + `POST_NOTIFICATIONS` 权限 + `SystemAlarmReceiver` 注册
+- 改造：`MainActivity.kt` — 创建闹钟通知渠道
+
+**26.6 Part B2：ViewModel + UI + CalendarSyncManager 接线**
+- 改造：`AlarmSettingsViewModel.kt` — 新增 `toggleSystemAlarm()` + `useSystemAlarm` 状态
+- 改造：`AlarmSettingsScreen.kt` — 新增系统闹钟增强开关卡片（Switch）
+- 改造：`CalendarSyncManager.kt` — 同步后若 `useSystemAlarm=true` 则调度闹钟，否则取消全部闹钟
+
+**26.7 单元测试**
+- 改造：`AlarmSettingsTest.kt` — 追加 2 个 `useSystemAlarm` 测试用例
+- 改造：`SettingsRepositoryTest.kt` — 追加 1 个 `useSystemAlarm` 读写往返测试用例
+
+### 新增/改造文件汇总
+
+| 新增（2 个） | 改造（8 个） |
+|-------------|-------------|
+| `alarm/SystemAlarmScheduler.kt`（~95 行） | `AlarmSettingsScreen.kt`（+65 行） |
+| `alarm/SystemAlarmReceiver.kt`（~55 行） | `CalendarEventManager.kt`（+18 行） |
+| | `AlarmSettings.kt`（+1 字段） |
+| | `SettingsRepository.kt`（+8 行） |
+| | `AlarmSettingsViewModel.kt`（+10 行） |
+| | `CalendarSyncManager.kt`（+10 行） |
+| | `MainActivity.kt`（+3 行） |
+| | `AndroidManifest.xml`（+3 行） |
+| | `AlarmSettingsTest.kt`（+2 用例） |
+| | `SettingsRepositoryTest.kt`（+1 用例） |
+
+### 构建与测试
+
+```bash
+./gradlew assembleDebug        # BUILD SUCCESSFUL（零警告）
+./gradlew testDebugUnitTest    # BUILD SUCCESSFUL（162 个测试全部通过）
+```
+
+零回归。测试覆盖从 160 扩展到 162 个用例（+3），17 个测试文件。
+
+### 阶段 26 最终方案：回归最简 Calendar Provider
+
+**最终决定**：ExtendedProperties 在部分 MIUI 版本仍然无法稳定让日历闹钟默认开启，属于非标准 hack。AlarmManager 权限门槛高、厂商兼容性差。最终选择最干净的方案——仅用 Calendar Provider 创建日程 + METHOD_ALERT 提醒，不附加任何非标准行为。
+
+**保留内容**：
+- `AlarmSettingsScreen` 顶部说明卡片（解释提醒机制、夜班前移、建议用户在系统日历 App 中管理通知）
+- 日历日程创建 + METHOD_ALERT 提醒（核心功能，跨品牌兼容）
+
+**已移除**：
+- `alarm/SystemAlarmScheduler.kt`、`alarm/SystemAlarmReceiver.kt`
+- `AndroidManifest.xml` 中 SCHEDULE_EXACT_ALARM、POST_NOTIFICATIONS、Receiver
+- `AlarmSettings.useSystemAlarm` 字段及所有接线
+- `CalendarEventManager.insertExtendedProperties()` 方法
+- 闹钟开关卡片、通知渠道
+- 相关 2 个测试用例

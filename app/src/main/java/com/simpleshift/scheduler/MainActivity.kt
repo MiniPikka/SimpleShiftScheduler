@@ -57,6 +57,7 @@ import com.simpleshift.scheduler.ui.calendar.CalendarScreen
 import com.simpleshift.scheduler.ui.home.HomeScreen
 import com.simpleshift.scheduler.ui.home.NewHomeScreen
 import com.simpleshift.scheduler.ui.home.NewHomeScreenV2
+import com.simpleshift.scheduler.ui.home.NewHomeScreenV3
 import com.simpleshift.scheduler.ui.profile.ProfileScreen
 import com.simpleshift.scheduler.ui.colleague_mode.ColleagueModeScreen
 import com.simpleshift.scheduler.ui.leave_optimizer.LeaveOptimizerScreen
@@ -81,6 +82,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val USE_NEW_HOME = true
         private const val USE_NEW_HOME_V2 = true
+        private const val USE_NEW_HOME_V3 = true
         private const val USE_NEW_SETTINGS = true
     }
 
@@ -212,9 +214,18 @@ class MainActivity : ComponentActivity() {
                                 composable("home") {
                                     val homeUiState by homeViewModel.uiState.collectAsState()
 
-                                    NewHomeScreenV2(
-                                        uiState = homeUiState
-                                    )
+                                    if (USE_NEW_HOME_V3) {
+                                        NewHomeScreenV3(
+                                            uiState = homeUiState,
+                                            onLeaveOptimizerClick = { navController.navigate("leave_optimizer") },
+                                            onColleagueModeClick = { navController.navigate("colleague_mode") },
+                                            onSalaryPredictorClick = { navController.navigate("salary_predictor") }
+                                        )
+                                    } else {
+                                        NewHomeScreenV2(
+                                            uiState = homeUiState
+                                        )
+                                    }
                                 }
 
                                 composable("calendar") {

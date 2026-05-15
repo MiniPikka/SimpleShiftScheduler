@@ -3622,3 +3622,88 @@ if (showDialog) {
 | 数据/统计页 | 需图表库 + 历史数据 |
 | 完整工资预测 | 涉及基本工资/五险一金/个税等企业差异化政策，算不准反而失信 |
 | 工资趋势图 | 需图表库 + 历史数据积累 |
+
+---
+
+# ✅ 阶段 25：首页 V3 精品化重构（已完成）
+
+## 背景
+
+首页 V2 存在"工程页面"感——信息层级扁平、"牛马指数"命名不专业、距休倒计时埋在主卡片内部、特色功能入口在"我的"页二级菜单曝光不足。
+
+## 审计结论
+
+- UI 层级问题 5 项：240dp 卡片过高、信息重复、间距均匀无分组、底部文案无上下文、班组名占首行
+- 组件耦合问题 3 项：参数列表过长、无语义化聚合对象、数据共享缺语义
+- 工程页面感 8 项：牛马指数命名、数字无解读、休息日无氛围切换、特色功能入口太深等
+
+## V3 组件结构
+
+```
+NewHomeScreenV3
+├── V3ShiftHeroBanner       全宽氛围横幅（48sp 班次大字 + 渐变背景）
+├── V3RestCountdownCard     距休倒计时独立卡片（三态：休息日/明天休息/倒计时）
+├── V3FeatureHub            特色功能入口行（拼假神器 / 同事模式 / 倒班津贴）
+├── V3ProgressIndicator     轻量周期进度（一行高度）
+├── V3MonthlyOverview       月度概览（折叠/展开，劳逸比替代牛马指数）
+└── V3ContextualMessage     上下文共情文案（5级决策树替代随机池）
+```
+
+## 核心设计决策
+
+1. **距休倒计时独立强化**：从 TodayShiftCard 内部提升为独立 RestCountdownCard，作为"每日必看锚点"
+2. **融合问候+班次为氛围横幅**：ShiftHeroBanner 替代 GreetingHeader + TodayShiftCard，休息日/工作日氛围不同
+3. **"牛马指数"→"劳逸比"**：去掉负面命名，移入月度概览折叠区
+4. **底部文案从随机池→上下文决策树**：根据班次类型 + 距休 + 连续上班天数匹配文案
+5. **特色功能入口从"我的"页移到首页**：FeatureHub 三列卡片直接曝光
+6. **信息间距分 4 级**（12/16/20/24dp）替代统一 20dp
+7. **零新字段**：HomeUiState 无需扩展，纯 UI 层重构
+
+## 实施步骤（10 Step）
+
+| Step | 内容 | 新增文件 | 改造文件 |
+|------|------|---------|---------|
+| 25.1 | V3ShiftHeroBanner | `V3ShiftHeroBanner.kt` | — |
+| 25.2 | V3RestCountdownCard | `V3RestCountdownCard.kt` | — |
+| 25.3 | V3FeatureHub | `V3FeatureHub.kt` | — |
+| 25.4 | V3ProgressIndicator | `V3ProgressIndicator.kt` | — |
+| 25.5 | V3MonthlyOverview | `V3MonthlyOverview.kt` | — |
+| 25.6 | V3ContextualMessage | `V3ContextualMessage.kt` | — |
+| 25.7 | NewHomeScreenV3 组装 | `NewHomeScreenV3.kt` | — |
+| 25.8 | MainActivity 双轨接入 | — | `MainActivity.kt`（+15 行） |
+| 25.9 | 测试覆盖 | `ContextualMessageTest.kt`（10 用例） | — |
+| 25.10 | 切换默认 + 文档 | — | `MainActivity.kt`, memory-bank |
+
+**总计**：新增 8 个文件（~660 行），改造 2 个文件（+15 行）。160 测试零回归。
+
+## 回滚
+
+`MainActivity.kt` 中 `USE_NEW_HOME_V3 = false` 即恢复 V2 首页。
+
+---
+
+# ✅ 阶段 26：提醒设置增强（已完成）
+
+## 背景
+
+提醒设置页无说明文字，用户不知道设置提醒后会发生什么。
+
+## 跨厂商日历提醒能力实测结论
+
+`METHOD_ALARM` 在任何品牌上都不会被系统处理。`METHOD_ALERT` 是唯一可靠选择。小米 ExtendedProperties `{"need_alarm":true}` 是非标准 hack，部分 MIUI 版本仍不稳定。AlarmManager 权限门槛高、厂商兼容性差。**最稳健方案：仅用 Calendar Provider 标准 API。**
+
+## 最终实施方案
+
+**Part A：说明卡片** — `AlarmSettingsScreen` 顶部新增信息卡片，解释日历提醒机制、夜班前移、重启不丢失，引导用户在系统日历 App 中管理通知。
+
+**Part B1 + B2：已探索后删除** — ExtendedProperties（非标准不稳定）+ AlarmManager（权限高不通用），均不适合作为通用方案。
+
+## 实施内容
+
+| 内容 | 文件 | 说明 |
+|------|------|------|
+| 说明卡片 | `AlarmSettingsScreen.kt` | +40 行，纯 UI 新增 |
+
+## 测试
+
+160 测试零回归。

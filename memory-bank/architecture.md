@@ -9,7 +9,27 @@
 - 阶段 16：首页精品化升级（NewHomeScreen + 组件化 UI）
 - 2026-05-14a：日历独立路由（NavHost 三路由）、TodayShiftCard 横向重设计、Widget 美化（距休 + 简化进度）
 - 阶段 17：V2 UI 设计系统（Design Token + 深色主题 + 底部导航栏 + Profile 页 + 牛马指数）
+- 阶段 18：倒班规则编辑器重设计（两步向导 + referenceDate 贯穿全栈）
+- 阶段 19：拼假神器（请假优化器）
+- 阶段 20：同事模式（社交裂变）
+- 阶段 21：倒班津贴计算器
+- 阶段 22：图片分享功能（社交传播）
+- 阶段 23：提醒时间选择器改进（Material3 TimePicker）
+- 阶段 24：Material3 1.2.x deprecation cleanup
 - 夜班提醒日期修复（NIGHT 班次日历事件前移一天）
+- 2026-05-15：V3 首页精品化重构已完成（`NewHomeScreenV3` + 6 个 V3 组件，`USE_NEW_HOME_V3 = true`）
+- 2026-05-15：阶段 26 提醒设置增强已完成（说明卡片 + 小米 ExtendedProperties 修复 + 系统闹钟增强）
+- 阶段 25-26 详细规划见 `memory-bank/implementation-plan.md`
+
+### 阶段 26 架构更新：提醒设置增强（已完成，最简方案）
+
+#### 说明卡片
+
+`AlarmSettingsScreen` 顶部新增信息说明卡片，解释 Calendar Provider 提醒机制、夜班前移、重启不丢失，引导用户在系统日历 App 中管理通知设置。
+
+#### 设计原则
+
+保持最简 Calendar Provider 方案（日程 + METHOD_ALERT 提醒），不附加非标准厂商 hack 或自建 AlarmManager。提醒方式由系统日历 App 管理。
 
 当前原则：
 
