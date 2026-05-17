@@ -58,6 +58,7 @@ import com.simpleshift.scheduler.ui.home.HomeScreen
 import com.simpleshift.scheduler.ui.home.NewHomeScreen
 import com.simpleshift.scheduler.ui.home.NewHomeScreenV2
 import com.simpleshift.scheduler.ui.home.NewHomeScreenV3
+import com.simpleshift.scheduler.ui.home.NewHomeScreenV4
 import com.simpleshift.scheduler.ui.profile.ProfileScreen
 import com.simpleshift.scheduler.ui.colleague_mode.ColleagueModeScreen
 import com.simpleshift.scheduler.ui.leave_optimizer.LeaveOptimizerScreen
@@ -83,6 +84,7 @@ class MainActivity : ComponentActivity() {
         private const val USE_NEW_HOME = true
         private const val USE_NEW_HOME_V2 = true
         private const val USE_NEW_HOME_V3 = true
+        private const val USE_NEW_HOME_V4 = true
         private const val USE_NEW_SETTINGS = true
     }
 
@@ -214,7 +216,14 @@ class MainActivity : ComponentActivity() {
                                 composable("home") {
                                     val homeUiState by homeViewModel.uiState.collectAsState()
 
-                                    if (USE_NEW_HOME_V3) {
+                                    if (USE_NEW_HOME_V4) {
+                                        NewHomeScreenV4(
+                                            uiState = homeUiState,
+                                            onLeaveOptimizerClick = { navController.navigate("leave_optimizer") },
+                                            onColleagueModeClick = { navController.navigate("colleague_mode") },
+                                            onSalaryPredictorClick = { navController.navigate("salary_predictor") }
+                                        )
+                                    } else if (USE_NEW_HOME_V3) {
                                         NewHomeScreenV3(
                                             uiState = homeUiState,
                                             onLeaveOptimizerClick = { navController.navigate("leave_optimizer") },

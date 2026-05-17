@@ -2,7 +2,7 @@
 
 ## 1. 当前架构阶段
 
-阶段 1-21 全部完成。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
+阶段 1-26 全部完成。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
 
 已完成的功能：
 - 阶段 1-15：全部功能（项目骨架、数据模型、核心算法、首页 UI、测试、日历页、班组切换 + 月度统计、设置页、日历提醒、代码加固、桌面 Widget）
@@ -20,6 +20,7 @@
 - 2026-05-15：V3 首页精品化重构已完成（`NewHomeScreenV3` + 6 个 V3 组件，`USE_NEW_HOME_V3 = true`）
 - 2026-05-15：阶段 26 提醒设置增强已完成（说明卡片 + 小米 ExtendedProperties 修复 + 系统闹钟增强）
 - 阶段 25-26 详细规划见 `memory-bank/implementation-plan.md`
+- 2026-05-17：App 图标重设计（三 S 三曲臂 triskelion 图案）+ V4 首页协调化重设计（统一卡片语言、圆形徽章英雄卡片）+ 倒班津贴支持小数输入（Int → Double）
 
 ### 阶段 26 架构更新：提醒设置增强（已完成，最简方案）
 
@@ -1160,13 +1161,13 @@ class ColleagueModeViewModel(
 
 ```kotlin
 data class SalaryConfig(
-    val shiftPremiums: Map<ShiftType, Int> = emptyMap()
+    val shiftPremiums: Map<ShiftType, Double> = emptyMap()
 )
 
 data class SalaryBreakdown(
     val month: YearMonth,
     val shiftCounts: Map<ShiftType, Int>,
-    val shiftPremiumTotal: Int
+    val shiftPremiumTotal: Double
 )
 ```
 
@@ -1364,7 +1365,81 @@ data class ColleagueModeUiState(
 
 ---
 
-## 18. 阶段 23 架构更新：提醒时间选择器改进（已完成）
+## 18. 2026-05-17 架构更新：V4 首页协调化重设计
+
+### 问题诊断
+
+V3 首页存在以下不协调问题：
+- 英雄横幅渐变色几乎不可见（透明度假高）
+- 休息倒计时卡片使用独特的左侧强调条，与其他卡片风格不一致
+- 功能中心卡片内边距过小（12dp），副标题缩放到 85% 导致拥挤
+- 进度指示器无卡片容器，悬浮感强
+- 月度概览展开/折叠无视觉提示
+- 上下文消息使用 outline 颜色，像事后补充的内容
+- 各区块间距不一致（16/20/12/24/16/24）
+
+### V4 设计原则
+
+- **统一的卡片语言**：所有内容块使用相同的 `Surface` + `V2CardShape`（24dp 圆角）
+- **一致间距**：所有主区块间距统一 16dp，水平内边距 16dp
+- **圆形徽章英雄模式**：左侧 64dp 彩色圆形徽章（班组首字 "早/午/夜/休/学"）+ 右侧班组详情
+- **清晰的信息层次**：英雄卡片 → 统计卡片行 → 工具行 → 消息横幅
+
+### V4 组件结构
+
+`NewHomeScreenV4.kt`（~450 行）包含所有私有 composable：
+
+| 组件 | 功能 |
+|------|------|
+| `V4GreetingRow` | 时段问候 + 班组名 + 日期，简洁左对齐 |
+| `V4HeroCard` | 64dp 圆形徽章 + 班组标签 + 提醒时间 + 休息倒计时胶囊 + 周期进度条 |
+| `V4StatsRow` | 两张等宽卡片："本月上班"（含工作强度）+ "连续上班"（含状态标签） |
+| `V4ToolsRow` | 三个工具卡片（28dp 彩色图标 + 标签，无副标题） |
+| `V4MessageBanner` | 上下文消息置于半透明 Surface 卡片中 |
+
+### 导航
+
+`MainActivity.kt` 新增 `USE_NEW_HOME_V4 = true`，`"home"` 路由优先渲染 `NewHomeScreenV4`。
+
+### 洞察 WW：统一卡片语言消除视觉碎片
+
+V3 有 6 种不同的视觉模式（渐变 Box、左侧强调条 Row、12dp 小卡片、裸文字+进度条、可折叠卡片、outline 文字）。V4 统一为一种：`Surface(V2CardShape)` + 16-20dp 内边距。视觉碎片从 6 降到 1，用户扫视时认知负担显著降低。
+
+### 洞察 XX：圆形徽章是高效的班次识别符号
+
+64dp 彩色圆形徽章 + 单个汉字（早/午/夜/休/学）比纯文字标题识别速度更快。颜色 + 形状 + 文字三重编码，即使在小尺寸（48dp 启动器图标尺寸）下也能快速区分班次类型。
+
+---
+
+## 19. 2026-05-17 架构更新：App 图标重设计
+
+### 设计理念
+
+将原日历+日月+箭头图标替换为三 S 三曲臂（triskelion）图案。三条 S 形曲线以 120° 旋转排列，分别代表 "Simple"、"Shift"、"Scheduler"，同时寓意轮班轮转的周期性。
+
+### 颜色方案
+
+| 臂 | 颜色 | 含义 |
+|----|------|------|
+| S 臂 1 (0°) | 琥珀色 `#FF8F00` | "Simple" / 早班 |
+| S 臂 2 (120°) | 青色 `#26A69A` | "Shift" / 中班 |
+| S 臂 3 (240°) | 紫罗兰色 `#7E57C2` | "Scheduler" / 夜班 |
+
+背景为深海军蓝渐变，中央有浅色圆点连结三条 S 臂。
+
+### 技术实现
+
+全部 4 个矢量图标文件更新：
+- `drawable/ic_launcher_background.xml` — 深海军蓝径向渐变
+- `drawable/ic_launcher_foreground.xml` — 三条 S 曲线（7.5dp 描边宽度，round cap）+ 中央圆点
+- `mipmap-hdpi/ic_launcher.xml` — 合并版（pre-API 26 兜底）
+- `mipmap-hdpi/ic_launcher_round.xml` — 合并版 + 圆形裁剪
+
+每条 S 臂使用 `<group android:rotation="N" android:pivotX="54" android:pivotY="54">` 旋转，路径数据仅定义一次。
+
+---
+
+## 20. 阶段 23 架构更新：提醒时间选择器改进（已完成）
 
 ### 问题
 

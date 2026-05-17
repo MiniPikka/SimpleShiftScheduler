@@ -36,10 +36,10 @@ class SalaryCalculatorTest {
     fun `shift premium total correct`() {
         val config = SalaryConfig(
             mapOf(
-                ShiftType.MORNING to 0,
-                ShiftType.AFTERNOON to 50,
-                ShiftType.NIGHT to 200,
-                ShiftType.STUDY to 0
+                ShiftType.MORNING to 0.0,
+                ShiftType.AFTERNOON to 50.0,
+                ShiftType.NIGHT to 200.0,
+                ShiftType.STUDY to 0.0
             )
         )
         val counts = mapOf(
@@ -52,14 +52,35 @@ class SalaryCalculatorTest {
         val breakdown = calculateSalaryBreakdown(config, counts, YearMonth.of(2026, 5))
 
         // AFTERNOON: 7 * 50 = 350, NIGHT: 7 * 200 = 1400, total = 1750
-        assertEquals(1750, breakdown.shiftPremiumTotal)
+        assertEquals(1750.0, breakdown.shiftPremiumTotal, 0.01)
         assertEquals(YearMonth.of(2026, 5), breakdown.month)
+    }
+
+    @Test
+    fun `decimal premium calculation correct`() {
+        val config = SalaryConfig(
+            mapOf(
+                ShiftType.NIGHT to 12.5,
+                ShiftType.AFTERNOON to 7.25
+            )
+        )
+        val counts = mapOf(
+            ShiftType.MORNING to 8,
+            ShiftType.AFTERNOON to 4,
+            ShiftType.NIGHT to 6,
+            ShiftType.REST to 8,
+            ShiftType.STUDY to 1
+        )
+        val breakdown = calculateSalaryBreakdown(config, counts, YearMonth.of(2026, 5))
+
+        // NIGHT: 6 * 12.5 = 75.0, AFTERNOON: 4 * 7.25 = 29.0, total = 104.0
+        assertEquals(104.0, breakdown.shiftPremiumTotal, 0.01)
     }
 
     @Test
     fun `simulate extra shifts increases total`() {
         val config = SalaryConfig(
-            mapOf(ShiftType.NIGHT to 200, ShiftType.AFTERNOON to 50)
+            mapOf(ShiftType.NIGHT to 200.0, ShiftType.AFTERNOON to 50.0)
         )
         val counts = mapOf(
             ShiftType.MORNING to 8,
@@ -72,7 +93,7 @@ class SalaryCalculatorTest {
 
         val simulated = simulateExtraShifts(current, 2, ShiftType.NIGHT, config)
 
-        assertEquals(current.shiftPremiumTotal + 400, simulated.shiftPremiumTotal)
+        assertEquals(current.shiftPremiumTotal + 400.0, simulated.shiftPremiumTotal, 0.01)
         assertEquals(9, simulated.shiftCounts[ShiftType.NIGHT])
         // Other counts unchanged
         assertEquals(8, simulated.shiftCounts[ShiftType.MORNING])
@@ -90,7 +111,7 @@ class SalaryCalculatorTest {
         )
         val breakdown = calculateSalaryBreakdown(config, counts, YearMonth.of(2026, 5))
 
-        assertEquals(0, breakdown.shiftPremiumTotal)
+        assertEquals(0.0, breakdown.shiftPremiumTotal, 0.01)
     }
 
     @Test
@@ -127,7 +148,7 @@ class SalaryCalculatorTest {
 
     @Test
     fun `simulate zero extra shifts returns same total`() {
-        val config = SalaryConfig(mapOf(ShiftType.NIGHT to 200))
+        val config = SalaryConfig(mapOf(ShiftType.NIGHT to 200.0))
         val counts = mapOf(
             ShiftType.MORNING to 8, ShiftType.AFTERNOON to 7,
             ShiftType.NIGHT to 7, ShiftType.REST to 8, ShiftType.STUDY to 1
@@ -136,6 +157,6 @@ class SalaryCalculatorTest {
 
         val simulated = simulateExtraShifts(current, 0, ShiftType.NIGHT, config)
 
-        assertEquals(current.shiftPremiumTotal, simulated.shiftPremiumTotal)
+        assertEquals(current.shiftPremiumTotal, simulated.shiftPremiumTotal, 0.01)
     }
 }

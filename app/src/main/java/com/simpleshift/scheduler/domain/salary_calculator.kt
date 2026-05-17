@@ -32,7 +32,7 @@ fun calculateSalaryBreakdown(
     yearMonth: YearMonth
 ): SalaryBreakdown {
     val total = ShiftType.entries.sumOf { type ->
-        val premium = config.shiftPremiums[type] ?: 0
+        val premium = config.shiftPremiums[type] ?: 0.0
         val count = shiftCounts[type] ?: 0
         premium * count
     }
@@ -49,7 +49,7 @@ fun simulateExtraShifts(
     extraShiftType: ShiftType,
     config: SalaryConfig
 ): SalaryBreakdown {
-    val extraAmount = (config.shiftPremiums[extraShiftType] ?: 0) * extraCount
+    val extraAmount = (config.shiftPremiums[extraShiftType] ?: 0.0) * extraCount
     val newCounts = current.shiftCounts.toMutableMap()
     newCounts[extraShiftType] = (newCounts[extraShiftType] ?: 0) + extraCount
     return SalaryBreakdown(

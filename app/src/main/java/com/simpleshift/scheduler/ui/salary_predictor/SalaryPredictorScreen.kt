@@ -45,6 +45,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -72,7 +73,7 @@ fun SalaryPredictorScreen(
     uiState: SalaryPredictorViewModel.SalaryPredictorUiState,
     availableTeams: List<Team>,
     onNavigateBack: () -> Unit,
-    onConfigUpdate: (Map<ShiftType, Int>) -> Unit,
+    onConfigUpdate: (Map<ShiftType, Double>) -> Unit,
     onTeamSelected: (Int) -> Unit,
     onMonthChange: (YearMonth) -> Unit,
     onExtraShiftsCountChange: (Int) -> Unit,
@@ -180,7 +181,7 @@ private fun SettingsSection(
     config: com.simpleshift.scheduler.domain.model.SalaryConfig,
     isExpanded: Boolean,
     onToggle: () -> Unit,
-    onUpdate: (Map<ShiftType, Int>) -> Unit,
+    onUpdate: (Map<ShiftType, Double>) -> Unit,
     surface: androidx.compose.ui.graphics.Color,
     onBg: androidx.compose.ui.graphics.Color,
     onSv: androidx.compose.ui.graphics.Color
@@ -231,15 +232,25 @@ private fun SettingsSection(
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Per-type text editing state — decoupled from parsed Double config
+                    // so users can type "5." without it bouncing back to "0"
+                    val textValues = remember { mutableStateMapOf<ShiftType, String>() }
+                    // Sync config → text when a type hasn't been edited yet
+                    configurableShiftTypes.forEach { type ->
+                        if (type !in textValues) {
+                            textValues[type] = formatPremium(config.shiftPremiums[type] ?: 0.0)
+                        }
+                    }
+
                     configurableShiftTypes.chunked(2).forEach { row ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             row.forEach { shiftType ->
-                                val currentValue = config.shiftPremiums[shiftType] ?: 0
                                 val label = shiftLabel(shiftType)
                                 val accentColor = v2ShiftColor(shiftType)
+                                val currentText = textValues[shiftType] ?: "0"
 
                                 Row(
                                     modifier = Modifier.weight(1f),
@@ -258,17 +269,25 @@ private fun SettingsSection(
                                         modifier = Modifier.width(32.dp)
                                     )
                                     OutlinedTextField(
-                                        value = currentValue.toString(),
-                                        onValueChange = { newValueStr ->
-                                            val newValue = newValueStr.filter { it.isDigit() }
-                                                .take(4).toIntOrNull() ?: 0
-                                            val newMap = config.shiftPremiums.toMutableMap()
-                                            newMap[shiftType] = newValue
-                                            onUpdate(newMap)
+                                        value = currentText,
+                                        onValueChange = { raw ->
+                                            val cleaned = cleanDecimalInput(raw)
+                                            textValues[shiftType] = cleaned
+                                            // Only push to config when a valid number is formed
+                                            val parsed = if (cleaned.isEmpty() || cleaned == ".") {
+                                                0.0
+                                            } else {
+                                                cleaned.toDoubleOrNull()
+                                            }
+                                            if (parsed != null) {
+                                                val newMap = config.shiftPremiums.toMutableMap()
+                                                newMap[shiftType] = parsed
+                                                onUpdate(newMap)
+                                            }
                                         },
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                         textStyle = MaterialTheme.typography.bodyMedium.copy(
                                             color = onBg,
                                             textAlign = TextAlign.End
@@ -378,7 +397,7 @@ private fun MonthTeamRow(
 
 @Composable
 private fun PremiumTotalCard(
-    total: Int,
+    total: Double,
     onSv: androidx.compose.ui.graphics.Color,
     primary: androidx.compose.ui.graphics.Color
 ) {
@@ -469,9 +488,9 @@ private fun ShiftBreakdownSection(
 
             // Contribution details
             val premiumDetails = ShiftType.entries
-                .filter { (config.shiftPremiums[it] ?: 0) > 0 && (breakdown.shiftCounts[it] ?: 0) > 0 }
+                .filter { (config.shiftPremiums[it] ?: 0.0) > 0.0 && (breakdown.shiftCounts[it] ?: 0) > 0 }
                 .map { type ->
-                    val premium = config.shiftPremiums[type] ?: 0
+                    val premium = config.shiftPremiums[type] ?: 0.0
                     val count = breakdown.shiftCounts[type] ?: 0
                     val subtotal = premium * count
                     Triple(type, count, subtotal)
@@ -605,7 +624,7 @@ private fun SimulationCard(
 
             // Result
             if (extraCount > 0 && simulatedBreakdown != null) {
-                val extraAmount = (salaryConfig.shiftPremiums[extraShiftType] ?: 0) * extraCount
+                val extraAmount = (salaryConfig.shiftPremiums[extraShiftType] ?: 0.0) * extraCount
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -634,4 +653,24 @@ private fun shiftLabel(type: ShiftType): String = when (type) {
     ShiftType.NIGHT -> "夜班"
     ShiftType.REST -> "休班"
     ShiftType.STUDY -> "学班"
+}
+
+private fun formatPremium(value: Double): String {
+    return if (value == value.toLong().toDouble()) {
+        value.toLong().toString()
+    } else {
+        value.toString()
+    }
+}
+
+private fun cleanDecimalInput(input: String): String {
+    val allowed = input.filter { it.isDigit() || it == '.' }
+    val firstDot = allowed.indexOf('.')
+    return if (firstDot == -1) {
+        allowed.take(6)
+    } else {
+        val before = allowed.substring(0, firstDot)
+        val after = allowed.substring(firstDot + 1).filter { it.isDigit() }.take(2)
+        before.take(4) + "." + after
+    }
 }

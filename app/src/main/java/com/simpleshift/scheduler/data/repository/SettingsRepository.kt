@@ -187,7 +187,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     private fun parseSalaryConfig(raw: String): SalaryConfig {
-        val map = mutableMapOf<ShiftType, Int>()
+        val map = mutableMapOf<ShiftType, Double>()
         val entries = raw.split(PREMIUM_ENTRY_SEPARATOR)
         for (entry in entries) {
             val parts = entry.split(PREMIUM_SEPARATOR)
@@ -197,7 +197,7 @@ class SettingsRepository(private val context: Context) {
                 } catch (_: Exception) {
                     null
                 }
-                val amount = parts[1].trim().toIntOrNull()
+                val amount = parts[1].trim().toDoubleOrNull()
                 if (type != null && amount != null) {
                     map[type] = amount
                 }

@@ -149,10 +149,10 @@ class SettingsRepositoryTest {
         val repo = SettingsRepository(context)
         val config = SalaryConfig(
             mapOf(
-                ShiftType.MORNING to 0,
-                ShiftType.AFTERNOON to 50,
-                ShiftType.NIGHT to 200,
-                ShiftType.STUDY to 0
+                ShiftType.MORNING to 0.0,
+                ShiftType.AFTERNOON to 50.0,
+                ShiftType.NIGHT to 200.0,
+                ShiftType.STUDY to 0.0
             )
         )
 
@@ -160,10 +160,10 @@ class SettingsRepositoryTest {
 
         val loaded = repo.salaryConfigFlow.first()
         assertEquals(4, loaded.shiftPremiums.size)
-        assertEquals(0, loaded.shiftPremiums[ShiftType.MORNING])
-        assertEquals(50, loaded.shiftPremiums[ShiftType.AFTERNOON])
-        assertEquals(200, loaded.shiftPremiums[ShiftType.NIGHT])
-        assertEquals(0, loaded.shiftPremiums[ShiftType.STUDY])
+        assertEquals(0.0, loaded.shiftPremiums[ShiftType.MORNING]!!, 0.01)
+        assertEquals(50.0, loaded.shiftPremiums[ShiftType.AFTERNOON]!!, 0.01)
+        assertEquals(200.0, loaded.shiftPremiums[ShiftType.NIGHT]!!, 0.01)
+        assertEquals(0.0, loaded.shiftPremiums[ShiftType.STUDY]!!, 0.01)
     }
 
     @Test

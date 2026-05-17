@@ -4,69 +4,52 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- === BACKGROUND: Blue gradient === -->
+    <!-- === BACKGROUND: Deep navy with radial glow === -->
     <path
-        android:fillColor="#1565C0"
-        android:pathData="M54,54 m-54,0 a54,54 0 1,0 108,0 a54,54 0 1,0 -108,0 Z"/>
+        android:fillColor="#0D2137"
+        android:pathData="M0,0h108v108h-108z"/>
     <path
-        android:fillColor="#1E88E5"
-        android:pathData="M54,54 m-42,0 a42,42 0 1,0 84,0 a42,42 0 1,0 -84,0 Z"/>
+        android:fillColor="#112D4A"
+        android:pathData="M54,54 m-40,0 a40,40 0 1,0 80,0 a40,40 0 1,0 -80,0 Z"/>
     <path
-        android:fillColor="#1976D2"
-        android:pathData="M54,54 m-28,0 a28,28 0 1,0 56,0 a28,28 0 1,0 -56,0 Z"/>
-    <path
-        android:fillColor="#0D47A1"
-        android:pathData="M54,54 m-12,0 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 Z"/>
+        android:fillColor="#15375A"
+        android:pathData="M54,54 m-22,0 a22,22 0 1,0 44,0 a22,22 0 1,0 -44,0 Z"/>
 
-    <!-- === FOREGROUND: Calendar + Shift indicators === -->
+    <!-- === FOREGROUND: Three S triskelion === -->
 
-    <!-- Calendar body -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.92"
-        android:pathData="M30,24 L78,24 C80.2,24 82,25.8 82,28 L82,88 C82,90.2 80.2,92 78,92 L30,92 C27.8,92 26,90.2 26,88 L26,28 C26,25.8 27.8,24 30,24 Z"/>
+    <!-- Arm 1 (0°) - Amber -->
+    <group android:rotation="0" android:pivotX="54" android:pivotY="54">
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FF8F00"
+            android:strokeWidth="7.5"
+            android:strokeLineCap="round"
+            android:pathData="M54,49 C66,49 66,40 54,38 C42,36 42,26 54,24"/>
+    </group>
 
-    <!-- Calendar header -->
-    <path
-        android:fillColor="#1565C0"
-        android:fillAlpha="0.85"
-        android:pathData="M30,24 L78,24 C80.2,24 82,25.8 82,28 L82,42 L26,42 L26,28 C26,25.8 27.8,24 30,24 Z"/>
+    <!-- Arm 2 (120°) - Teal -->
+    <group android:rotation="120" android:pivotX="54" android:pivotY="54">
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#26A69A"
+            android:strokeWidth="7.5"
+            android:strokeLineCap="round"
+            android:pathData="M54,49 C66,49 66,40 54,38 C42,36 42,26 54,24"/>
+    </group>
 
-    <!-- Binding rings -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.92"
-        android:pathData="M42,22 A4,4 0 1,1 42,30 A4,4 0 1,1 42,22 Z"/>
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillAlpha="0.92"
-        android:pathData="M66,22 A4,4 0 1,1 66,30 A4,4 0 1,1 66,22 Z"/>
+    <!-- Arm 3 (240°) - Violet -->
+    <group android:rotation="240" android:pivotX="54" android:pivotY="54">
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#7E57C2"
+            android:strokeWidth="7.5"
+            android:strokeLineCap="round"
+            android:pathData="M54,49 C66,49 66,40 54,38 C42,36 42,26 54,24"/>
+    </group>
 
-    <!-- Sun (morning shift) -->
+    <!-- Central circle -->
     <path
-        android:fillColor="#FF8F00"
-        android:pathData="M54,68 A6,6 0 1,1 54,56 A6,6 0 1,1 54,68 Z"/>
-    <path
-        android:strokeColor="#FF8F00"
-        android:strokeWidth="1.8"
-        android:pathData="M54,52 L54,49 M54,72 L54,75 M50,62 L48,60 M58,62 L60,60 M48,56 L46,54 M60,56 L62,54 M50,54 L48,52 M58,54 L60,52"/>
-
-    <!-- Moon (night shift) -->
-    <path
-        android:fillColor="#5C6BC0"
-        android:pathData="M60,74 A4,4 0 1,0 60,66 A5,5 0 0,0 60,66 A5,5 0 0,1 60,74 Z"/>
-    <path
-        android:fillColor="#5C6BC0"
-        android:pathData="M70,68 L70.8,70.2 L73,71 L70.8,71.8 L70,74 L69.2,71.8 L67,71 L69.2,70.2 Z"/>
-
-    <!-- Cycle arrow -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#43A047"
-        android:strokeWidth="2.2"
-        android:pathData="M54,52 A14,14 0 1,1 42,60"/>
-    <path
-        android:fillColor="#43A047"
-        android:pathData="M42,58 L38,61 L44,62 Z"/>
+        android:fillColor="#ECEFF1"
+        android:pathData="M54,54 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 Z"/>
 
 </vector>
