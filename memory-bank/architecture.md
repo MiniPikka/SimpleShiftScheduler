@@ -20,7 +20,7 @@
 - 2026-05-15：V3 首页精品化重构已完成（`NewHomeScreenV3` + 6 个 V3 组件，`USE_NEW_HOME_V3 = true`）
 - 2026-05-15：阶段 26 提醒设置增强已完成（说明卡片 + 小米 ExtendedProperties 修复 + 系统闹钟增强）
 - 阶段 25-26 详细规划见 `memory-bank/implementation-plan.md`
-- 2026-05-17：App 图标重设计（三 S 三曲臂 triskelion 图案）+ V4 首页协调化重设计（统一卡片语言、圆形徽章英雄卡片）+ 倒班津贴支持小数输入（Int → Double）
+- 2026-05-17：App 图标重设计（三 S 三曲臂 triskelion 图案）+ V4 首页协调化重设计（统一卡片语言、圆形徽章英雄卡片）+ 倒班津贴支持小数输入（Int → Double）+ 性能优化（@Immutable 注解、runBlocking 移除、日历同步反馈循环修复、R8 开启）+ Widget V2 升级（深色主题、明日预览、回退数据改善）+ Widget 更新优化（快照比较去重、实例复用、异常日志）
 
 ### 阶段 26 架构更新：提醒设置增强（已完成，最简方案）
 
@@ -1501,3 +1501,216 @@ BOM 2023.10.01 是 2023 年 10 月版本，一年半未更新。升级到 2024.0
 ### 洞察 VV：TimePicker 实验性 API 标记不影响生产使用
 
 Material3 1.2.x 中 `TimePicker` / `rememberTimePickerState` 标记 `@ExperimentalMaterial3Api`，但 Material3 的实验性 API 通常在次版本变为稳定。加 `@OptIn` 即可编译通过，不影响运行时行为。
+
+---
+
+## 21. 2026-05-17 架构更新：性能优化（已完成）
+
+### 优化策略
+
+采用四阶段渐进式优化，每阶段独立可交付、独立可回滚。"稳健鲁棒"原则优先——最高收益、最低风险项先做。
+
+### Phase 1：Compose 稳定性标注 + UI 微修复
+
+**1A：@Immutable 注解（21 个数据类，9 个文件）**
+
+Compose 编译器将包含 `List`、`Map`、`LocalDate` 的数据类视为"不稳定"，导致每次状态变更时全面重组。添加 `@Immutable` 告知编译器这些类不可变，启用智能重组（跳过未变更的子节点）。
+
+| 层 | 文件 | 数据类 |
+|----|------|--------|
+| ViewModel | `HomeViewModel.kt` | `HomeUiState` |
+| ViewModel | `CalendarViewModel.kt` | `CalendarDayUiState`, `CalendarUiState` |
+| ViewModel | `SalaryPredictorViewModel.kt` | `SalaryPredictorUiState` |
+| ViewModel | `ColleagueModeViewModel.kt` | `ColleagueModeUiState` |
+| ViewModel | `LeaveOptimizerViewModel.kt` | `LeaveOptimizerUiState` |
+| ViewModel | `SettingsViewModel.kt` | `SettingsUiState` |
+| ViewModel | `AlarmSettingsViewModel.kt` | `AlarmSettingsUiState` |
+| ViewModel | `ShiftRuleViewModel.kt` | `ShiftRuleUiState` |
+| Domain | `RuntimeShiftSettings.kt` | `RuntimeShiftSettings` |
+| Domain | `SalaryConfig.kt` | `SalaryConfig` |
+| Domain | `SalaryBreakdown.kt` | `SalaryBreakdown` |
+| Domain | `AlarmSettings.kt` | `AlarmSettings` |
+| Domain | `AlarmTime.kt` | `AlarmTime` |
+| Domain | `CalendarEventIds.kt` | `CalendarEventIds` |
+| Domain | `MonthlyStats.kt` | `MonthlyStats` |
+| Domain | `LeaveStrategy.kt` | `LeaveStrategy` |
+| Domain | `CommonRestResult.kt` | `CommonRestResult` |
+| Domain | `CalendarDayInfo.kt` | `CalendarDayInfo` |
+| Domain | `ShiftInfo.kt` | `ShiftInfo` |
+| Domain | `Team.kt` | `Team` |
+
+每项变更：添加 `import androidx.compose.runtime.Immutable` + 在 `data class` 前加 `@Immutable`。行为零变更。
+
+**1B：V4HeroCard 双重组合修复**
+
+`NewHomeScreenV4.kt:183-184`：`animatedVisible = true`（每次组合都写入状态并触发第二次组合）改为 `LaunchedEffect(Unit) { animatedVisible = true }`（仅触发一次）。
+
+**1C：DateTimeFormatter 提升**
+
+`SalaryPredictorScreen.kt:340`：`DateTimeFormatter.ofPattern("yyyy年M月")` 移入 `remember {}`，避免每次重组都重新分配。
+
+### Phase 2：协程修复 + 日历同步
+
+**2A：移除 runBlocking**
+
+`SalaryPredictorViewModel.kt:47`：`runBlocking { saveSalaryConfig() }` 替换为 `viewModelScope.launch { saveSalaryConfig() }`。`recalculate()` 仅读取内存状态，无需等待保存完成。移除 `import kotlinx.coroutines.runBlocking`。
+
+**2B：打破日历同步反馈循环**
+
+`CalendarSyncManager.startAutoSync()`：`calendarEventIdsFlow` 从 3 路 `combine` 中移除，改为在 collect 内部通过 `.first()` 一次性读取。打破 `saveCalendarEventIds → flow 发射 → combine 重新触发 → 再次同步` 的循环。
+
+`SettingsRepository.saveCalendarEventIds()`：移除写入前的 `dataStore.data.first()` 守卫检查（`edit` 本身是原子操作，反馈循环已解除后无需守卫）。
+
+### Phase 3：构建配置
+
+**3A：启用 R8 混淆**
+
+`app/build.gradle.kts`：Release 构建设置 `isMinifyEnabled = true` + `isShrinkResources = true`。
+
+**新增 `app/proguard-rules.pro`**：Compose 安全保留规则（Compose 类、枚举 values/valueOf、domain/viewmodel 数据类、ViewModel 子类）。Release APK 体积约 7.2MB（压缩显著）。
+
+**3B：Baseline Profile 推迟**
+
+尝试直接放置 `baseline-prof.txt` 失败（AGP 8.2.0 解析错误：需要完整 HRF 格式或 Baseline Profile Gradle Plugin）。推迟至后续阶段，届时通过完整的 `androidx.baselineprofile` 插件 + 生成器测试模块实施。
+
+### Phase 4：推迟
+
+日历 `ContentProviderOperation.applyBatch()` 批处理推迟。`CalendarEventManager.syncShiftEvents` 中每次插入依赖 `findExistingEvent` 查询（无法与插入批量合并），且提醒插入需要事件 ID。改为 `applyBatch` 需彻底重构。同步已在后台协程中运行，不影响 UI，投入产出比低。
+
+### 洞察 WW：@Immutable 是性能优化中投入产出比最高的单项变更
+
+21 个数据类，每个仅添加 2 行代码（import + 注解），行为零变更，但对 Compose 重组效率影响深远——编译器从"保守全面重组"变为"跳过不变子节点"。
+
+### 洞察 XX：runBlocking 在主线程上是隐蔽的性能杀手
+
+DataStore `edit` 内部调度至 `Dispatchers.IO`，但 `runBlocking` 阻塞调用线程等待其完成。用户快速切换津贴设置时，每次键盘输入都触发 `updateConfig()`，导致主线程频繁阻塞。改为 `viewModelScope.launch` 后写入异步进行，UI 保持响应。
+
+### 洞察 YY：Flow combine 包含自写键会形成反馈循环
+
+`combine(settingsFlow, alarmSettingsFlow, calendarEventIdsFlow)` 的第三个流在同步完成后被自身写入，导致重新触发。Mutex 能防止并发执行，但无法防止冗余触发。将自写流移出 combine 并改为按需 `.first()` 读取，可彻底消除循环。
+
+### 改造文件
+
+| 阶段 | 新增文件 | 改造文件 |
+|------|---------|---------|
+| 1 | — | 9 个 ViewModel 文件 + 12 个 domain/model 文件（添加 @Immutable） |
+| 1 | — | `NewHomeScreenV4.kt`（LaunchedEffect 动画修复） |
+| 1 | — | `SalaryPredictorScreen.kt`（remember formatter） |
+| 2 | — | `SalaryPredictorViewModel.kt`（runBlocking → viewModelScope.launch） |
+| 2 | — | `CalendarSyncManager.kt`（combine 3 路 → 2 路 + .first()） |
+| 2 | — | `SettingsRepository.kt`（移除 saveCalendarEventIds 守卫） |
+| 3 | `proguard-rules.pro` | `build.gradle.kts`（R8 开启 + 资源压缩） |
+
+---
+
+## 22. 2026-05-17 架构更新：Widget V2 升级 + 更新优化（已完成）
+
+### 设计目标
+
+全面提升桌面组件的外观、功能和鲁棒性：
+- **外观**：从浅色柔和色彩升级为 V2 深色主题（对齐 App 内设计语言）
+- **功能**：新增明日班次预览（彩色圆点 + 标签）、休息倒计时、未配置兜底
+- **鲁棒性**：避免无变化时的冗余更新、异常日志记录、回退数据显式提示
+
+### Widget V2 设计
+
+#### 深色主题颜色
+
+Widget 使用硬编码深色常量（Glance 不支持 `MaterialTheme.colorScheme`）：
+- `WidgetBackground = Color(0xFF1B1F26)` — 对齐 `V2CardSurface`
+- `WidgetTextPrimary = Color(0xFFF5F7FA)` — 对齐 `V2PrimaryText`
+- `WidgetTextSecondary = Color(0xFF9CA3AF)` — 对齐 `V2SecondaryText`
+- `shiftAccentColor(ShiftType): Color` — 五色班次映射（早橙/中蓝/休绿/夜紫/学黄）
+
+旧 `colors.xml` 中的 widget 纯色资源已全部移除，颜色定义集中在 `ShiftWidget.kt` 内。
+
+#### 新布局结构
+
+```
+Row 1: [大号班次徽章] + [班组名/第X/Y天] + [休息倒计时/距休X天]
+Row 2: [日期标签（含中文星期）] + [● 明日: 早]
+```
+
+- **班次徽章**：圆角 10dp Box + 班次强调色背景 + 20sp Bold 白字
+- **明日预览**：6dp 彩色圆点（`cornerRadius(3.dp)`）+ "明日: " + 班次标签
+- **休息倒计时**：休班显示绿色"休息日"，距休 1 天显示"明天休息"，其余"距休X天"
+- **日期格式**：`M月d日 周X`（如"5月17日 周三"），使用 `DateTimeFormatter.ofPattern` + 中文星期映射
+
+#### 未配置状态
+
+设置无效时显示简洁的引导信息：
+- 主文字"未配置"（白色 Bold 15sp）
+- 副文字"请先设置排班规则"（灰色 11sp）
+- 深色背景一致，视觉上明显不同于正常状态
+
+旧版回退数据 `shiftLabel="?"` 在绿色 REST 背景下会误导用户以为今日休息，已升级为显式引导文案。
+
+### WidgetShiftData 扩展
+
+```kotlin
+data class WidgetShiftData(
+    val dateLabel: String,           // "5月17日 周三"
+    val shiftLabel: String,          // "早"/"中"/"休"/"夜"/"学"
+    val shiftType: ShiftType,        // 枚举值
+    val dayOfCycle: Int,             // 周期第几天
+    val totalDays: Int,              // 周期总天数（0=未配置）
+    val teamName: String,            // 班组名
+    val daysUntilRest: Int,          // 距下次休息天数（-1=未配置/无休班）
+    val tomorrowShiftLabel: String,  // 明日班次标签
+    val tomorrowShiftType: ShiftType // 明日班次类型
+)
+```
+
+新增 `tomorrowShiftLabel` 和 `tomorrowShiftType` 字段，通过 `getShiftInfo(today.plusDays(1), ...)` 计算。`computeWidgetShiftData()` 新增 `dateOfWeekChinese()` 辅助函数。
+
+### Widget 更新优化
+
+**问题 1：无条件冗余更新**
+
+`MainActivity.onResume()` 和三个位置（快速操作删除、设置保存、CalendarSyncManager）无条件调用 `notifyWidgetUpdate()`，即使设置未变化。每次更新触发 DataStore 读取 + Glance 重组。
+
+**方案**：`MainActivity` 缓存 `lastWidgetSettings: RuntimeShiftSettings?`（data class 的 `==` 比较所有字段），未变化时跳过：
+
+```kotlin
+private val shiftWidget = ShiftWidget()
+private var lastWidgetSettings: RuntimeShiftSettings? = null
+
+private fun notifyWidgetUpdate() {
+    val current = runtimeSettingsFlow.value
+    if (current == lastWidgetSettings) return
+    lastWidgetSettings = current
+    lifecycleScope.launch {
+        try {
+            shiftWidget.updateAll(this@MainActivity)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Widget update failed", e)
+        }
+    }
+}
+```
+
+**问题 2：异常静默吞没**
+
+旧代码 `catch (_: Exception) {}` 使所有 widget 更新失败不可见。已添加 `Log.e` 记录异常信息。
+
+**问题 3：每次创建新实例**
+
+`ShiftWidget().updateAll()` 每次调用都新建 GlanceAppWidget 实例。已将 `ShiftWidget()` 提取为 Activity 的 `private val shiftWidget`。
+
+### 改造文件
+
+| 文件 | 改动 |
+|------|------|
+| `MainActivity.kt` | 添加 `shiftWidget` val + `lastWidgetSettings` 快照比较 + `Log.e` 异常记录 |
+| `domain/widget_data.kt` | `WidgetShiftData` 新增 `tomorrowShiftLabel`/`tomorrowShiftType`；日期格式改用 `M月d日` + 中文星期；回退数据改为"未配置"/"请先设置排班规则" |
+| `widget/ShiftWidget.kt` | 全面重写：V2 深色主题 + 新布局（明日预览、休息倒计时、未配置状态） |
+| `res/values/colors.xml` | 移除旧 widget 纯色资源 |
+| `WidgetDataTest.kt` | 更新测试覆盖新字段（`tomorrowShiftLabel`/`tomorrowShiftType`）+ 回退数据验证 |
+
+### 洞察 ZZ：Glance Widget 颜色必须内联
+
+Glance 编译为 RemoteViews，不支持 `androidx.compose.ui.graphics.Color` 的资源引用或主题系统。所有颜色必须以 `Color(0xFFxxxxxx)` 内联在 Kotlin 代码中。`colors.xml` 保留仅用于 App 内 Compose UI（若被引用），但 Widget 相关颜色已全部迁移至 `ShiftWidget.kt`。
+
+### 洞察 AAA：快照比较是零成本去重机制
+
+`RuntimeShiftSettings` 是 data class，Kotlin 编译器自动生成 `equals()`。`current == lastWidgetSettings` 一次对象比较即可避免整个 DataStore 读取 + Glance 更新流程。相比每次 onResume 都无条件更新，这是投入产出比最高的单行优化。

@@ -2,6 +2,7 @@ package com.simpleshift.scheduler.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.compose.runtime.Immutable
 import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+@Immutable
 data class SettingsUiState(
     val cycleLength: Int = ShiftCycleConfig.CYCLE_LENGTH,
     val shiftCycle: List<ShiftType> = ShiftCycleConfig.SHIFT_CYCLE,

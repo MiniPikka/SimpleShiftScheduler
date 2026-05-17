@@ -1,5 +1,8 @@
 package com.simpleshift.scheduler.domain.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class Team(
     val id: Int,
     val name: String

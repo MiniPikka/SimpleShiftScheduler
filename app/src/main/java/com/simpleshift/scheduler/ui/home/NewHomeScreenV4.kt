@@ -29,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -181,7 +182,7 @@ private fun V4HeroCard(
     val progress = if (totalDays > 0) dayOfCycle.toFloat() / totalDays else 0f
 
     var animatedVisible by remember { mutableStateOf(false) }
-    animatedVisible = true
+    LaunchedEffect(Unit) { animatedVisible = true }
 
     AnimatedVisibility(
         visible = animatedVisible,

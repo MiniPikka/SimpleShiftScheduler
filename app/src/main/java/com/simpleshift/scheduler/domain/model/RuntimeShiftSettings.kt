@@ -1,7 +1,9 @@
 package com.simpleshift.scheduler.domain.model
 
+import androidx.compose.runtime.Immutable
 import java.time.LocalDate
 
+@Immutable
 data class RuntimeShiftSettings(
     val cycleLength: Int = ShiftCycleConfig.CYCLE_LENGTH,
     val shiftCycle: List<ShiftType> = ShiftCycleConfig.SHIFT_CYCLE,

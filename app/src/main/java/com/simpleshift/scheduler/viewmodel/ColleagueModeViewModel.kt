@@ -5,6 +5,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.Immutable
 import com.simpleshift.scheduler.domain.findCommonRestDays
 import com.simpleshift.scheduler.domain.generateQrCodeBitmap
 import com.simpleshift.scheduler.domain.SHARE_QR_URL
@@ -30,6 +31,7 @@ class ColleagueModeViewModel(
     private val todayProvider: () -> LocalDate = { LocalDate.now() }
 ) : AndroidViewModel(application) {
 
+    @Immutable
     data class ColleagueModeUiState(
         val teamAId: Int = 1,
         val teamBId: Int = 3,

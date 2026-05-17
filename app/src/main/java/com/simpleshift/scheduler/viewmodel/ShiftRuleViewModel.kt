@@ -2,6 +2,7 @@ package com.simpleshift.scheduler.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.compose.runtime.Immutable
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.domain.model.Team
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalDate
 
+@Immutable
 data class ShiftRuleUiState(
     val step: Int = 1,
     val rotationSequence: List<ShiftType> = emptyList(),

@@ -336,8 +336,9 @@ private fun MonthTeamRow(
                     tint = onBg
                 )
             }
+            val monthFormatter = remember { DateTimeFormatter.ofPattern("yyyy年M月") }
             Text(
-                text = currentMonth.format(DateTimeFormatter.ofPattern("yyyy年M月")),
+                text = currentMonth.format(monthFormatter),
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = onBg,
                     fontWeight = FontWeight.Medium

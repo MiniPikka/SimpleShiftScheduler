@@ -60,12 +60,12 @@ class CalendarSyncManager(
         scope.launch {
             combine(
                 settingsRepository.settingsFlow,
-                settingsRepository.alarmSettingsFlow,
-                settingsRepository.calendarEventIdsFlow
-            ) { shiftSettings, alarmSettings, eventIds ->
-                Triple(shiftSettings, alarmSettings, eventIds)
-            }.collect { (shiftSettings, alarmSettings, eventIds) ->
+                settingsRepository.alarmSettingsFlow
+            ) { shiftSettings, alarmSettings ->
+                Pair(shiftSettings, alarmSettings)
+            }.collect { (shiftSettings, alarmSettings) ->
                 if (shiftSettings.isValid && hasCalendarPermissions()) {
+                    val eventIds = settingsRepository.calendarEventIdsFlow.first()
                     syncMutex.withLock {
                         try {
                             syncCalendarEvents(alarmSettings, shiftSettings, eventIds)

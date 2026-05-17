@@ -2,6 +2,7 @@ package com.simpleshift.scheduler.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.compose.runtime.Immutable
 import com.simpleshift.scheduler.data.repository.SettingsRepository
 import com.simpleshift.scheduler.domain.findBestLeavePlans
 import com.simpleshift.scheduler.domain.model.LeaveStrategy
@@ -20,6 +21,7 @@ class LeaveOptimizerViewModel(
     private val todayProvider: () -> LocalDate = { LocalDate.now() }
 ) : AndroidViewModel(application) {
 
+    @Immutable
     data class LeaveOptimizerUiState(
         val strategies: List<LeaveStrategy> = emptyList(),
         val selectedTeamId: Int = 1,

@@ -139,41 +139,52 @@
 
 ---
 
-### 2.5 桌面小组件
+### 2.5 桌面小组件（V2 深色主题）
 
-**功能**：在设备桌面显示今日班次信息，无需打开 App 即可查看。
+**功能**：在设备桌面显示今日班次信息，无需打开 App 即可查看。V2 升级为深色主题，新增明日班次预览和休息倒计时，与 App 内 V2 Design Token 对齐。
 
-**界面元素**：
+**界面结构**（V2 深色主题）：
 
 ```
 ┌──────────────────────────────────────┐
 │  ┌───────┐                           │
-│  │  早   │  一值          距休 2天   │
-│  │ 白字  │  第 10/42 天              │
+│  │  早   │  一值          距休 2天   │  深色背景 #1B1F26
+│  │ 白字  │  第 10/42 天              │  白色/灰色文字
 │  └───────┘                           │
-│  2026年5月14日 星期三                 │
+│                                      │
+│  5月17日 周三          ● 明日: 中    │  日期 + 明日预览
 └──────────────────────────────────────┘
 ```
 
-* 班组名称
-* 当前日期（本地化可读）
-* 今日班次（圆角徽章 + 彩色背景白字：早=橙、中=蓝、休=绿、夜=紫、学=黄）
-* 距休天数（=0 显示绿色"休息日"，>0 显示"距休 X天"）
-* 周期进度（纯文字"第 X/Y 天"，Glance 不支持进度条组件）
+**界面元素**（V2）：
+
+* **深色背景**：`#1B1F26`（对齐 App V2 卡片表面色），全 Widget 统一暗色调
+* **班组名称**：白色中号文字，`#F5F7FA`
+* **日期标签**：格式 `M月d日 周X`（如"5月17日 周三"），灰色小字，`#9CA3AF`
+* **今日班次徽章**：圆角 10dp Box + 班次强调色背景 + 20sp Bold 白字（早=橙 `#FFB347`、中=蓝 `#4DA3FF`、休=绿 `#35D07F`、夜=紫 `#7C5CFF`、学=黄 `#F2D94E`）
+* **周期进度**：文字"第 X/Y 天"（灰色小字，Glance 不支持进度条组件）
+* **休息倒计时**：
+  - 今日休息 → 绿色 Bold "休息日"
+  - 距休 1 天 → 绿色 Medium "明天休息"
+  - 其他 → 灰色"距休X天"
+* **明日预览**：6dp 彩色圆点（班次颜色）+ "明日: " + 班次标签（灰色 + 白色）
+* **未配置状态**：白色 Bold "未配置" + 灰色"请先设置排班规则"（替代旧版误导性的 "?" + 绿色 REST）
 * Widget 尺寸：4×1（`targetCellWidth=4`, `targetCellHeight=1`）
 
 **交互**：
 
 * 点击 Widget 任意位置 → 打开 App 首页
 * Widget 每 1 小时自动刷新
-* App 内修改设置后 Widget 立即更新
+* App 内修改设置后 Widget 立即更新（含快照比较去重：设置未变化时跳过更新）
 
 **技术方案**：
 
 * 使用 Jetpack Glance 框架（Compose 式 Widget API）
-* 直接从 DataStore 读取倒班配置，调用 domain 层 `computeWidgetShiftData()` 计算今日数据（含 `daysUntilNextRest()`）
-* 进度使用纯文字"第 X/Y 天"（Glance 不支持 `LinearProgressIndicator`、`fillMaxWidth(fraction)`、`defaultWeight()` 加权比例）
-* 徽章使用 `Box` + `cornerRadius(12.dp)` + `background(accentColor)`（Glance 无 `CircleShape`）
+* 直接从 DataStore 读取倒班配置，调用 domain 层 `computeWidgetShiftData()` 计算今日数据 + 明日数据
+* 颜色以 `Color(0xFFxxxxxx)` 内联在 `ShiftWidget.kt` 中（Glance 不支持资源引用和主题系统）
+* 进度使用纯文字"第 X/Y 天"（Glance 不支持 `LinearProgressIndicator`、`fillMaxWidth(fraction)` 等 Compose 特性）
+* 徽章使用 `Box` + `cornerRadius(10.dp)` + `background(accentColor)`（Glance 无 `CircleShape`）
+* 实例复用：`ShiftWidget` 作为 Activity 的 `val` 单例，避免每次更新的对象分配
 * 无需额外后台服务，利用系统 Widget 更新机制
 
 ---
@@ -653,3 +664,8 @@ O(n)，n ≤ 365。纯函数，可独立单元测试。复用 `getShiftTypeForDa
 * 同事模式：输入两人班组，自动计算共同休息日（社交裂变功能）
 * 倒班津贴：输入各班次补贴，自动统计班次并计算本月津贴（高频刚需功能）
 * 图片分享（阶段 22 已完成）：同事模式结果生成分享长图 + 二维码，调起系统分享面板（社交传播功能）
+* 性能优化（2026-05-17 已完成）：
+  - Compose @Immutable 稳定性标注：21 个 UI 状态数据类全部标注，编译器启用智能重组跳过不变子节点
+  - 协程修复：移除 SalaryPredictorViewModel 中主线程 runBlocking，改用 viewModelScope.launch
+  - 日历同步反馈循环修复：calendarEventIdsFlow 退出 combine，改为按需 .first() 读取
+  - R8 代码混淆与资源压缩：Release 构建开启 minification

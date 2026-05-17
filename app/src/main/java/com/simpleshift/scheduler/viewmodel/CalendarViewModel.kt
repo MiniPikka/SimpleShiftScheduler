@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.simpleshift.scheduler.domain.generateMonthCalendarDays
 import com.simpleshift.scheduler.domain.teamPhaseStepFor
+import androidx.compose.runtime.Immutable
 import com.simpleshift.scheduler.domain.model.MonthlyStats
 import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import com.simpleshift.scheduler.domain.model.ShiftType
@@ -15,6 +16,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+@Immutable
 data class CalendarDayUiState(
     val dateNumber: Int,
     val shiftLabel: String,
@@ -23,6 +25,7 @@ data class CalendarDayUiState(
     val isToday: Boolean = false
 )
 
+@Immutable
 data class CalendarUiState(
     val monthLabel: String = "",
     val weekLabels: List<String> = emptyList(),

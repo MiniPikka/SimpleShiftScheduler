@@ -128,8 +128,6 @@ class SettingsRepository(private val context: Context) {
         val serialized = ids.eventIds.entries.joinToString(EVENT_ENTRY_SEPARATOR) { (key, value) ->
             "$key$EVENT_ID_SEPARATOR$value"
         }
-        val current = context.dataStore.data.first()[KEY_CALENDAR_EVENT_IDS] ?: ""
-        if (serialized == current) return
         context.dataStore.edit { prefs ->
             prefs[KEY_CALENDAR_EVENT_IDS] = serialized
         }

@@ -1,8 +1,10 @@
 package com.simpleshift.scheduler.domain.model
 
+import androidx.compose.runtime.Immutable
 import java.time.LocalDate
 import java.time.ZoneId
 
+@Immutable
 data class AlarmTime(
     val hour: Int,
     val minute: Int

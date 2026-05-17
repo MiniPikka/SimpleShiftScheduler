@@ -2,6 +2,8 @@ package com.simpleshift.scheduler.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.Immutable
 import com.simpleshift.scheduler.data.repository.SettingsRepository
 import com.simpleshift.scheduler.domain.calculateSalaryBreakdown
 import com.simpleshift.scheduler.domain.countAllShiftTypesInMonth
@@ -13,7 +15,7 @@ import com.simpleshift.scheduler.domain.model.ShiftType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -22,6 +24,7 @@ class SalaryPredictorViewModel(
     private val todayProvider: () -> LocalDate = { LocalDate.now() }
 ) : AndroidViewModel(application) {
 
+    @Immutable
     data class SalaryPredictorUiState(
         val salaryConfig: SalaryConfig = SalaryConfig(),
         val breakdown: SalaryBreakdown? = null,
@@ -44,7 +47,7 @@ class SalaryPredictorViewModel(
 
     fun updateConfig(newConfig: SalaryConfig) {
         _uiState.value = _uiState.value.copy(salaryConfig = newConfig)
-        runBlocking {
+        viewModelScope.launch {
             settingsRepository.saveSalaryConfig(newConfig)
         }
         recalculate()

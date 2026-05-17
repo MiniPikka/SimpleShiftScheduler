@@ -10,6 +10,7 @@ import com.simpleshift.scheduler.domain.countWorkDaysInMonth
 import com.simpleshift.scheduler.domain.daysUntilNextRest
 import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
+import androidx.compose.runtime.Immutable
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.domain.model.Team
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
+@Immutable
 data class HomeUiState(
     val todayDate: String = "",
     val shiftType: ShiftType = ShiftType.REST,

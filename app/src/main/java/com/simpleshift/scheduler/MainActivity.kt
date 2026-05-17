@@ -1,6 +1,7 @@
 package com.simpleshift.scheduler
 
 import android.os.Bundle
+import android.util.Log
 import androidx.glance.appwidget.updateAll
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -93,6 +94,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var calendarSyncManager: CalendarSyncManager
     private val runtimeSettingsFlow = MutableStateFlow(RuntimeShiftSettings())
+    private val shiftWidget = ShiftWidget()
+    private var lastWidgetSettings: RuntimeShiftSettings? = null
 
     private val requestCalendarPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -773,10 +776,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun notifyWidgetUpdate() {
+        val current = runtimeSettingsFlow.value
+        if (current == lastWidgetSettings) return
+        lastWidgetSettings = current
         lifecycleScope.launch {
             try {
-                ShiftWidget().updateAll(this@MainActivity)
-            } catch (_: Exception) {}
+                shiftWidget.updateAll(this@MainActivity)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Widget update failed", e)
+            }
         }
     }
 }

@@ -1,5 +1,8 @@
 package com.simpleshift.scheduler.domain.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class CalendarEventIds(
     val eventIds: Map<String, Long> = emptyMap()
 ) {

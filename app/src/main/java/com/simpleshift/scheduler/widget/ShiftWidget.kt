@@ -49,99 +49,191 @@ class ShiftWidget : GlanceAppWidget() {
     }
 }
 
+// ── V2 Dark Theme Colors (aligned with V2CardSurface + v2ShiftColor) ──
+
+private val WidgetBackground = Color(0xFF1B1F26)
+private val WidgetTextPrimary = Color(0xFFF5F7FA)
+private val WidgetTextSecondary = Color(0xFF9CA3AF)
+
+private fun shiftAccentColor(shiftType: ShiftType): Color = when (shiftType) {
+    ShiftType.MORNING   -> Color(0xFFFFB347)
+    ShiftType.AFTERNOON -> Color(0xFF4DA3FF)
+    ShiftType.NIGHT     -> Color(0xFF7C5CFF)
+    ShiftType.REST      -> Color(0xFF35D07F)
+    ShiftType.STUDY     -> Color(0xFFF2D94E)
+}
+
+// ── Content ─────────────────────────────────────────────────
+
 @Composable
 private fun ShiftWidgetContent(data: WidgetShiftData) {
     val context = LocalContext.current
-    val accentColor = shiftAccentRes(data.shiftType)
+
+    if (data.totalDays == 0) {
+        UnconfiguredWidget(data)
+        return
+    }
+
+    val accent = shiftAccentColor(data.shiftType)
 
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .background(shiftBackgroundRes(data.shiftType))
+            .background(WidgetBackground)
             .padding(12.dp)
             .clickable(actionStartActivity(Intent(context, MainActivity::class.java)))
     ) {
-        // Row 1: Badge + team info + rest info
+        // Row 1: Badge + Info + Rest countdown
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Shift badge
+            // Large shift badge
             Column(
                 modifier = GlanceModifier
-                    .background(accentColor)
-                    .cornerRadius(12.dp)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .background(accent)
+                    .cornerRadius(10.dp)
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = data.shiftLabel,
                     style = TextStyle(
-                        fontSize = 22.sp,
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = ColorProvider(Color.White)
                     )
                 )
             }
 
-            Spacer(modifier = GlanceModifier.width(12.dp))
+            Spacer(modifier = GlanceModifier.width(10.dp))
 
-            // Info column
+            // Center info
             Column(modifier = GlanceModifier.defaultWeight()) {
                 Text(
                     text = data.teamName,
                     style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = ColorProvider(WidgetTextPrimary)
                     )
                 )
                 Text(
-                    text = "第 ${data.dayOfCycle}/${data.totalDays} 天",
-                    style = TextStyle(fontSize = 12.sp)
+                    text = "第${data.dayOfCycle}/${data.totalDays}天",
+                    style = TextStyle(
+                        fontSize = 11.sp,
+                        color = ColorProvider(WidgetTextSecondary)
+                    )
                 )
             }
 
-            // Rest info
-            if (data.daysUntilRest == 0) {
+            // Rest countdown
+            if (data.shiftType == ShiftType.REST) {
                 Text(
                     text = "休息日",
                     style = TextStyle(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ColorProvider(com.simpleshift.scheduler.R.color.shift_widget_rest_accent)
+                        color = ColorProvider(shiftAccentColor(ShiftType.REST))
+                    )
+                )
+            } else if (data.daysUntilRest == 1) {
+                Text(
+                    text = "明天休息",
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = ColorProvider(shiftAccentColor(ShiftType.REST))
                     )
                 )
             } else {
                 Text(
                     text = "距休${data.daysUntilRest}天",
-                    style = TextStyle(fontSize = 12.sp)
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        color = ColorProvider(WidgetTextSecondary)
+                    )
                 )
             }
         }
 
         Spacer(modifier = GlanceModifier.height(8.dp))
 
-        // Row 2: Date
-        Text(
-            text = data.dateLabel,
-            style = TextStyle(fontSize = 10.sp),
-            modifier = GlanceModifier.fillMaxWidth()
-        )
+        // Row 2: Date + Tomorrow preview
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = data.dateLabel,
+                style = TextStyle(
+                    fontSize = 10.sp,
+                    color = ColorProvider(WidgetTextSecondary)
+                ),
+                modifier = GlanceModifier.defaultWeight()
+            )
+
+            // Tomorrow preview
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Small colored dot
+                Column(
+                    modifier = GlanceModifier
+                        .width(6.dp)
+                        .height(6.dp)
+                        .background(shiftAccentColor(data.tomorrowShiftType))
+                        .cornerRadius(3.dp)
+                ) {}
+
+                Spacer(modifier = GlanceModifier.width(4.dp))
+
+                Text(
+                    text = "明日: ",
+                    style = TextStyle(
+                        fontSize = 10.sp,
+                        color = ColorProvider(WidgetTextSecondary)
+                    )
+                )
+                Text(
+                    text = data.tomorrowShiftLabel,
+                    style = TextStyle(
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = ColorProvider(WidgetTextPrimary)
+                    )
+                )
+            }
+        }
     }
 }
 
-private fun shiftBackgroundRes(shiftType: ShiftType): Int = when (shiftType) {
-    ShiftType.MORNING   -> com.simpleshift.scheduler.R.color.shift_widget_morning
-    ShiftType.AFTERNOON -> com.simpleshift.scheduler.R.color.shift_widget_afternoon
-    ShiftType.REST      -> com.simpleshift.scheduler.R.color.shift_widget_rest
-    ShiftType.NIGHT     -> com.simpleshift.scheduler.R.color.shift_widget_night
-    ShiftType.STUDY     -> com.simpleshift.scheduler.R.color.shift_widget_study
-}
+// ── Unconfigured State ──────────────────────────────────────
 
-private fun shiftAccentRes(shiftType: ShiftType): Int = when (shiftType) {
-    ShiftType.MORNING   -> com.simpleshift.scheduler.R.color.shift_widget_morning_accent
-    ShiftType.AFTERNOON -> com.simpleshift.scheduler.R.color.shift_widget_afternoon_accent
-    ShiftType.REST      -> com.simpleshift.scheduler.R.color.shift_widget_rest_accent
-    ShiftType.NIGHT     -> com.simpleshift.scheduler.R.color.shift_widget_night_accent
-    ShiftType.STUDY     -> com.simpleshift.scheduler.R.color.shift_widget_study_accent
+@Composable
+private fun UnconfiguredWidget(data: WidgetShiftData) {
+    val context = LocalContext.current
+
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .background(WidgetBackground)
+            .padding(12.dp)
+            .clickable(actionStartActivity(Intent(context, MainActivity::class.java)))
+    ) {
+        Text(
+            text = data.shiftLabel,
+            style = TextStyle(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = ColorProvider(WidgetTextPrimary)
+            )
+        )
+        Spacer(modifier = GlanceModifier.height(4.dp))
+        Text(
+            text = data.teamName,
+            style = TextStyle(
+                fontSize = 11.sp,
+                color = ColorProvider(WidgetTextSecondary)
+            )
+        )
+    }
 }

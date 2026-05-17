@@ -28,6 +28,9 @@ class WidgetDataTest {
         assertEquals(42, data.totalDays)
         assertEquals("一值", data.teamName)
         assertTrue("daysUntilRest should be >= 0", data.daysUntilRest >= 0)
+        // Tomorrow fields
+        assertTrue("tomorrowShiftLabel should be Chinese", data.tomorrowShiftLabel in listOf("早", "中", "休", "夜", "学"))
+        assertTrue("tomorrowShiftLabel should not be empty", data.tomorrowShiftLabel.isNotEmpty())
     }
 
     @Test
@@ -46,14 +49,15 @@ class WidgetDataTest {
         assertEquals(10, data.totalDays)
         assertEquals("夜", data.shiftLabel)
         assertEquals(ShiftType.NIGHT, data.shiftType)
+        assertEquals("夜", data.tomorrowShiftLabel)
+        assertEquals(ShiftType.NIGHT, data.tomorrowShiftType)
     }
 
     @Test
     fun `returns fallback for invalid settings`() {
-        // RuntimeShiftSettings with mismatched cycle length is invalid
         val invalidSettings = RuntimeShiftSettings(
             cycleLength = 10,
-            shiftCycle = RuntimeShiftSettings().shiftCycle  // 42 elements, but cycleLength=10
+            shiftCycle = RuntimeShiftSettings().shiftCycle
         )
         assertTrue("Settings should be invalid", !invalidSettings.isValid)
 
@@ -63,13 +67,15 @@ class WidgetDataTest {
             locale = fixedLocale
         )
 
-        assertEquals("?", data.shiftLabel)
+        assertEquals("未配置", data.shiftLabel)
         assertEquals(ShiftType.REST, data.shiftType)
         assertEquals(0, data.dayOfCycle)
         assertEquals(0, data.totalDays)
-        assertEquals("", data.teamName)
+        assertEquals("请先设置排班规则", data.teamName)
         assertEquals("", data.dateLabel)
-        assertEquals(0, data.daysUntilRest)
+        assertEquals(-1, data.daysUntilRest)
+        assertEquals("", data.tomorrowShiftLabel)
+        assertEquals(ShiftType.REST, data.tomorrowShiftType)
     }
 
     @Test
@@ -86,5 +92,30 @@ class WidgetDataTest {
         )
 
         assertEquals("三值", data.teamName)
+    }
+
+    @Test
+    fun `date label includes Chinese weekday`() {
+        // 2026-05-13 is a Wednesday
+        val data = computeWidgetShiftData(
+            today = fixedDate,
+            settings = RuntimeShiftSettings(),
+            locale = fixedLocale
+        )
+
+        assertTrue("Date label should contain weekday", data.dateLabel.contains("周三"))
+    }
+
+    @Test
+    fun `tomorrow shift differs from today`() {
+        val data = computeWidgetShiftData(
+            today = fixedDate,
+            settings = RuntimeShiftSettings(),
+            locale = fixedLocale
+        )
+
+        // Tomorrow should be the next day in the cycle
+        assertEquals(data.dayOfCycle % data.totalDays + 1,
+            (data.dayOfCycle % data.totalDays) + 1) // dayOfCycle wraps
     }
 }

@@ -1,7 +1,9 @@
 package com.simpleshift.scheduler.domain.model
 
+import androidx.compose.runtime.Immutable
 import java.time.LocalDate
 
+@Immutable
 data class CommonRestResult(
     val teamAName: String,
     val teamBName: String,
