@@ -43,12 +43,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.domain.model.Team
 import com.simpleshift.scheduler.ui.common.TeamDropdown
@@ -79,12 +82,12 @@ fun ShiftRuleEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("倒班规则设置") },
+                title = { Text(stringResource(R.string.shift_rule_title)) },
                 navigationIcon = {
                     IconButton(onClick = {
                         if (uiState.step == 2) onGoBackToStep1() else onNavigateBack()
                     }) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.calendar_return))
                     }
                 }
             )
@@ -130,9 +133,11 @@ private fun Step1BuildSequence(
     onRemoveFromSequence: (Int) -> Unit,
     onGoToStep2: () -> Unit
 ) {
+    val context = LocalContext.current
+
     // Instruction
     Text(
-        text = "点击下方按钮，按顺序构建倒班序列：",
+        text = stringResource(R.string.shift_rule_step1_prompt),
         style = MaterialTheme.typography.bodyMedium
     )
 
@@ -151,14 +156,14 @@ private fun Step1BuildSequence(
                     contentColor = color
                 )
             ) {
-                Text(ShiftLabelMapper.toLabel(type), fontWeight = FontWeight.Bold)
+                Text(ShiftLabelMapper.toLabel(context, type), fontWeight = FontWeight.Bold)
             }
         }
     }
 
     // Sequence display
     Text(
-        text = "已构建序列（共 ${rotationSequence.size} 天）",
+        text = stringResource(R.string.shift_rule_sequence_built, rotationSequence.size),
         style = MaterialTheme.typography.titleSmall
     )
 
@@ -169,7 +174,7 @@ private fun Step1BuildSequence(
     ) {
         if (rotationSequence.isEmpty()) {
             Text(
-                text = "点击上方按钮开始构建倒班序列",
+                text = stringResource(R.string.shift_rule_sequence_empty),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -216,7 +221,7 @@ private fun Step1BuildSequence(
         enabled = rotationSequence.isNotEmpty(),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text("下一步")
+        Text(stringResource(R.string.shift_rule_next_step))
     }
 }
 
@@ -227,6 +232,7 @@ private fun SequenceChip(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val accentColor = v2ShiftColor(shiftType)
     Surface(
         shape = V2CardShape,
@@ -237,12 +243,12 @@ private fun SequenceChip(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text(
-                        text = "${dayNumber}天",
+                        text = stringResource(R.string.shift_rule_chip_days, dayNumber),
                         style = MaterialTheme.typography.labelSmall,
                         color = accentColor
                     )
                     Text(
-                        text = ShiftLabelMapper.toLabel(shiftType),
+                        text = ShiftLabelMapper.toLabel(context, shiftType),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
                         color = accentColor
@@ -255,7 +261,7 @@ private fun SequenceChip(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
-                        contentDescription = "删除",
+                        contentDescription = stringResource(R.string.common_delete),
                         tint = Color(0xFFEF4444),
                         modifier = Modifier.size(16.dp)
                     )
@@ -275,16 +281,17 @@ private fun Step2SaveSettings(
     onSetDefaultTeam: (Int) -> Unit,
     onSave: () -> Unit
 ) {
+    val context = LocalContext.current
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
 
     // Start date
-    Text("起始日期", style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(R.string.shift_rule_start_date), style = MaterialTheme.typography.titleSmall)
     OutlinedTextField(
-        value = formatDate(uiState.startDate),
+        value = formatDate(uiState.startDate, context),
         onValueChange = {},
         readOnly = true,
-        trailingIcon = { TextButton(onClick = { showStartDatePicker = true }) { Text("选择") } },
+        trailingIcon = { TextButton(onClick = { showStartDatePicker = true }) { Text(stringResource(R.string.shift_rule_choose_date)) } },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
@@ -303,10 +310,10 @@ private fun Step2SaveSettings(
                         onSetStartDate(date)
                     }
                     showStartDatePicker = false
-                }) { Text("确定") }
+                }) { Text(stringResource(R.string.common_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showStartDatePicker = false }) { Text("取消") }
+                TextButton(onClick = { showStartDatePicker = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         ) {
             DatePicker(state = pickerState)
@@ -334,18 +341,18 @@ private fun Step2SaveSettings(
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
-        Text("设置结束日期（可选）", style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.shift_rule_end_date_optional), style = MaterialTheme.typography.bodyMedium)
     }
 
     if (uiState.hasEndDate) {
         OutlinedTextField(
-            value = uiState.endDate?.let { formatDate(it) } ?: "",
+            value = uiState.endDate?.let { formatDate(it, context) } ?: "",
             onValueChange = {},
             readOnly = true,
-            trailingIcon = { TextButton(onClick = { showEndDatePicker = true }) { Text("选择") } },
+            trailingIcon = { TextButton(onClick = { showEndDatePicker = true }) { Text(stringResource(R.string.shift_rule_choose_date)) } },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            placeholder = { Text("选择日历同步截止日期") }
+            placeholder = { Text(stringResource(R.string.shift_rule_end_date_hint)) }
         )
 
         if (showEndDatePicker) {
@@ -362,10 +369,10 @@ private fun Step2SaveSettings(
                             onSetEndDate(date)
                         }
                         showEndDatePicker = false
-                    }) { Text("确定") }
+                    }) { Text(stringResource(R.string.common_confirm)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showEndDatePicker = false }) { Text("取消") }
+                    TextButton(onClick = { showEndDatePicker = false }) { Text(stringResource(R.string.common_cancel)) }
                 }
             ) {
                 DatePicker(state = endPickerState)
@@ -374,7 +381,7 @@ private fun Step2SaveSettings(
     }
 
     // Default team
-    Text("默认班组", style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(R.string.profile_current_team), style = MaterialTheme.typography.titleSmall)
     TeamDropdown(
         selectedTeamId = uiState.defaultTeamId,
         availableTeams = uiState.availableTeams,
@@ -389,12 +396,12 @@ private fun Step2SaveSettings(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = "排班预览",
+                text = stringResource(R.string.shift_rule_preview),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(8.dp))
-            val preview = uiState.rotationSequence.take(15).joinToString(" → ") { ShiftLabelMapper.toLabel(it) }
+            val preview = uiState.rotationSequence.take(15).joinToString(" → ") { ShiftLabelMapper.toLabel(context, it) }
             Text(
                 text = if (uiState.rotationSequence.size > 15) "$preview → ..." else preview,
                 style = MaterialTheme.typography.bodySmall,
@@ -402,7 +409,7 @@ private fun Step2SaveSettings(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "周期长度: ${uiState.rotationSequence.size} 天 · 起始: ${formatDate(uiState.startDate)}",
+                text = stringResource(R.string.shift_rule_preview_detail, uiState.rotationSequence.size, formatDate(uiState.startDate, context)),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -415,12 +422,12 @@ private fun Step2SaveSettings(
         modifier = Modifier.fillMaxWidth(),
         enabled = uiState.rotationSequence.isNotEmpty()
     ) {
-        Text("保存并生成排班表")
+        Text(stringResource(R.string.shift_rule_save))
     }
 
     if (uiState.isSaved) {
         Text(
-            text = "设置已保存",
+            text = stringResource(R.string.shift_rule_saved),
             color = MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.fillMaxWidth(),
@@ -429,6 +436,7 @@ private fun Step2SaveSettings(
     }
 }
 
-private fun formatDate(date: LocalDate): String {
-    return "${date.year}年${date.monthValue}月${date.dayOfMonth}日"
+private fun formatDate(date: LocalDate, context: android.content.Context): String {
+    val pattern = context.getString(R.string.date_format_full)
+    return java.time.format.DateTimeFormatter.ofPattern(pattern).format(date)
 }

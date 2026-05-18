@@ -28,22 +28,31 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.simpleshift.scheduler.MainActivity
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.data.repository.SettingsRepository
 import com.simpleshift.scheduler.domain.WidgetShiftData
 import com.simpleshift.scheduler.domain.computeWidgetShiftData
 import com.simpleshift.scheduler.domain.model.ShiftType
+import com.simpleshift.scheduler.util.ShiftLabelMapper
+import com.simpleshift.scheduler.util.TeamNameMapper
 import kotlinx.coroutines.flow.first
+import java.util.Locale
 
 class ShiftWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: androidx.glance.GlanceId) {
         val settingsRepository = SettingsRepository(context)
         val settings = settingsRepository.settingsFlow.first()
-        val data = computeWidgetShiftData(settings = settings)
+        val data = computeWidgetShiftData(
+            settings = settings,
+            locale = Locale.getDefault(),
+            shiftLabelResolver = { ShiftLabelMapper.toLabel(context, it) },
+            teamNameResolver = { TeamNameMapper.toName(it, context) }
+        )
 
         provideContent {
             GlanceTheme {
-                ShiftWidgetContent(data = data)
+                ShiftWidgetContent(data = data, context = context)
             }
         }
     }
@@ -66,11 +75,9 @@ private fun shiftAccentColor(shiftType: ShiftType): Color = when (shiftType) {
 // ── Content ─────────────────────────────────────────────────
 
 @Composable
-private fun ShiftWidgetContent(data: WidgetShiftData) {
-    val context = LocalContext.current
-
+private fun ShiftWidgetContent(data: WidgetShiftData, context: Context) {
     if (data.totalDays == 0) {
-        UnconfiguredWidget(data)
+        UnconfiguredWidget(context)
         return
     }
 
@@ -119,7 +126,7 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
                     )
                 )
                 Text(
-                    text = "第${data.dayOfCycle}/${data.totalDays}天",
+                    text = context.getString(R.string.widget_cycle_progress, data.dayOfCycle, data.totalDays),
                     style = TextStyle(
                         fontSize = 11.sp,
                         color = ColorProvider(WidgetTextSecondary)
@@ -130,7 +137,7 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
             // Rest countdown
             if (data.shiftType == ShiftType.REST) {
                 Text(
-                    text = "休息日",
+                    text = context.getString(R.string.widget_rest_day),
                     style = TextStyle(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -139,7 +146,7 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
                 )
             } else if (data.daysUntilRest == 0) {
                 Text(
-                    text = "明天休息",
+                    text = context.getString(R.string.widget_rest_tomorrow),
                     style = TextStyle(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
@@ -148,7 +155,7 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
                 )
             } else {
                 Text(
-                    text = "距休${data.daysUntilRest}天",
+                    text = context.getString(R.string.widget_days_until_rest, data.daysUntilRest),
                     style = TextStyle(
                         fontSize = 12.sp,
                         color = ColorProvider(WidgetTextSecondary)
@@ -187,7 +194,7 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
                 Spacer(modifier = GlanceModifier.width(4.dp))
 
                 Text(
-                    text = "明日: ",
+                    text = context.getString(R.string.widget_tomorrow_prefix),
                     style = TextStyle(
                         fontSize = 10.sp,
                         color = ColorProvider(WidgetTextSecondary)
@@ -209,9 +216,7 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
 // ── Unconfigured State ──────────────────────────────────────
 
 @Composable
-private fun UnconfiguredWidget(data: WidgetShiftData) {
-    val context = LocalContext.current
-
+private fun UnconfiguredWidget(context: Context) {
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -220,7 +225,7 @@ private fun UnconfiguredWidget(data: WidgetShiftData) {
             .clickable(actionStartActivity(Intent(context, MainActivity::class.java)))
     ) {
         Text(
-            text = data.shiftLabel,
+            text = context.getString(R.string.widget_unconfigured),
             style = TextStyle(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
@@ -229,7 +234,7 @@ private fun UnconfiguredWidget(data: WidgetShiftData) {
         )
         Spacer(modifier = GlanceModifier.height(4.dp))
         Text(
-            text = data.teamName,
+            text = context.getString(R.string.widget_setup_prompt),
             style = TextStyle(
                 fontSize = 11.sp,
                 color = ColorProvider(WidgetTextSecondary)

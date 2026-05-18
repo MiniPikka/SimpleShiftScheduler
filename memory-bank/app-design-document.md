@@ -669,3 +669,11 @@ O(n)，n ≤ 365。纯函数，可独立单元测试。复用 `getShiftTypeForDa
   - 协程修复：移除 SalaryPredictorViewModel 中主线程 runBlocking，改用 viewModelScope.launch
   - 日历同步反馈循环修复：calendarEventIdsFlow 退出 combine，改为按需 .first() 读取
   - R8 代码混淆与资源压缩：Release 构建开启 minification
+* 多语言支持（2026-05-18 已完成）：
+  - 支持中文（默认）、日本語、한국어、English 四种语言
+  - Android 标准资源限定符（values-ja/values-ko/values-en）
+  - i18n 工具层：ShiftLabelMapper（Context-based）、TeamNameMapper、HolidayNameMapper
+  - Domain 层通过 resolver 函数参数保持纯函数，Widget 在 provideGlance() 中预解析字符串
+* 首页架构简化（2026-05-18 已完成）：
+  - 移除多轨并行策略，V1-V4 合并为单一 HomeScreen.kt
+  - 删除 16 个旧组件文件及 SettingsScreen/SettingsViewModel

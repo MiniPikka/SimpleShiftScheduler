@@ -3,10 +3,10 @@ package com.simpleshift.scheduler.domain
 import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.domain.model.Team
-import com.simpleshift.scheduler.util.ShiftLabelMapper
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.util.Locale
 
 data class WidgetShiftData(
@@ -24,16 +24,18 @@ data class WidgetShiftData(
 fun computeWidgetShiftData(
     today: LocalDate = LocalDate.now(),
     settings: RuntimeShiftSettings = RuntimeShiftSettings(),
-    locale: Locale = Locale.getDefault()
+    locale: Locale = Locale.getDefault(),
+    shiftLabelResolver: (ShiftType) -> String = { it.name },
+    teamNameResolver: (Int) -> String = { "Team $it" }
 ): WidgetShiftData {
     if (!settings.isValid) {
         return WidgetShiftData(
             dateLabel = "",
-            shiftLabel = "未配置",
+            shiftLabel = "",
             shiftType = ShiftType.REST,
             dayOfCycle = 0,
             totalDays = 0,
-            teamName = "请先设置排班规则",
+            teamName = "",
             daysUntilRest = -1,
             tomorrowShiftLabel = "",
             tomorrowShiftType = ShiftType.REST
@@ -44,31 +46,19 @@ fun computeWidgetShiftData(
         (settings.shiftCycle.size / Team.TOTAL_TEAMS)
     val shiftInfo = getShiftInfo(today, teamPhaseOffset, settings.shiftCycle, settings.referenceDate)
     val tomorrowInfo = getShiftInfo(today.plusDays(1), teamPhaseOffset, settings.shiftCycle, settings.referenceDate)
-    val team = Team.ALL_TEAMS.find { it.id == settings.defaultTeamId }
-        ?: Team.ALL_TEAMS.first()
 
-    val dateFormatter = DateTimeFormatter.ofPattern("M月d日", locale)
-    val dayOfWeek = dayOfWeekChinese(today.dayOfWeek)
+    val dateFormatter = DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale)
+    val dayOfWeek = today.dayOfWeek.getDisplayName(TextStyle.FULL, locale)
 
     return WidgetShiftData(
-        dateLabel = "${today.format(dateFormatter)} $dayOfWeek",
-        shiftLabel = ShiftLabelMapper.toLabel(shiftInfo.shiftType),
+        dateLabel = "$dayOfWeek ${today.format(dateFormatter)}",
+        shiftLabel = shiftLabelResolver(shiftInfo.shiftType),
         shiftType = shiftInfo.shiftType,
         dayOfCycle = shiftInfo.dayOfCycle,
         totalDays = settings.shiftCycle.size,
-        teamName = team.name,
+        teamName = teamNameResolver(settings.defaultTeamId),
         daysUntilRest = daysUntilNextRest(today, teamPhaseOffset, settings.shiftCycle, settings.referenceDate),
-        tomorrowShiftLabel = ShiftLabelMapper.toLabel(tomorrowInfo.shiftType),
+        tomorrowShiftLabel = shiftLabelResolver(tomorrowInfo.shiftType),
         tomorrowShiftType = tomorrowInfo.shiftType
     )
-}
-
-private fun dayOfWeekChinese(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
-    DayOfWeek.MONDAY -> "周一"
-    DayOfWeek.TUESDAY -> "周二"
-    DayOfWeek.WEDNESDAY -> "周三"
-    DayOfWeek.THURSDAY -> "周四"
-    DayOfWeek.FRIDAY -> "周五"
-    DayOfWeek.SATURDAY -> "周六"
-    DayOfWeek.SUNDAY -> "周日"
 }

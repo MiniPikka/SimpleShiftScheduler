@@ -114,8 +114,12 @@ class CalendarViewModel(
 
     fun refresh() {
         val locale = localeProvider()
-        val monthFormatter = DateTimeFormatter.ofPattern("yyyy年M月", locale)
-        val weekLabels = listOf("日", "一", "二", "三", "四", "五", "六")
+        val monthFormatter = DateTimeFormatter.ofPattern(
+            getApplication<android.app.Application>().getString(com.simpleshift.scheduler.R.string.date_format_year_month),
+            locale
+        )
+        val firstDayOfWeek = java.time.DayOfWeek.SUNDAY
+        val weekLabels = (0..6).map { firstDayOfWeek.plus(it.toLong()).getDisplayName(java.time.format.TextStyle.NARROW, locale) }
         val refDate = customReferenceDate ?: ShiftCycleConfig.REFERENCE_DATE
         val teamPhaseOffset = (selectedTeamId - 1) * teamPhaseStepFor(customCycle)
 
@@ -128,7 +132,7 @@ class CalendarViewModel(
             .map { day ->
                 CalendarDayUiState(
                     dateNumber = day.date.dayOfMonth,
-                    shiftLabel = com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(day.shiftType),
+                    shiftLabel = com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(getApplication(), day.shiftType),
                     shiftType = day.shiftType,
                     isCurrentMonth = day.isCurrentMonth,
                     isToday = day.date == todayProvider()

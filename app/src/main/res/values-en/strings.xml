@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Shift Scheduler</string>
+
+    <!-- ── Shift Labels ───────────────────────────── -->
+    <string name="shift_label_morning">AM</string>
+    <string name="shift_label_afternoon">PM</string>
+    <string name="shift_label_rest">Off</string>
+    <string name="shift_label_night">NT</string>
+    <string name="shift_label_study">TR</string>
+    <string name="shift_label_morning_full">Morning</string>
+    <string name="shift_label_afternoon_full">Afternoon</string>
+    <string name="shift_label_rest_full">Rest</string>
+    <string name="shift_label_night_full">Night</string>
+    <string name="shift_label_study_full">Training</string>
+
+    <!-- ── Team Names ─────────────────────────────── -->
+    <string name="team_name_1">Shift A</string>
+    <string name="team_name_2">Shift B</string>
+    <string name="team_name_3">Shift C</string>
+    <string name="team_name_4">Shift D</string>
+    <string name="team_name_5">Shift E</string>
+    <string name="team_name_6">Shift F</string>
+
+    <!-- ── Date & Time Formats ────────────────────── -->
+    <string name="date_format_month_day">M/d</string>
+    <string name="date_format_year_month">MMMM yyyy</string>
+    <string name="date_format_full">EEEE, MMMM d, yyyy</string>
+
+    <!-- ── Weekday Names ──────────────────────────── -->
+    <string name="weekday_monday">Mon</string>
+    <string name="weekday_tuesday">Tue</string>
+    <string name="weekday_wednesday">Wed</string>
+    <string name="weekday_thursday">Thu</string>
+    <string name="weekday_friday">Fri</string>
+    <string name="weekday_saturday">Sat</string>
+    <string name="weekday_sunday">Sun</string>
+    <string name="weekday_monday_full">Monday</string>
+    <string name="weekday_tuesday_full">Tuesday</string>
+    <string name="weekday_wednesday_full">Wednesday</string>
+    <string name="weekday_thursday_full">Thursday</string>
+    <string name="weekday_friday_full">Friday</string>
+    <string name="weekday_saturday_full">Saturday</string>
+    <string name="weekday_sunday_full">Sunday</string>
+
+    <!-- ── Home Screen ────────────────────────────── -->
+    <string name="greeting_morning">Good morning</string>
+    <string name="greeting_afternoon">Good afternoon</string>
+    <string name="greeting_evening">Good evening</string>
+    <string name="greeting_night">Night shift — take care</string>
+    <string name="home_shortcut_tools">Quick Tools</string>
+    <string name="home_tool_leave_optimizer">Leave Planner</string>
+    <string name="home_tool_colleague_mode">Colleague Mode</string>
+    <string name="home_tool_salary_predictor">Shift Premium</string>
+    <string name="home_reminder_prefix">Reminder %1$s</string>
+    <string name="home_cycle_progress">Day %1$d · %2$d total</string>
+    <string name="home_today_rest">Rest day</string>
+    <string name="home_tomorrow_rest">Rest tomorrow!</string>
+    <string name="home_days_until_rest">%1$d days until rest</string>
+    <string name="home_stat_monthly_work">Work days</string>
+    <string name="home_stat_consecutive_work">Streak</string>
+    <string name="home_intensity_easy">Easy</string>
+    <string name="home_intensity_moderate">Moderate</string>
+    <string name="home_intensity_busy">Busy</string>
+    <string name="home_status_today_rest">Resting</string>
+    <string name="home_status_need_rest">Needs rest</string>
+    <string name="home_status_caution">Take care</string>
+    <string name="home_status_good">Good</string>
+
+    <!-- ── Home Contextual Messages ───────────────── -->
+    <string name="msg_rest_1">Enjoy your rest, spend time with family</string>
+    <string name="msg_rest_2">Rest well for a better tomorrow</string>
+    <string name="msg_rest_3">Today is yours</string>
+    <string name="msg_night_1">Night shift — stay safe</string>
+    <string name="msg_night_2">Late night — take care of yourself</string>
+    <string name="msg_night_3">Your dedication is respected</string>
+    <string name="msg_hard_work_1">Long streak — you\'ve worked hard</string>
+    <string name="msg_hard_work_2">Hang in there, rest is coming</string>
+    <string name="msg_hard_work_consecutive">%1$d consecutive work days</string>
+    <string name="msg_almost_rest_1">Almost there — rest is near</string>
+    <string name="msg_almost_rest_2">Rest countdown — keep going</string>
+    <string name="msg_default_1">Stay energized today</string>
+    <string name="msg_default_2">Safety first, go home safe</string>
+    <string name="msg_default_3">Every effort deserves respect</string>
+
+    <!-- ── Bottom Navigation ──────────────────────── -->
+    <string name="nav_home">Home</string>
+    <string name="nav_calendar">Calendar</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- ── Calendar Screen ────────────────────────── -->
+    <string name="calendar_title">Shift Calendar</string>
+    <string name="calendar_today">Today</string>
+    <string name="calendar_prev_month">Prev</string>
+    <string name="calendar_next_month">Next</string>
+    <string name="calendar_stats">Stats</string>
+    <string name="calendar_return">Back</string>
+
+    <!-- ── Profile Screen ─────────────────────────── -->
+    <string name="profile_current_team">Current Shift</string>
+    <string name="profile_shift_rules">Shift Rules</string>
+    <string name="profile_shift_rules_desc">Configure cycle, shifts &amp; default team</string>
+    <string name="profile_alarm_settings">Reminders</string>
+    <string name="profile_alarm_settings_desc">Set reminder times for each shift</string>
+    <string name="profile_leave_optimizer">Leave Planner</string>
+    <string name="profile_leave_optimizer_desc">Smart leave · maximize time off</string>
+    <string name="profile_colleague_mode">Colleague Mode</string>
+    <string name="profile_colleague_mode_desc">Find common rest days</string>
+    <string name="profile_salary_predictor">Shift Premium</string>
+    <string name="profile_salary_predictor_desc">Calculate monthly shift premiums</string>
+    <string name="profile_rate_us">Rate Us</string>
+    <string name="profile_rate_us_desc">Leave a review on the app store</string>
+    <string name="profile_about">About</string>
+    <string name="profile_about_desc">Shift Scheduler v1.0</string>
+
+    <!-- ── Settings: Shift Rule Editor ────────────── -->
+    <string name="shift_rule_title">Shift Rule Settings</string>
+    <string name="shift_rule_step1_prompt">Tap buttons below to build your shift sequence:</string>
+    <string name="shift_rule_sequence_built">Sequence built (%1$d days)</string>
+    <string name="shift_rule_sequence_empty">Tap the buttons above to start building</string>
+    <string name="shift_rule_chip_days">%1$d days</string>
+    <string name="shift_rule_next_step">Next</string>
+    <string name="shift_rule_start_date">Start Date</string>
+    <string name="shift_rule_choose_date">Choose</string>
+    <string name="shift_rule_end_date_optional">Set end date (optional)</string>
+    <string name="shift_rule_end_date_hint">Calendar sync cutoff date</string>
+    <string name="shift_rule_preview">Preview</string>
+    <string name="shift_rule_preview_detail">Cycle: %1$d days · Start: %2$s</string>
+    <string name="shift_rule_save">Save &amp; Generate</string>
+    <string name="shift_rule_saved">Saved</string>
+
+    <!-- ── Settings: Alarm Settings ───────────────── -->
+    <string name="alarm_settings_title">Reminder Settings</string>
+    <string name="alarm_settings_about">About Reminders</string>
+    <string name="alarm_settings_info">When set, Shift Scheduler creates calendar events with notifications at the specified times. Events are stored in the system calendar database and persist across reboots. Night shift reminders are automatically moved to the previous day. Each settings change syncs one year ahead automatically. No internet required — fully local. Notification style is managed by your system calendar app.</string>
+    <string name="alarm_settings_not_set">Not set</string>
+    <string name="alarm_settings_dialog_title">%1$s Reminder Time</string>
+    <string name="alarm_settings_confirm">OK</string>
+    <string name="alarm_settings_disable">Disable</string>
+    <string name="alarm_settings_cancel">Cancel</string>
+
+    <!-- ── Leave Optimizer ────────────────────────── -->
+    <string name="leave_optimizer_title">Leave Planner</string>
+    <string name="leave_optimizer_description">Based on your shift schedule + public holidays</string>
+    <string name="leave_optimizer_date_range">Today – year end · %1$s</string>
+    <string name="leave_optimizer_max_leave">Max leave days:</string>
+    <string name="leave_optimizer_days_unit">%1$d days</string>
+    <string name="leave_optimizer_empty_title">No optimal plans found</string>
+    <string name="leave_optimizer_empty_detail">All work gaps exceed %1$d days with your current schedule.\nTry increasing max leave days.</string>
+    <string name="leave_optimizer_strategy_format">%1$d leave days → %2$d days off</string>
+    <string name="leave_optimizer_weekend_overlap">Includes %1$d weekend days</string>
+    <string name="leave_optimizer_legend_leave">Leave</string>
+    <string name="leave_optimizer_legend_rest">Rest</string>
+    <string name="leave_optimizer_analysis_failed">Analysis failed: %1$s</string>
+
+    <!-- ── Colleague Mode ─────────────────────────── -->
+    <string name="colleague_mode_title">Colleague Mode</string>
+    <string name="colleague_mode_me">Me</string>
+    <string name="colleague_mode_other">Them</string>
+    <string name="colleague_mode_swap">Swap</string>
+    <string name="colleague_mode_share">Share</string>
+    <string name="colleague_mode_share_to">Share to</string>
+    <string name="colleague_mode_share_failed">Share failed: %1$s</string>
+    <string name="colleague_mode_same_team_title">Same shift team</string>
+    <string name="colleague_mode_same_team_detail">Both are %1$s — rest days are identical</string>
+    <string name="colleague_mode_no_common_title">No common rest days</string>
+    <string name="colleague_mode_no_common_detail">No overlapping rest days found in the analysis range</string>
+    <string name="colleague_mode_stat_30days">Next 30 days\nCommon rest</string>
+    <string name="colleague_mode_stat_60days">Next 60 days\nCommon rest</string>
+    <string name="colleague_mode_list_header">Common rest days (%1$d total)</string>
+    <string name="colleague_mode_next_rest_title">Next common rest</string>
+    <string name="colleague_mode_is_today">Today!</string>
+    <string name="colleague_mode_is_tomorrow">Tomorrow!</string>
+    <string name="colleague_mode_days_until">%1$d days away</string>
+    <string name="colleague_mode_today">Today</string>
+    <string name="colleague_mode_tomorrow">Tomorrow</string>
+    <string name="colleague_mode_days_after">In %1$d days</string>
+    <string name="colleague_mode_no_data">N/A</string>
+    <string name="colleague_mode_no_share_data">No share data</string>
+    <string name="colleague_mode_share_gen_failed">Share image generation failed: %1$s</string>
+
+    <!-- ── Share Card ─────────────────────────────── -->
+    <string name="share_card_app_name">Shift Scheduler</string>
+    <string name="share_card_next_rest">Next Common Rest</string>
+    <string name="share_card_qr_caption">Scan QR code to download</string>
+    <string name="share_card_slogan">Shift Scheduler · Your Smart Shift Manager</string>
+    <string name="share_card_analysis_range">Analysis range: %1$s</string>
+
+    <!-- ── Salary Predictor ───────────────────────── -->
+    <string name="salary_predictor_title">Shift Premium</string>
+    <string name="salary_predictor_settings">Premium Settings</string>
+    <string name="salary_predictor_settings_desc">Shift premium (per shift)</string>
+    <string name="salary_predictor_expand">Expand</string>
+    <string name="salary_predictor_collapse">Collapse</string>
+    <string name="salary_predictor_unit">¥</string>
+    <string name="salary_predictor_monthly_total">Monthly Shift Premium</string>
+    <string name="salary_predictor_shift_stats">Shift Breakdown</string>
+    <string name="salary_predictor_count_unit">%1$d×</string>
+    <string name="salary_predictor_detail">%1$s %2$d× @ ¥%3$s = ¥%4$s</string>
+    <string name="salary_predictor_simulation">What-if</string>
+    <string name="salary_predictor_if_more">Extra</string>
+    <string name="salary_predictor_day_unit">days</string>
+    <string name="salary_predictor_shift_type_hint">Shift:</string>
+    <string name="salary_predictor_extra_amount">→ Premium +¥%1$s</string>
+
+    <!-- ── Widget ─────────────────────────────────── -->
+    <string name="widget_unconfigured">Not Set</string>
+    <string name="widget_setup_prompt">Set up shift rules first</string>
+    <string name="widget_cycle_progress">Day %1$d/%2$d</string>
+    <string name="widget_rest_day">Rest</string>
+    <string name="widget_rest_tomorrow">Rest tomorrow</string>
+    <string name="widget_days_until_rest">%1$dd until rest</string>
+    <string name="widget_tomorrow_prefix">Next: </string>
+    <string name="widget_description">Display today\'s shift info on your home screen.</string>
+
+    <!-- ── Holiday Names ──────────────────────────── -->
+    <string name="holiday_new_year">New Year</string>
+    <string name="holiday_spring_festival">Chinese New Year</string>
+    <string name="holiday_spring_festival_adj">CNY Adj. Workday</string>
+    <string name="holiday_qingming">Qingming Festival</string>
+    <string name="holiday_labor_day">Labor Day</string>
+    <string name="holiday_labor_day_adj">Labor Day Adj. Workday</string>
+    <string name="holiday_dragon_boat">Dragon Boat Festival</string>
+    <string name="holiday_mid_autumn">Mid-Autumn Festival</string>
+    <string name="holiday_national_day">National Day</string>
+    <string name="holiday_national_day_adj">National Day Adj. Workday</string>
+    <string name="holiday_tbc">[TBC]</string>
+
+    <!-- ── Common ─────────────────────────────────── -->
+    <string name="common_close">Close</string>
+    <string name="common_confirm">OK</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_settings">Settings</string>
+    <string name="common_unknown_error">Unknown error</string>
+    <string name="common_unsaved_changes_title">Discard changes?</string>
+    <string name="common_unsaved_changes_message">You have unsaved changes. Go back anyway?</string>
+    <string name="common_continue_editing">Keep Editing</string>
+
+    <!-- ── Calendar Event ─────────────────────────── -->
+    <string name="calendar_sync_failed">Calendar sync failed: %1$s</string>
+    <string name="calendar_sync_check_permissions">Check calendar permissions</string>
+
+    <string name="calendar_event_morning">Morning Shift Reminder</string>
+    <string name="calendar_event_afternoon">Afternoon Shift Reminder</string>
+    <string name="calendar_event_night">Night Shift Reminder</string>
+    <string name="calendar_event_study">Training Shift Reminder</string>
+</resources>

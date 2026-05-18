@@ -6,7 +6,9 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.Immutable
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.findCommonRestDays
+import com.simpleshift.scheduler.util.TeamNameMapper
 import com.simpleshift.scheduler.domain.generateQrCodeBitmap
 import com.simpleshift.scheduler.domain.SHARE_QR_URL
 import com.simpleshift.scheduler.domain.model.CommonRestResult
@@ -95,12 +97,13 @@ class ColleagueModeViewModel(
                 today = today,
                 daysToAnalyze = daysToAnalyze,
                 customCycle = customCycle,
-                referenceDate = referenceDate
+                referenceDate = referenceDate,
+                teamNameResolver = { TeamNameMapper.toName(it, getApplication()) }
             )
         } catch (e: Exception) {
             _uiState.value = state.copy(
                 isLoading = false,
-                errorMessage = "分析失败: ${e.localizedMessage ?: "未知错误"}"
+                errorMessage = getApplication<android.app.Application>().getString(R.string.leave_optimizer_analysis_failed, e.localizedMessage ?: getApplication<android.app.Application>().getString(R.string.common_unknown_error))
             )
             return
         }
@@ -119,7 +122,7 @@ class ColleagueModeViewModel(
         if (_uiState.value.isSharing) return
         val state = _uiState.value
         val result = state.result ?: run {
-            _uiState.value = state.copy(shareError = "无分享数据")
+            _uiState.value = state.copy(shareError = getApplication<android.app.Application>().getString(R.string.colleague_mode_no_share_data))
             return
         }
 
@@ -146,7 +149,7 @@ class ColleagueModeViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSharing = false,
-                    shareError = "生成分享图失败: ${e.localizedMessage ?: "未知错误"}"
+                    shareError = getApplication<android.app.Application>().getString(R.string.colleague_mode_share_gen_failed, e.localizedMessage ?: getApplication<android.app.Application>().getString(R.string.common_unknown_error))
                 )
             }
         }
@@ -163,28 +166,21 @@ class ColleagueModeViewModel(
     private fun buildShareCardData(result: CommonRestResult, state: ColleagueModeUiState): ShareCardData {
         val qrBitmap = generateQrCodeBitmap(SHARE_QR_URL)
 
-        val dateFormatter = DateTimeFormatter.ofPattern("M月d日")
-        val weekNames = mapOf(
-            java.time.DayOfWeek.MONDAY to "星期一",
-            java.time.DayOfWeek.TUESDAY to "星期二",
-            java.time.DayOfWeek.WEDNESDAY to "星期三",
-            java.time.DayOfWeek.THURSDAY to "星期四",
-            java.time.DayOfWeek.FRIDAY to "星期五",
-            java.time.DayOfWeek.SATURDAY to "星期六",
-            java.time.DayOfWeek.SUNDAY to "星期日"
-        )
+        val locale = java.util.Locale.getDefault()
+        val dateFormatter = DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale)
 
+        val app = getApplication<android.app.Application>()
         val date = result.nextCommonRestDate
         val dateItems = result.commonRestDates.take(12).map { d ->
-            val weekName = weekNames[d.dayOfWeek] ?: ""
+            val weekName = d.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, locale)
             "${d.format(dateFormatter)} $weekName"
         }
 
         return ShareCardData(
             teamAName = result.teamAName,
             teamBName = result.teamBName,
-            nextCommonRestDate = date?.format(dateFormatter) ?: "无",
-            nextCommonRestWeekday = date?.let { weekNames[it.dayOfWeek] } ?: "",
+            nextCommonRestDate = date?.format(dateFormatter) ?: app.getString(R.string.colleague_mode_no_data),
+            nextCommonRestWeekday = date?.let { it.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, locale) } ?: "",
             daysUntilNext = result.daysUntilNext ?: -1,
             countIn30Days = result.countIn30Days,
             countIn60Days = result.countIn60Days,

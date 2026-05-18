@@ -46,17 +46,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.model.CommonRestResult
 import com.simpleshift.scheduler.domain.model.Team
 import com.simpleshift.scheduler.ui.common.TeamDropdown
 import com.simpleshift.scheduler.viewmodel.ColleagueModeViewModel
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,11 +88,11 @@ fun ColleagueModeScreen(
                     putExtra(Intent.EXTRA_STREAM, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
-                context.startActivity(Intent.createChooser(intent, "分享到"))
+                context.startActivity(Intent.createChooser(intent, context.getString(R.string.colleague_mode_share_to)))
                 onShareComplete()
             } catch (e: Exception) {
                 onShareComplete()
-                snackbarHostState.showSnackbar("分享失败: ${e.localizedMessage ?: "未知错误"}")
+                snackbarHostState.showSnackbar(context.getString(R.string.colleague_mode_share_failed, e.localizedMessage ?: context.getString(R.string.common_unknown_error)))
             }
         }
     }
@@ -104,10 +109,10 @@ fun ColleagueModeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("同事模式") },
+                title = { Text(stringResource(R.string.colleague_mode_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.calendar_return))
                     }
                 },
                 actions = {
@@ -127,7 +132,7 @@ fun ColleagueModeScreen(
                             IconButton(onClick = { (context as? Activity)?.let { onShareClick(it) } }) {
                                 Icon(
                                     Icons.Filled.Share,
-                                    contentDescription = "分享",
+                                    contentDescription = stringResource(R.string.colleague_mode_share),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -155,7 +160,7 @@ fun ColleagueModeScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "我是",
+                        text = stringResource(R.string.colleague_mode_me),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 4.dp)
@@ -173,14 +178,14 @@ fun ColleagueModeScreen(
                 ) {
                     Icon(
                         Icons.Filled.SwapHoriz,
-                        contentDescription = "交换班组",
+                        contentDescription = stringResource(R.string.colleague_mode_swap),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "他是",
+                        text = stringResource(R.string.colleague_mode_other),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 4.dp)
@@ -244,13 +249,13 @@ private fun SameTeamMessage(teamName: String) {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "你们是同一个班组",
+                text = stringResource(R.string.colleague_mode_same_team_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "都是$teamName，休息日完全一致",
+                text = stringResource(R.string.colleague_mode_same_team_detail, teamName),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -268,13 +273,13 @@ private fun NoCommonRestMessage() {
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "未找到共同休息日",
+                text = stringResource(R.string.colleague_mode_no_common_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "在分析范围内两人的休息日没有交集",
+                text = stringResource(R.string.colleague_mode_no_common_detail),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
@@ -308,12 +313,12 @@ private fun ResultContent(result: CommonRestResult, dateRange: String) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 StatCard(
-                    title = "未来30天\n共同休息",
+                    title = stringResource(R.string.colleague_mode_stat_30days),
                     count = result.countIn30Days,
                     modifier = Modifier.weight(1f)
                 )
                 StatCard(
-                    title = "未来60天\n共同休息",
+                    title = stringResource(R.string.colleague_mode_stat_60days),
                     count = result.countIn60Days,
                     modifier = Modifier.weight(1f)
                 )
@@ -323,7 +328,7 @@ private fun ResultContent(result: CommonRestResult, dateRange: String) {
         // List header
         item {
             Text(
-                text = "共同休息日（共 ${result.totalCount} 次）",
+                text = stringResource(R.string.colleague_mode_list_header, result.totalCount),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
@@ -361,17 +366,10 @@ private fun ResultContent(result: CommonRestResult, dateRange: String) {
 @Composable
 private fun NextRestCard(result: CommonRestResult) {
     val date = result.nextCommonRestDate ?: return
-    val dateFormatter = DateTimeFormatter.ofPattern("M月d日")
+    val locale = Locale.getDefault()
+    val dateFormatPattern = stringResource(R.string.date_format_month_day)
+    val dateFormatter = DateTimeFormatter.ofPattern(dateFormatPattern)
     val dayOfWeek = date.dayOfWeek
-    val weekNames = mapOf(
-        java.time.DayOfWeek.MONDAY to "星期一",
-        java.time.DayOfWeek.TUESDAY to "星期二",
-        java.time.DayOfWeek.WEDNESDAY to "星期三",
-        java.time.DayOfWeek.THURSDAY to "星期四",
-        java.time.DayOfWeek.FRIDAY to "星期五",
-        java.time.DayOfWeek.SATURDAY to "星期六",
-        java.time.DayOfWeek.SUNDAY to "星期日"
-    )
 
     // Subtle gradient from primary to tertiary
     val gradientBrush = Brush.horizontalGradient(
@@ -402,7 +400,7 @@ private fun NextRestCard(result: CommonRestResult) {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "下次同时休息",
+                    text = stringResource(R.string.colleague_mode_next_rest_title),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -416,7 +414,7 @@ private fun NextRestCard(result: CommonRestResult) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = weekNames[dayOfWeek] ?: "",
+                    text = dayOfWeek.getDisplayName(TextStyle.FULL, locale),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -424,9 +422,9 @@ private fun NextRestCard(result: CommonRestResult) {
                 val daysUntil = result.daysUntilNext
                 if (daysUntil != null) {
                     val text = when {
-                        daysUntil == 0 -> "就是今天！"
-                        daysUntil == 1 -> "就在明天"
-                        else -> "距今 $daysUntil 天"
+                        daysUntil == 0 -> stringResource(R.string.colleague_mode_is_today)
+                        daysUntil == 1 -> stringResource(R.string.colleague_mode_is_tomorrow)
+                        else -> stringResource(R.string.colleague_mode_days_until, daysUntil)
                     }
                     Text(
                         text = text,
@@ -456,7 +454,7 @@ private fun StatCard(title: String, count: Int, modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "$count 次",
+                text = count.toString(),
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold
                 ),
@@ -475,21 +473,14 @@ private fun StatCard(title: String, count: Int, modifier: Modifier = Modifier) {
 
 @Composable
 private fun CommonRestDateRow(date: LocalDate, today: LocalDate) {
-    val dateFormatter = DateTimeFormatter.ofPattern("M月d日")
-    val weekNames = mapOf(
-        java.time.DayOfWeek.MONDAY to "星期一",
-        java.time.DayOfWeek.TUESDAY to "星期二",
-        java.time.DayOfWeek.WEDNESDAY to "星期三",
-        java.time.DayOfWeek.THURSDAY to "星期四",
-        java.time.DayOfWeek.FRIDAY to "星期五",
-        java.time.DayOfWeek.SATURDAY to "星期六",
-        java.time.DayOfWeek.SUNDAY to "星期日"
-    )
+    val locale = Locale.getDefault()
+    val dateFormatPattern = stringResource(R.string.date_format_month_day)
+    val dateFormatter = DateTimeFormatter.ofPattern(dateFormatPattern)
     val daysFromToday = ChronoUnit.DAYS.between(today, date).toInt()
     val daysText = when {
-        daysFromToday == 0 -> "今天"
-        daysFromToday == 1 -> "明天"
-        else -> "${daysFromToday}天后"
+        daysFromToday == 0 -> stringResource(R.string.colleague_mode_today)
+        daysFromToday == 1 -> stringResource(R.string.colleague_mode_tomorrow)
+        else -> stringResource(R.string.colleague_mode_days_after, daysFromToday)
     }
 
     val isToday = daysFromToday == 0
@@ -518,7 +509,7 @@ private fun CommonRestDateRow(date: LocalDate, today: LocalDate) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = weekNames[date.dayOfWeek] ?: "",
+                    text = date.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

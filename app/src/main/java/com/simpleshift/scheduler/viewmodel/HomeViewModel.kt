@@ -13,6 +13,7 @@ import com.simpleshift.scheduler.domain.model.ShiftCycleConfig
 import androidx.compose.runtime.Immutable
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.domain.model.Team
+import com.simpleshift.scheduler.util.TeamNameMapper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -104,10 +105,10 @@ class HomeViewModel(
         _uiState.value = _uiState.value.copy(
             todayDate = today.format(dateFormatter),
             shiftType = shiftInfo.shiftType,
-            shiftLabel = com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftInfo.shiftType),
+            shiftLabel = com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(getApplication(), shiftInfo.shiftType),
             dayOfCycle = shiftInfo.dayOfCycle,
             totalDays = totalDays,
-            teamName = team?.name ?: "",
+            teamName = TeamNameMapper.toName(_uiState.value.selectedTeamId, getApplication()),
             daysUntilRest = daysUntilNextRest(today, teamPhaseOffset, customCycle, refDate),
             consecutiveWorkDays = consecutiveWorkDays(today, teamPhaseOffset, customCycle, refDate),
             monthlyWorkDays = monthlyWorkDays,

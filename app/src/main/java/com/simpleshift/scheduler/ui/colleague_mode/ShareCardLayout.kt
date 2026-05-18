@@ -35,6 +35,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.res.stringResource
+import com.simpleshift.scheduler.R
 
 /** Pure data object for share card rendering — no ViewModel/Context dependencies. */
 data class ShareCardData(
@@ -67,7 +69,7 @@ fun ShareCardLayout(data: ShareCardData) {
     ) {
         // App name header
         Text(
-            text = "倒班助手",
+            text = stringResource(R.string.share_card_app_name),
             style = MaterialTheme.typography.labelMedium.copy(fontSize = 20.sp),
             color = Color(0xFF9CA3AF),
             modifier = Modifier.fillMaxWidth(),
@@ -78,7 +80,7 @@ fun ShareCardLayout(data: ShareCardData) {
 
         // Section title
         Text(
-            text = "下次同时休息",
+            text = stringResource(R.string.share_card_next_rest),
             style = MaterialTheme.typography.titleMedium.copy(fontSize = 24.sp),
             color = Color(0xFFD1D5DB),
             modifier = Modifier.fillMaxWidth(),
@@ -130,9 +132,9 @@ fun ShareCardLayout(data: ShareCardData) {
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     val daysText = when {
-                        data.daysUntilNext == 0 -> "就是今天！"
-                        data.daysUntilNext == 1 -> "就在明天"
-                        else -> "距今 ${data.daysUntilNext} 天"
+                        data.daysUntilNext == 0 -> stringResource(R.string.colleague_mode_is_today)
+                        data.daysUntilNext == 1 -> stringResource(R.string.colleague_mode_is_tomorrow)
+                        else -> stringResource(R.string.colleague_mode_days_until, data.daysUntilNext)
                     }
                     Text(
                         text = daysText,
@@ -152,13 +154,13 @@ fun ShareCardLayout(data: ShareCardData) {
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             ShareStatCard(
-                title = "未来30天\n共同休息",
-                count = "${data.countIn30Days} 次",
+                title = stringResource(R.string.colleague_mode_stat_30days),
+                count = data.countIn30Days.toString(),
                 modifier = Modifier.weight(1f)
             )
             ShareStatCard(
-                title = "未来60天\n共同休息",
-                count = "${data.countIn60Days} 次",
+                title = stringResource(R.string.colleague_mode_stat_60days),
+                count = data.countIn60Days.toString(),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -167,7 +169,7 @@ fun ShareCardLayout(data: ShareCardData) {
 
         // Common rest date list
         Text(
-            text = "共同休息日",
+            text = stringResource(R.string.colleague_mode_list_header, data.commonRestDateItems.size),
             style = MaterialTheme.typography.titleSmall.copy(fontSize = 20.sp),
             color = Color(0xFFD1D5DB),
             modifier = Modifier.padding(bottom = 12.dp)
@@ -212,13 +214,13 @@ fun ShareCardLayout(data: ShareCardData) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Image(
                     bitmap = qrImageBitmap,
-                    contentDescription = "扫码下载倒班助手",
+                    contentDescription = stringResource(R.string.share_card_qr_caption),
                     modifier = Modifier.size(200.dp),
                     contentScale = ContentScale.Fit
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "扫码下载倒班助手",
+                    text = stringResource(R.string.share_card_qr_caption),
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 16.sp),
                     color = Color(0xFF9CA3AF)
                 )
@@ -229,7 +231,7 @@ fun ShareCardLayout(data: ShareCardData) {
 
         // Slogan + data range footer
         Text(
-            text = "倒班助手 · 你的智能排班管家",
+            text = stringResource(R.string.share_card_slogan),
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 18.sp),
             color = Color(0xFF6B7280),
             modifier = Modifier.fillMaxWidth(),
@@ -237,7 +239,7 @@ fun ShareCardLayout(data: ShareCardData) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "分析范围：${data.dateRange}",
+            text = stringResource(R.string.share_card_analysis_range, data.dateRange),
             style = MaterialTheme.typography.bodySmall.copy(fontSize = 16.sp),
             color = Color(0xFF4B5563),
             modifier = Modifier.fillMaxWidth(),

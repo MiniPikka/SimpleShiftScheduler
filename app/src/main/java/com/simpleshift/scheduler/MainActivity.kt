@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
@@ -47,6 +48,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.calendar.CalendarEventManager
 import com.simpleshift.scheduler.widget.ShiftWidget
 import com.simpleshift.scheduler.calendar.CalendarSyncManager
@@ -56,16 +58,11 @@ import com.simpleshift.scheduler.domain.model.RuntimeShiftSettings
 import com.simpleshift.scheduler.domain.model.SalaryConfig
 import com.simpleshift.scheduler.ui.calendar.CalendarScreen
 import com.simpleshift.scheduler.ui.home.HomeScreen
-import com.simpleshift.scheduler.ui.home.NewHomeScreen
-import com.simpleshift.scheduler.ui.home.NewHomeScreenV2
-import com.simpleshift.scheduler.ui.home.NewHomeScreenV3
-import com.simpleshift.scheduler.ui.home.NewHomeScreenV4
 import com.simpleshift.scheduler.ui.profile.ProfileScreen
 import com.simpleshift.scheduler.ui.colleague_mode.ColleagueModeScreen
 import com.simpleshift.scheduler.ui.leave_optimizer.LeaveOptimizerScreen
 import com.simpleshift.scheduler.ui.salary_predictor.SalaryPredictorScreen
 import com.simpleshift.scheduler.ui.settings.AlarmSettingsScreen
-import com.simpleshift.scheduler.ui.settings.SettingsScreen
 import com.simpleshift.scheduler.ui.settings.ShiftRuleEditorScreen
 import com.simpleshift.scheduler.ui.theme.ShiftSchedulerTheme
 import com.simpleshift.scheduler.util.cleanupOldShareImages
@@ -75,20 +72,11 @@ import com.simpleshift.scheduler.viewmodel.ColleagueModeViewModel
 import com.simpleshift.scheduler.viewmodel.HomeViewModel
 import com.simpleshift.scheduler.viewmodel.LeaveOptimizerViewModel
 import com.simpleshift.scheduler.viewmodel.SalaryPredictorViewModel
-import com.simpleshift.scheduler.viewmodel.SettingsViewModel
 import com.simpleshift.scheduler.viewmodel.ShiftRuleViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    companion object {
-        private const val USE_NEW_HOME = true
-        private const val USE_NEW_HOME_V2 = true
-        private const val USE_NEW_HOME_V3 = true
-        private const val USE_NEW_HOME_V4 = true
-        private const val USE_NEW_SETTINGS = true
-    }
-
     private val homeViewModel: HomeViewModel by viewModels()
     private val calendarViewModel: CalendarViewModel by viewModels()
     private lateinit var settingsRepository: SettingsRepository
@@ -163,8 +151,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            if (USE_NEW_HOME_V2) {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
                 val bottomNavRoutes = listOf("home", "calendar", "profile")
 
@@ -180,8 +167,8 @@ class MainActivity : ComponentActivity() {
                                                 popUpTo("home") { inclusive = true }
                                             }
                                         },
-                                        icon = { Icon(Icons.Filled.Home, contentDescription = "首页") },
-                                        label = { Text("首页") }
+                                        icon = { Icon(Icons.Filled.Home, contentDescription = "Home") },
+                                        label = { Text(stringResource(R.string.nav_home)) }
                                     )
                                     NavigationBarItem(
                                         selected = currentRoute == "calendar",
@@ -191,7 +178,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
                                         icon = { Icon(Icons.Filled.DateRange, contentDescription = "日历") },
-                                        label = { Text("日历") }
+                                        label = { Text(stringResource(R.string.nav_calendar)) }
                                     )
                                     NavigationBarItem(
                                         selected = currentRoute == "profile",
@@ -201,7 +188,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
                                         icon = { Icon(Icons.Filled.Person, contentDescription = "我的") },
-                                        label = { Text("我的") }
+                                        label = { Text(stringResource(R.string.nav_profile)) }
                                     )
                                 }
                             }
@@ -219,25 +206,12 @@ class MainActivity : ComponentActivity() {
                                 composable("home") {
                                     val homeUiState by homeViewModel.uiState.collectAsState()
 
-                                    if (USE_NEW_HOME_V4) {
-                                        NewHomeScreenV4(
-                                            uiState = homeUiState,
-                                            onLeaveOptimizerClick = { navController.navigate("leave_optimizer") },
-                                            onColleagueModeClick = { navController.navigate("colleague_mode") },
-                                            onSalaryPredictorClick = { navController.navigate("salary_predictor") }
-                                        )
-                                    } else if (USE_NEW_HOME_V3) {
-                                        NewHomeScreenV3(
-                                            uiState = homeUiState,
-                                            onLeaveOptimizerClick = { navController.navigate("leave_optimizer") },
-                                            onColleagueModeClick = { navController.navigate("colleague_mode") },
-                                            onSalaryPredictorClick = { navController.navigate("salary_predictor") }
-                                        )
-                                    } else {
-                                        NewHomeScreenV2(
-                                            uiState = homeUiState
-                                        )
-                                    }
+                                    HomeScreen(
+                                        uiState = homeUiState,
+                                        onLeaveOptimizerClick = { navController.navigate("leave_optimizer") },
+                                        onColleagueModeClick = { navController.navigate("colleague_mode") },
+                                        onSalaryPredictorClick = { navController.navigate("salary_predictor") }
+                                    )
                                 }
 
                                 composable("calendar") {
@@ -286,14 +260,8 @@ class MainActivity : ComponentActivity() {
                                         selectedTeamId = homeUiState.selectedTeamId,
                                         availableTeams = homeUiState.availableTeams,
                                         onTeamSelected = onProfileTeamSelected,
-                                        onRulesClick = {
-                                            if (USE_NEW_SETTINGS) navController.navigate("shift_rule_editor")
-                                            else navController.navigate("settings")
-                                        },
-                                        onAlarmClick = {
-                                            if (USE_NEW_SETTINGS) navController.navigate("alarm_settings")
-                                            else navController.navigate("settings")
-                                        },
+                                        onRulesClick = { navController.navigate("shift_rule_editor") },
+                                        onAlarmClick = { navController.navigate("alarm_settings") },
                                         onLeaveOptimizerClick = {
                                             navController.navigate("leave_optimizer")
                                         },
@@ -494,55 +462,6 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                composable("settings") {
-                                    val settingsViewModel: SettingsViewModel = viewModel(
-                                        factory = object : ViewModelProvider.Factory {
-                                            @Suppress("UNCHECKED_CAST")
-                                            override fun <T : androidx.lifecycle.ViewModel> create(
-                                                modelClass: Class<T>
-                                            ): T {
-                                                return SettingsViewModel(
-                                                    application,
-                                                    runtimeSettings,
-                                                    currentAlarmSettings,
-                                                    onSettingsSaved = { saved ->
-                                                        runtimeSettingsFlow.value = saved
-                                                        homeViewModel.customCycle = saved.shiftCycle
-                                                        calendarViewModel.customCycle = saved.shiftCycle
-                                                        homeViewModel.selectTeam(saved.defaultTeamId)
-                                                        calendarViewModel.setTeam(saved.defaultTeamId)
-                                                        scope.launch {
-                                                            settingsRepository.saveSettings(saved)
-                                                        }
-                                                        calendarSyncManager.syncFromCurrentState()
-                                                        notifyWidgetUpdate()
-                                                    },
-                                                    onAlarmSettingsChanged = { alarmSettings ->
-                                                        currentAlarmSettings = alarmSettings
-                                                        scope.launch {
-                                                            settingsRepository.saveAlarmSettings(alarmSettings)
-                                                        }
-                                                        calendarSyncManager.syncFromCurrentState()
-                                                    }
-                                                ) as T
-                                            }
-                                        }
-                                    )
-                                    val settingsUiState by settingsViewModel.uiState.collectAsState()
-
-                                    SettingsScreen(
-                                        uiState = settingsUiState,
-                                        onUpdateCycleLength = { settingsViewModel.updateCycleLength(it) },
-                                        onSetDayShift = { idx, type -> settingsViewModel.setDayShift(idx, type) },
-                                        onSelectDefaultTeam = { settingsViewModel.selectDefaultTeam(it) },
-                                        onUpdateAlarmTime = { type, time ->
-                                            settingsViewModel.updateAlarmTime(type, time)
-                                        },
-                                        onSave = { settingsViewModel.save() },
-                                        onCancel = { settingsViewModel.cancel() },
-                                        onNavigateBack = { navController.popBackStack() }
-                                    )
-                                }
                             }
 
                             syncError?.let { error ->
@@ -582,188 +501,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-            } else {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = "main"
-                        ) {
-                        composable("main") {
-                            val homeUiState by homeViewModel.uiState.collectAsState()
-
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState())
-                                    .padding(horizontal = 16.dp, vertical = 20.dp),
-                                verticalArrangement = Arrangement.spacedBy(20.dp)
-                            ) {
-                                val onTeamSelected: (Int) -> Unit = { teamId ->
-                                    homeViewModel.selectTeam(teamId)
-                                    calendarViewModel.setTeam(teamId)
-                                    if (runtimeSettings.defaultTeamId != teamId) {
-                                        runtimeSettingsFlow.value =
-                                            runtimeSettings.copy(defaultTeamId = teamId)
-                                        scope.launch {
-                                            settingsRepository.saveSettings(runtimeSettingsFlow.value)
-                                        }
-                                    }
-                                }
-
-                                if (USE_NEW_HOME) {
-                                    NewHomeScreen(
-                                        uiState = homeUiState,
-                                        onTeamSelected = onTeamSelected,
-                                        onCalendarClick = { navController.navigate("calendar") },
-                                        onSettingsClick = { navController.navigate("settings") }
-                                    )
-                                } else {
-                                    HomeScreen(
-                                        uiState = homeUiState,
-                                        onTeamSelected = onTeamSelected,
-                                        modifier = Modifier
-                                    )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "倒班助手",
-                                            style = MaterialTheme.typography.headlineSmall
-                                        )
-                                        IconButton(
-                                            onClick = { navController.navigate("settings") }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Settings,
-                                                contentDescription = "设置"
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        composable("calendar") {
-                            val calendarUiState by calendarViewModel.uiState.collectAsState()
-
-                            val onCalendarTeamSelected: (Int) -> Unit = { teamId ->
-                                homeViewModel.selectTeam(teamId)
-                                calendarViewModel.setTeam(teamId)
-                                if (runtimeSettings.defaultTeamId != teamId) {
-                                    runtimeSettingsFlow.value =
-                                        runtimeSettings.copy(defaultTeamId = teamId)
-                                    scope.launch {
-                                        settingsRepository.saveSettings(runtimeSettingsFlow.value)
-                                    }
-                                }
-                            }
-
-                            CalendarScreen(
-                                uiState = calendarUiState,
-                                onPreviousMonthClick = { calendarViewModel.goToPreviousMonth() },
-                                onNextMonthClick = { calendarViewModel.goToNextMonth() },
-                                onTodayClick = { calendarViewModel.goToToday() },
-                                onStatsClick = { calendarViewModel.computeStats() },
-                                onNavigateBack = { navController.popBackStack() },
-                                onTeamSelected = onCalendarTeamSelected,
-                                availableTeams = com.simpleshift.scheduler.domain.model.Team.ALL_TEAMS
-                            )
-                        }
-
-                        composable("settings") {
-                            val settingsViewModel: SettingsViewModel = viewModel(
-                                factory = object : ViewModelProvider.Factory {
-                                    @Suppress("UNCHECKED_CAST")
-                                    override fun <T : androidx.lifecycle.ViewModel> create(
-                                        modelClass: Class<T>
-                                    ): T {
-                                        return SettingsViewModel(
-                                            application,
-                                            runtimeSettings,
-                                            currentAlarmSettings,
-                                            onSettingsSaved = { saved ->
-                                                runtimeSettingsFlow.value = saved
-                                                homeViewModel.customCycle = saved.shiftCycle
-                                                calendarViewModel.customCycle = saved.shiftCycle
-                                                homeViewModel.selectTeam(saved.defaultTeamId)
-                                                calendarViewModel.setTeam(saved.defaultTeamId)
-                                                scope.launch {
-                                                    settingsRepository.saveSettings(saved)
-                                                }
-                                                calendarSyncManager.syncFromCurrentState()
-                                                notifyWidgetUpdate()
-                                            },
-                                            onAlarmSettingsChanged = { alarmSettings ->
-                                                currentAlarmSettings = alarmSettings
-                                                scope.launch {
-                                                    settingsRepository.saveAlarmSettings(alarmSettings)
-                                                }
-                                                calendarSyncManager.syncFromCurrentState()
-                                            }
-                                        ) as T
-                                    }
-                                }
-                            )
-                            val settingsUiState by settingsViewModel.uiState.collectAsState()
-
-                            SettingsScreen(
-                                uiState = settingsUiState,
-                                onUpdateCycleLength = { settingsViewModel.updateCycleLength(it) },
-                                onSetDayShift = { idx, type -> settingsViewModel.setDayShift(idx, type) },
-                                onSelectDefaultTeam = { settingsViewModel.selectDefaultTeam(it) },
-                                onUpdateAlarmTime = { type, time ->
-                                    settingsViewModel.updateAlarmTime(type, time)
-                                },
-                                onSave = { settingsViewModel.save() },
-                                onCancel = { settingsViewModel.cancel() },
-                                onNavigateBack = { navController.popBackStack() }
-                            )
-                        }
-                    }
-
-                        syncError?.let { error ->
-                            Surface(
-                                modifier = Modifier
-                                    .align(androidx.compose.ui.Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                color = MaterialTheme.colorScheme.errorContainer,
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = error,
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    IconButton(
-                                        onClick = { calendarSyncManager.clearSyncError() }
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Close,
-                                            contentDescription = "关闭",
-                                            tint = MaterialTheme.colorScheme.onErrorContainer
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 

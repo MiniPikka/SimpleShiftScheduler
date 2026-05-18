@@ -26,13 +26,17 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.model.MonthlyStats
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.domain.model.Team
 import com.simpleshift.scheduler.ui.common.TeamDropdown
 import com.simpleshift.scheduler.ui.theme.v2ShiftColor
+import com.simpleshift.scheduler.util.ShiftLabelMapper
 import com.simpleshift.scheduler.viewmodel.CalendarDayUiState
 import com.simpleshift.scheduler.viewmodel.CalendarUiState
 
@@ -52,12 +56,12 @@ fun CalendarScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("倒班日历") },
+                title = { Text(stringResource(R.string.calendar_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.calendar_return)
                         )
                     }
                 }
@@ -84,7 +88,7 @@ fun CalendarScreen(
                 IconButton(onClick = onPreviousMonthClick) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = "上月"
+                        contentDescription = stringResource(R.string.calendar_prev_month)
                     )
                 }
                 Text(
@@ -96,18 +100,18 @@ fun CalendarScreen(
                 IconButton(onClick = onNextMonthClick) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "下月"
+                        contentDescription = stringResource(R.string.calendar_next_month)
                     )
                 }
                 if (!uiState.isCurrentMonth) {
                     TextButton(onClick = onTodayClick) {
-                        Text("今天")
+                        Text(stringResource(R.string.calendar_today))
                     }
                 }
                 IconButton(onClick = onStatsClick) {
                     Icon(
                         imageVector = Icons.Filled.BarChart,
-                        contentDescription = "统计"
+                        contentDescription = stringResource(R.string.calendar_stats)
                     )
                 }
             }
@@ -153,6 +157,7 @@ fun CalendarScreen(
 
 @Composable
 private fun StatsCard(stats: MonthlyStats) {
+    val context = LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -165,11 +170,11 @@ private fun StatsCard(stats: MonthlyStats) {
                 .padding(12.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            InlineStatItem(label = "早班", count = stats.morningCount)
-            InlineStatItem(label = "中班", count = stats.afternoonCount)
-            InlineStatItem(label = "休班", count = stats.restCount)
-            InlineStatItem(label = "夜班", count = stats.nightCount)
-            InlineStatItem(label = "学班", count = stats.studyCount)
+            InlineStatItem(label = ShiftLabelMapper.toFullLabel(context, ShiftType.MORNING), count = stats.morningCount)
+            InlineStatItem(label = ShiftLabelMapper.toFullLabel(context, ShiftType.AFTERNOON), count = stats.afternoonCount)
+            InlineStatItem(label = ShiftLabelMapper.toFullLabel(context, ShiftType.REST), count = stats.restCount)
+            InlineStatItem(label = ShiftLabelMapper.toFullLabel(context, ShiftType.NIGHT), count = stats.nightCount)
+            InlineStatItem(label = ShiftLabelMapper.toFullLabel(context, ShiftType.STUDY), count = stats.studyCount)
         }
     }
 }

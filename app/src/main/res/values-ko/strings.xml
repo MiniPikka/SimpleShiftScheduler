@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">시프트 도우미</string>
+
+    <!-- ── Shift Labels ───────────────────────────── -->
+    <string name="shift_label_morning">조</string>
+    <string name="shift_label_afternoon">중</string>
+    <string name="shift_label_rest">휴</string>
+    <string name="shift_label_night">야</string>
+    <string name="shift_label_study">학</string>
+    <string name="shift_label_morning_full">조번</string>
+    <string name="shift_label_afternoon_full">중번</string>
+    <string name="shift_label_rest_full">휴번</string>
+    <string name="shift_label_night_full">야번</string>
+    <string name="shift_label_study_full">학번</string>
+
+    <!-- ── Team Names ─────────────────────────────── -->
+    <string name="team_name_1">1조</string>
+    <string name="team_name_2">2조</string>
+    <string name="team_name_3">3조</string>
+    <string name="team_name_4">4조</string>
+    <string name="team_name_5">5조</string>
+    <string name="team_name_6">6조</string>
+
+    <!-- ── Date & Time Formats ────────────────────── -->
+    <string name="date_format_month_day">M월 d일</string>
+    <string name="date_format_year_month">yyyy년 M월</string>
+    <string name="date_format_full">yyyy년 M월 d일</string>
+
+    <!-- ── Weekday Names ──────────────────────────── -->
+    <string name="weekday_monday">월요일</string>
+    <string name="weekday_tuesday">화요일</string>
+    <string name="weekday_wednesday">수요일</string>
+    <string name="weekday_thursday">목요일</string>
+    <string name="weekday_friday">금요일</string>
+    <string name="weekday_saturday">토요일</string>
+    <string name="weekday_sunday">일요일</string>
+    <string name="weekday_monday_full">월요일</string>
+    <string name="weekday_tuesday_full">화요일</string>
+    <string name="weekday_wednesday_full">수요일</string>
+    <string name="weekday_thursday_full">목요일</string>
+    <string name="weekday_friday_full">금요일</string>
+    <string name="weekday_saturday_full">토요일</string>
+    <string name="weekday_sunday_full">일요일</string>
+
+    <!-- ── Home Screen ────────────────────────────── -->
+    <string name="greeting_morning">좋은 아침입니다</string>
+    <string name="greeting_afternoon">좋은 오후입니다</string>
+    <string name="greeting_evening">좋은 저녁입니다</string>
+    <string name="greeting_night">야간 근무 수고하십니다</string>
+    <string name="home_shortcut_tools">바로가기</string>
+    <string name="home_tool_leave_optimizer">연휴 플래너</string>
+    <string name="home_tool_colleague_mode">동료 모드</string>
+    <string name="home_tool_salary_predictor">수당 계산</string>
+    <string name="home_reminder_prefix">알림 %1$s</string>
+    <string name="home_cycle_progress">%1$d일차 · 총 %2$d일</string>
+    <string name="home_today_rest">오늘 휴무</string>
+    <string name="home_tomorrow_rest">내일 휴무!</string>
+    <string name="home_days_until_rest">다음 휴무까지 %1$d일</string>
+    <string name="home_stat_monthly_work">이번 달 근무</string>
+    <string name="home_stat_consecutive_work">연속 근무</string>
+    <string name="home_intensity_easy">여유</string>
+    <string name="home_intensity_moderate">적당</string>
+    <string name="home_intensity_busy">바쁨</string>
+    <string name="home_status_today_rest">오늘 휴무</string>
+    <string name="home_status_need_rest">휴식 필요</string>
+    <string name="home_status_caution">주의</string>
+    <string name="home_status_good">양호</string>
+
+    <!-- ── Home Contextual Messages ───────────────── -->
+    <string name="msg_rest_1">푹 쉬고 가족과 함께하세요</string>
+    <string name="msg_rest_2">휴식은 더 나은 내일을 위해</string>
+    <string name="msg_rest_3">오늘은 당신의 날</string>
+    <string name="msg_night_1">야간 근무 수고하셨습니다, 안전 제일</string>
+    <string name="msg_night_2">밤이 깊었네요, 몸조심하세요</string>
+    <string name="msg_night_3">밤의坚守, 존경받을 만합니다</string>
+    <string name="msg_hard_work_1">연속 근무, 수고하십니다</string>
+    <string name="msg_hard_work_2">힘내세요, 휴일이 곧 옵니다</string>
+    <string name="msg_hard_work_consecutive">연속 %1$d일째 근무</string>
+    <string name="msg_almost_rest_1">곧 쉴 수 있어요, 조금만 더</string>
+    <string name="msg_almost_rest_2">휴일 카운트다운, 파이팅</string>
+    <string name="msg_default_1">오늘도 활기차게</string>
+    <string name="msg_default_2">안전 제일, 무사히 귀가하세요</string>
+    <string name="msg_default_3">모든 노력은 존중받을 가치가 있습니다</string>
+
+    <!-- ── Bottom Navigation ──────────────────────── -->
+    <string name="nav_home">홈</string>
+    <string name="nav_calendar">달력</string>
+    <string name="nav_profile">마이</string>
+
+    <!-- ── Calendar Screen ────────────────────────── -->
+    <string name="calendar_title">시프트 달력</string>
+    <string name="calendar_today">오늘</string>
+    <string name="calendar_prev_month">이전 달</string>
+    <string name="calendar_next_month">다음 달</string>
+    <string name="calendar_stats">통계</string>
+    <string name="calendar_return">뒤로</string>
+
+    <!-- ── Profile Screen ─────────────────────────── -->
+    <string name="profile_current_team">현재 조</string>
+    <string name="profile_shift_rules">시프트 규칙</string>
+    <string name="profile_shift_rules_desc">주기·번차·기본 조 설정</string>
+    <string name="profile_alarm_settings">알림 설정</string>
+    <string name="profile_alarm_settings_desc">각 번차별 알림 시간 설정</string>
+    <string name="profile_leave_optimizer">연휴 플래너</string>
+    <string name="profile_leave_optimizer_desc">최소 휴가로 최대 연휴를</string>
+    <string name="profile_colleague_mode">동료 모드</string>
+    <string name="profile_colleague_mode_desc">두 사람이 함께 쉴 수 있는 날</string>
+    <string name="profile_salary_predictor">수당 계산</string>
+    <string name="profile_salary_predictor_desc">이번 달 시프트 수당 정확 계산</string>
+    <string name="profile_rate_us">평가하기</string>
+    <string name="profile_rate_us_desc">앱 스토어에서 평가를 부탁드립니다</string>
+    <string name="profile_about">정보</string>
+    <string name="profile_about_desc">시프트 도우미 v1.0</string>
+
+    <!-- ── Settings: Shift Rule Editor ────────────── -->
+    <string name="shift_rule_title">시프트 규칙 설정</string>
+    <string name="shift_rule_step1_prompt">아래 버튼을 눌러 시프트 순서를 구성：</string>
+    <string name="shift_rule_sequence_built">구성 완료（총 %1$d일）</string>
+    <string name="shift_rule_sequence_empty">위 버튼으로 시프트 순서 구성을 시작</string>
+    <string name="shift_rule_chip_days">%1$d일</string>
+    <string name="shift_rule_next_step">다음</string>
+    <string name="shift_rule_start_date">시작일</string>
+    <string name="shift_rule_choose_date">선택</string>
+    <string name="shift_rule_end_date_optional">종료일 설정（선택사항）</string>
+    <string name="shift_rule_end_date_hint">달력 동기화 마감일 선택</string>
+    <string name="shift_rule_preview">시프트 미리보기</string>
+    <string name="shift_rule_preview_detail">주기: %1$d일 · 시작: %2$s</string>
+    <string name="shift_rule_save">저장하고 시프트표 생성</string>
+    <string name="shift_rule_saved">저장되었습니다</string>
+
+    <!-- ── Settings: Alarm Settings ───────────────── -->
+    <string name="alarm_settings_title">알림 설정</string>
+    <string name="alarm_settings_about">알림 정보</string>
+    <string name="alarm_settings_info">알림을 설정하면 시스템 달력에 일정이 생성되어 지정 시간에 알려줍니다. 일정은 시스템 달력 데이터베이스에 저장되며 재부팅 후에도 유지됩니다. 야간 알림은 자동으로 전날로 조정됩니다（야간 차량 대응）. 설정 변경 시마다 미래 1년분이 자동 동기화. 네트워크 불필요, 완전 로컬 작동. 알림 방식은 시스템 달력 앱에서 관리합니다.</string>
+    <string name="alarm_settings_not_set">미설정</string>
+    <string name="alarm_settings_dialog_title">%1$s번 알림 시간</string>
+    <string name="alarm_settings_confirm">확인</string>
+    <string name="alarm_settings_disable">알림 해제</string>
+    <string name="alarm_settings_cancel">취소</string>
+
+    <!-- ── Leave Optimizer ────────────────────────── -->
+    <string name="leave_optimizer_title">연휴 플래너</string>
+    <string name="leave_optimizer_description">당신의 시프트표 + 공휴일</string>
+    <string name="leave_optimizer_date_range">오늘부터 연말까지 · %1$s</string>
+    <string name="leave_optimizer_max_leave">최대 휴가：</string>
+    <string name="leave_optimizer_days_unit">%1$d일</string>
+    <string name="leave_optimizer_empty_title">효율적인 휴가 계획을 찾을 수 없음</string>
+    <string name="leave_optimizer_empty_detail">현재 시프트에서는 모든 근무 간격이 %1$d일을 초과합니다\n휴가 일수를 늘려 시도하세요</string>
+    <string name="leave_optimizer_strategy_format">휴가 %1$d일 → 연휴 %2$d일</string>
+    <string name="leave_optimizer_weekend_overlap">주말 %1$d일 포함</string>
+    <string name="leave_optimizer_legend_leave">휴가</string>
+    <string name="leave_optimizer_legend_rest">휴식</string>
+    <string name="leave_optimizer_analysis_failed">분석 실패: %1$s</string>
+
+    <!-- ── Colleague Mode ─────────────────────────── -->
+    <string name="colleague_mode_title">동료 모드</string>
+    <string name="colleague_mode_me">나</string>
+    <string name="colleague_mode_other">상대</string>
+    <string name="colleague_mode_swap">조 교환</string>
+    <string name="colleague_mode_share">공유</string>
+    <string name="colleague_mode_share_to">공유 대상</string>
+    <string name="colleague_mode_share_failed">공유 실패: %1$s</string>
+    <string name="colleague_mode_same_team_title">같은 조입니다</string>
+    <string name="colleague_mode_same_team_detail">둘 다 %1$s, 휴일이 완전히 일치</string>
+    <string name="colleague_mode_no_common_title">공통 휴일 없음</string>
+    <string name="colleague_mode_no_common_detail">분석 범위 내에서 두 사람의 휴일이 겹치지 않습니다</string>
+    <string name="colleague_mode_stat_30days">30일 이내\n공통 휴일</string>
+    <string name="colleague_mode_stat_60days">60일 이내\n공통 휴일</string>
+    <string name="colleague_mode_list_header">공통 휴일 목록（총 %1$d회）</string>
+    <string name="colleague_mode_next_rest_title">다음 공통 휴일</string>
+    <string name="colleague_mode_is_today">오늘입니다!</string>
+    <string name="colleague_mode_is_tomorrow">내일입니다</string>
+    <string name="colleague_mode_days_until">앞으로 %1$d일</string>
+    <string name="colleague_mode_today">오늘</string>
+    <string name="colleague_mode_tomorrow">내일</string>
+    <string name="colleague_mode_days_after">%1$d일 후</string>
+    <string name="colleague_mode_no_data">없음</string>
+    <string name="colleague_mode_no_share_data">공유 데이터 없음</string>
+    <string name="colleague_mode_share_gen_failed">공유 이미지 생성 실패: %1$s</string>
+
+    <!-- ── Share Card ─────────────────────────────── -->
+    <string name="share_card_app_name">시프트 도우미</string>
+    <string name="share_card_next_rest">다음 공통 휴일</string>
+    <string name="share_card_qr_caption">QR코드를 스캔하여 다운로드</string>
+    <string name="share_card_slogan">시프트 도우미 · 당신의 스마트 시프트 관리</string>
+    <string name="share_card_analysis_range">분석 범위：%1$s</string>
+
+    <!-- ── Salary Predictor ───────────────────────── -->
+    <string name="salary_predictor_title">수당 계산</string>
+    <string name="salary_predictor_settings">수당 설정</string>
+    <string name="salary_predictor_settings_desc">번차 수당（1회당）</string>
+    <string name="salary_predictor_expand">펼치기</string>
+    <string name="salary_predictor_collapse">접기</string>
+    <string name="salary_predictor_unit">원</string>
+    <string name="salary_predictor_monthly_total">이번 달 시프트 수당</string>
+    <string name="salary_predictor_shift_stats">번차 통계</string>
+    <string name="salary_predictor_count_unit">%1$d회</string>
+    <string name="salary_predictor_detail">%1$s %2$d회 × ¥%3$s = ¥%4$s</string>
+    <string name="salary_predictor_simulation">가정 분석</string>
+    <string name="salary_predictor_if_more">추가</string>
+    <string name="salary_predictor_day_unit">일</string>
+    <string name="salary_predictor_shift_type_hint">번차：</string>
+    <string name="salary_predictor_extra_amount">→ 수당 +¥%1$s</string>
+
+    <!-- ── Widget ─────────────────────────────────── -->
+    <string name="widget_unconfigured">미설정</string>
+    <string name="widget_setup_prompt">시프트 규칙을 먼저 설정하세요</string>
+    <string name="widget_cycle_progress">%1$d/%2$d일차</string>
+    <string name="widget_rest_day">휴무</string>
+    <string name="widget_rest_tomorrow">내일 휴무</string>
+    <string name="widget_days_until_rest">휴무까지 %1$d일</string>
+    <string name="widget_tomorrow_prefix">내일: </string>
+    <string name="widget_description">오늘의 시프트 정보를 홈 화면에 표시합니다.</string>
+
+    <!-- ── Holiday Names ──────────────────────────── -->
+    <string name="holiday_new_year">신정</string>
+    <string name="holiday_spring_festival">설날</string>
+    <string name="holiday_spring_festival_adj">설날 대체휴일</string>
+    <string name="holiday_qingming">청명절</string>
+    <string name="holiday_labor_day">노동절</string>
+    <string name="holiday_labor_day_adj">노동절 대체휴일</string>
+    <string name="holiday_dragon_boat">단오절</string>
+    <string name="holiday_mid_autumn">추석</string>
+    <string name="holiday_national_day">국경절</string>
+    <string name="holiday_national_day_adj">국경절 대체휴일</string>
+    <string name="holiday_tbc">[미확인]</string>
+
+    <!-- ── Common ─────────────────────────────────── -->
+    <string name="common_close">닫기</string>
+    <string name="common_confirm">확인</string>
+    <string name="common_cancel">취소</string>
+    <string name="common_delete">삭제</string>
+    <string name="common_settings">설정</string>
+    <string name="common_unknown_error">알 수 없는 오류</string>
+    <string name="common_unsaved_changes_title">변경을 취소하시겠습니까?</string>
+    <string name="common_unsaved_changes_message">저장되지 않은 수정사항이 있습니다. 돌아가시겠습니까?</string>
+    <string name="common_continue_editing">편집 계속</string>
+
+    <!-- ── Calendar Event ─────────────────────────── -->
+    <string name="calendar_sync_failed">달력 동기화 실패: %1$s</string>
+    <string name="calendar_sync_check_permissions">달력 권한을 확인하세요</string>
+
+    <string name="calendar_event_morning">조번 알림</string>
+    <string name="calendar_event_afternoon">중번 알림</string>
+    <string name="calendar_event_night">야번 알림</string>
+    <string name="calendar_event_study">학번 알림</string>
+</resources>

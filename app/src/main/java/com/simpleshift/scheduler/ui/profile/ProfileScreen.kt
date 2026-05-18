@@ -33,8 +33,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.model.Team
 import com.simpleshift.scheduler.ui.common.TeamDropdown
 import com.simpleshift.scheduler.ui.theme.V2CardShape
@@ -77,7 +79,7 @@ fun ProfileScreen(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "当前班组",
+                        text = stringResource(R.string.profile_current_team),
                         style = MaterialTheme.typography.bodyLarge.copy(color = onSv)
                     )
                 }
@@ -98,40 +100,40 @@ fun ProfileScreen(
             Column {
                 ProfileMenuItem(
                     icon = Icons.Filled.Settings,
-                    title = "倒班规则",
-                    subtitle = "自定义周期、班次和默认班组",
+                    title = stringResource(R.string.profile_shift_rules),
+                    subtitle = stringResource(R.string.profile_shift_rules_desc),
                     onBg = onBg, onSv = onSv,
                     onClick = onRulesClick
                 )
                 ProfileMenuDivider(onSv = onSv)
                 ProfileMenuItem(
                     icon = Icons.Filled.Notifications,
-                    title = "提醒设置",
-                    subtitle = "为每个班次设置提醒时间",
+                    title = stringResource(R.string.profile_alarm_settings),
+                    subtitle = stringResource(R.string.profile_alarm_settings_desc),
                     onBg = onBg, onSv = onSv,
                     onClick = onAlarmClick
                 )
                 ProfileMenuDivider(onSv = onSv)
                 ProfileMenuItem(
                     icon = Icons.Filled.CalendarMonth,
-                    title = "拼假神器",
-                    subtitle = "智能请假方案 · 最大化连休",
+                    title = stringResource(R.string.profile_leave_optimizer),
+                    subtitle = stringResource(R.string.profile_leave_optimizer_desc),
                     onBg = onBg, onSv = onSv,
                     onClick = onLeaveOptimizerClick
                 )
                 ProfileMenuDivider(onSv = onSv)
                 ProfileMenuItem(
                     icon = Icons.Filled.People,
-                    title = "同事模式",
-                    subtitle = "查看两人何时共同休息",
+                    title = stringResource(R.string.profile_colleague_mode),
+                    subtitle = stringResource(R.string.profile_colleague_mode_desc),
                     onBg = onBg, onSv = onSv,
                     onClick = onColleagueModeClick
                 )
                 ProfileMenuDivider(onSv = onSv)
                 ProfileMenuItem(
                     icon = Icons.Filled.AttachMoney,
-                    title = "倒班津贴",
-                    subtitle = "本月班次补贴精确计算",
+                    title = stringResource(R.string.profile_salary_predictor),
+                    subtitle = stringResource(R.string.profile_salary_predictor_desc),
                     onBg = onBg, onSv = onSv,
                     onClick = onSalaryPredictorClick
                 )
@@ -146,16 +148,16 @@ fun ProfileScreen(
             Column {
                 ProfileMenuItem(
                     icon = Icons.Filled.Star,
-                    title = "给个好评",
-                    subtitle = "去应用商店为我们评分",
+                    title = stringResource(R.string.profile_rate_us),
+                    subtitle = stringResource(R.string.profile_rate_us_desc),
                     onBg = onBg, onSv = onSv,
                     onClick = { /* TODO */ }
                 )
                 ProfileMenuDivider(onSv = onSv)
                 ProfileMenuItem(
                     icon = Icons.Filled.Info,
-                    title = "关于",
-                    subtitle = "倒班助手 v1.0",
+                    title = stringResource(R.string.profile_about),
+                    subtitle = stringResource(R.string.profile_about_desc),
                     onBg = onBg, onSv = onSv,
                     onClick = { /* TODO */ }
                 )

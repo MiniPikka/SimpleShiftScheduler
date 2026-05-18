@@ -1,5 +1,43 @@
 # 倒班助手开发进度记录
 
+## 2026-05-18：多语言支持（阶段 27）
+
+### 功能概述
+
+支持中文（默认）、日本語、한국어、English 四种语言。采用 Android 标准资源方案，`values/strings.xml`（zh 默认）+ `values-ja/`、`values-ko/`、`values-en/` 三个语言覆盖。
+
+### 架构清理
+
+移除首页多轨并行策略（V1/V2/V3/V4），删除 22 个旧文件（4 个旧版首页、16 个 V1/V2/V3 组件、旧 SettingsScreen/SettingsViewModel 及测试）。`HomeScreen.kt` 为唯一首页，所有 Composable 内联。
+
+### i18n 工具层
+
+- `ShiftLabelMapper.toLabel(context, shiftType)` — 班次标签映射（早/中/休/夜/学 → AM/PM/Off/NT/TR 等）
+- `TeamNameMapper.toName(teamId, context)` — 班组名本地化（一值…六值 → Shift A…F 等）
+- `HolidayNameMapper.toLocalizedName(chineseName, context)` — 节假日名本地化
+- `Team` 数据类仅存 `id`，移除硬编码 `name` 字段
+- `computeWidgetShiftData()` 接受 `shiftLabelResolver` / `teamNameResolver` 函数参数
+
+### 新增文件
+
+| 文件 | 用途 |
+|------|------|
+| `values-ja/strings.xml` | 日语字符串资源 |
+| `values-ko/strings.xml` | 韩语字符串资源 |
+| `values-en/strings.xml` | 英语字符串资源 |
+| `util/TeamNameMapper.kt` | 班组名本地化 |
+| `util/HolidayNameMapper.kt` | 节假日名本地化 |
+
+### 改造文件
+
+约 20 个文件：`values/strings.xml`（完整重写）、`ShiftLabelMapper`（Context-based）、`Team`（移除 name）、`widget_data`（接受 resolver）、`ShiftWidget`（context.getString）、`CalendarEventManager`（资源化标题）、`HomeScreen`（stringResource 全面替换）、`CalendarViewModel`（本地化日期格式）、所有 ViewModel（Context-based 标签）、`MainActivity`（底部导航本地化）、多个 UI 屏幕。
+
+### 测试
+
+150 个测试全部通过。测试更新：`HomeViewModelTest`、`WidgetDataTest`、`ContextualMessageTest` 适配新 API。
+
+---
+
 ## 2026-05-13：桌面小组件规划
 
 ### 功能概述

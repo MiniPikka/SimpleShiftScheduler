@@ -53,3 +53,24 @@ Default cycle: 42 days, 6 teams, phase offset = `(teamId - 1) * 7`. Custom cycle
 ## Project Memory
 
 Before writing code, read `memory-bank/architecture.md` (complete file-by-file architecture) and `memory-bank/app-design-document.md` (full design spec). After completing a major feature, update `memory-bank/architecture.md`.
+
+## i18n (Multi-Language Support)
+
+App supports Chinese (zh, default), Japanese (ja), Korean (ko), and English (en).
+
+### String Resources
+
+- `values/strings.xml` — Chinese (default)
+- `values-ja/strings.xml` — Japanese
+- `values-ko/strings.xml` — Korean
+- `values-en/strings.xml` — English
+
+### Rules
+
+1. **NEVER hardcode user-facing strings** in Compose `Text()` or Kotlin code. Always use `stringResource(R.string.xxx)` in Composables or `context.getString(R.string.xxx)` in non-Composable code.
+2. **Shift labels**: Use `ShiftLabelMapper.toLabel(context, shiftType)` for short labels (早/AM) or `toFullLabel(context, shiftType)` for full labels (早班/Morning).
+3. **Team names**: Use `TeamNameMapper.toName(teamId, context)`. `Team` data class has no `name` field — only `id`.
+4. **Holiday names**: Use `HolidayNameMapper.toLocalizedName(chineseName, context)`.
+5. **Domain layer**: Domain functions must NOT depend on Android Context. Use function parameters (e.g., `shiftLabelResolver: (ShiftType) -> String`) to pass display strings from callers.
+6. **Widget**: Glance doesn't support `stringResource()`. Pre-resolve strings in `provideGlance()` using `context.getString()` before passing to `@Composable` content.
+7. **Tests**: Don't assert specific localized string values (they depend on locale). Test structure and non-empty invariants instead.

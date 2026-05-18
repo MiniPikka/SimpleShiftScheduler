@@ -45,15 +45,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.model.LeaveStrategy
+import com.simpleshift.scheduler.util.HolidayNameMapper
 import com.simpleshift.scheduler.viewmodel.LeaveOptimizerViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,10 +68,10 @@ fun LeaveOptimizerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("拼假神器") },
+                title = { Text(stringResource(R.string.leave_optimizer_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.calendar_return))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -87,13 +90,13 @@ fun LeaveOptimizerScreen(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
                 Text(
-                    text = "基于你的倒班表 + 法定节假日",
+                    text = stringResource(R.string.leave_optimizer_description),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (uiState.analyzedDateRange.isNotEmpty()) {
                     Text(
-                        text = "今日至年底 · ${uiState.analyzedDateRange}",
+                        text = stringResource(R.string.leave_optimizer_date_range, uiState.analyzedDateRange),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
@@ -108,7 +111,7 @@ fun LeaveOptimizerScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "最多请假：",
+                    text = stringResource(R.string.leave_optimizer_max_leave),
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.align(Alignment.CenterVertically),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -118,7 +121,7 @@ fun LeaveOptimizerScreen(
                     FilterChip(
                         selected = uiState.maxLeaveDays == days,
                         onClick = { onMaxLeaveDaysChanged(days) },
-                        label = { Text("${days}天") },
+                        label = { Text(stringResource(R.string.leave_optimizer_days_unit, days)) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -162,13 +165,13 @@ fun LeaveOptimizerScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "未找到高效请假方案",
+                                text = stringResource(R.string.leave_optimizer_empty_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "当前倒班表下所有工作间隙都超过 ${uiState.maxLeaveDays} 天\n尝试增加请假天数",
+                                text = stringResource(R.string.leave_optimizer_empty_detail, uiState.maxLeaveDays),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 textAlign = TextAlign.Center
@@ -244,7 +247,7 @@ private fun StrategyCard(strategy: LeaveStrategy, rank: Int) {
                     else if (rank == 3) Text("🥉", fontSize = 18.sp)
 
                     Text(
-                        text = "请假 ${strategy.leaveDays} 天 → 连休 ${strategy.totalBreakDays} 天",
+                        text = stringResource(R.string.leave_optimizer_strategy_format, strategy.leaveDays, strategy.totalBreakDays),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -258,7 +261,9 @@ private fun StrategyCard(strategy: LeaveStrategy, rank: Int) {
             Spacer(modifier = Modifier.height(6.dp))
 
             // Date range
-            val dateFmt = DateTimeFormatter.ofPattern("M月d日")
+            val context = LocalContext.current
+            val dateFormatPattern = context.getString(R.string.date_format_month_day)
+            val dateFmt = DateTimeFormatter.ofPattern(dateFormatPattern)
             Text(
                 text = "${strategy.breakStart.format(dateFmt)} — ${strategy.breakEnd.format(dateFmt)}",
                 style = MaterialTheme.typography.bodyMedium,
@@ -277,7 +282,7 @@ private fun StrategyCard(strategy: LeaveStrategy, rank: Int) {
             if (strategy.weekendOverlap > 0 && strategy.holidayOverlap == 0) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "含${strategy.weekendOverlap}个周末日",
+                    text = stringResource(R.string.leave_optimizer_weekend_overlap, strategy.weekendOverlap),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -323,7 +328,8 @@ private fun EfficiencyBadge(efficiency: Float) {
 
 @Composable
 private fun HolidayBadge(name: String) {
-    val displayName = name.replace("[待确认]", "")
+    val context = LocalContext.current
+    val displayName = HolidayNameMapper.toLocalizedName(name, context)
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
@@ -392,7 +398,7 @@ private fun MiniCalendarBar(strategy: LeaveStrategy) {
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "请假",
+            text = stringResource(R.string.leave_optimizer_legend_leave),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -405,7 +411,7 @@ private fun MiniCalendarBar(strategy: LeaveStrategy) {
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "休息",
+            text = stringResource(R.string.leave_optimizer_legend_rest),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

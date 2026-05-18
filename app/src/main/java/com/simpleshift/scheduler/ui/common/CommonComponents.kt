@@ -13,7 +13,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.simpleshift.scheduler.domain.model.Team
+import com.simpleshift.scheduler.util.TeamNameMapper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,6 +25,7 @@ fun TeamDropdown(
     onTeamSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     val selectedTeam = availableTeams.find { it.id == selectedTeamId }
         ?: availableTeams.first()
@@ -32,7 +35,7 @@ fun TeamDropdown(
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value = selectedTeam.name,
+            value = TeamNameMapper.toName(selectedTeam.id, context),
             onValueChange = {},
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -44,7 +47,7 @@ fun TeamDropdown(
         ) {
             availableTeams.forEach { team ->
                 DropdownMenuItem(
-                    text = { Text(team.name) },
+                    text = { Text(TeamNameMapper.toName(team.id, context)) },
                     onClick = {
                         expanded = false
                         onTeamSelected(team.id)

@@ -13,12 +13,13 @@ fun findCommonRestDays(
     today: LocalDate = LocalDate.now(),
     daysToAnalyze: Int = 365,
     customCycle: List<ShiftType>? = null,
-    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE
+    referenceDate: LocalDate = ShiftCycleConfig.REFERENCE_DATE,
+    teamNameResolver: (Int) -> String = { "Shift $it" }
 ): CommonRestResult {
     val offsetA = teamPhaseOffsetFor(teamAId, customCycle)
     val offsetB = teamPhaseOffsetFor(teamBId, customCycle)
-    val teamAName = Team.ALL_TEAMS.find { it.id == teamAId }?.name ?: "班组$teamAId"
-    val teamBName = Team.ALL_TEAMS.find { it.id == teamBId }?.name ?: "班组$teamBId"
+    val teamAName = teamNameResolver(teamAId)
+    val teamBName = teamNameResolver(teamBId)
 
     val commonDates = (0 until daysToAnalyze).mapNotNull { offset ->
         val date = today.plusDays(offset.toLong())

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalDate
+import com.simpleshift.scheduler.R
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
@@ -67,9 +68,10 @@ class LeaveOptimizerViewModel(
                 maxLeaveDays = _uiState.value.maxLeaveDays
             )
         } catch (e: Exception) {
+            val app = getApplication<Application>()
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                errorMessage = "分析失败: ${e.localizedMessage ?: "未知错误"}"
+                errorMessage = app.getString(R.string.leave_optimizer_analysis_failed, e.localizedMessage ?: app.getString(R.string.common_unknown_error))
             )
             return
         }

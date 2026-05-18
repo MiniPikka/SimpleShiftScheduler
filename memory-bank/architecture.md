@@ -2,7 +2,24 @@
 
 ## 1. 当前架构阶段
 
-阶段 1-26 全部完成。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
+阶段 1-26 全部完成。阶段 27（多语言支持）基础架构完成。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
+
+### 2026-05-18：多语言支持（阶段 27）
+
+支持中文（默认）、日本語、한국어、English 四种语言。采用 Android 标准资源方案：`values/strings.xml`（zh 默认）、`values-ja/`、`values-ko/`、`values-en/`。
+
+**i18n 架构要点**：
+- `ShiftLabelMapper.toLabel(context, shiftType)` — Context-based 班次标签映射
+- `TeamNameMapper.toName(teamId, context)` — 班组名本地化
+- `HolidayNameMapper.toLocalizedName(chineseName, context)` — 节假日名本地化
+- Domain 层 `computeWidgetShiftData()` 接受 `shiftLabelResolver` / `teamNameResolver` 函数参数，保持纯函数
+- `Team` 数据类仅存 `id`，移除硬编码 `name` 字段
+- Widget 字符串在 `provideGlance()` 中通过 `context.getString()` 预解析
+- `CalendarEventManager` 日历日程标题使用 `R.string.calendar_event_*` 资源
+
+### 首页架构简化
+
+移除多轨并行策略（V1/V2/V3/V4），所有旧版首页及组件已删除。`HomeScreen.kt` 为唯一首页，所有 Composable 内联。
 
 已完成的功能：
 - 阶段 1-15：全部功能（项目骨架、数据模型、核心算法、首页 UI、测试、日历页、班组切换 + 月度统计、设置页、日历提醒、代码加固、桌面 Widget）

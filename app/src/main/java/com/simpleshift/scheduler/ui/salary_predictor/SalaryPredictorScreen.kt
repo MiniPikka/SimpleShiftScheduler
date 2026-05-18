@@ -52,13 +52,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.model.ShiftType
 import com.simpleshift.scheduler.domain.model.Team
+import com.simpleshift.scheduler.util.ShiftLabelMapper
+import com.simpleshift.scheduler.util.TeamNameMapper
 import com.simpleshift.scheduler.ui.theme.V2CardShape
 import com.simpleshift.scheduler.ui.theme.v2ShiftColor
 import com.simpleshift.scheduler.viewmodel.SalaryPredictorViewModel
@@ -89,10 +94,13 @@ fun SalaryPredictorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("倒班津贴") },
+                title = { Text(stringResource(R.string.salary_predictor_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.calendar_return)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -186,6 +194,7 @@ private fun SettingsSection(
     onBg: androidx.compose.ui.graphics.Color,
     onSv: androidx.compose.ui.graphics.Color
 ) {
+    val context = LocalContext.current
     val configurableShiftTypes = listOf(ShiftType.MORNING, ShiftType.AFTERNOON, ShiftType.NIGHT, ShiftType.STUDY)
 
     Card(
@@ -202,7 +211,7 @@ private fun SettingsSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "津贴设置",
+                    text = stringResource(R.string.salary_predictor_settings),
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = onBg,
                         fontWeight = FontWeight.Medium
@@ -210,13 +219,13 @@ private fun SettingsSection(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "班次补贴（每班额外金额）",
+                        text = stringResource(R.string.salary_predictor_settings_desc),
                         style = MaterialTheme.typography.bodySmall.copy(color = onSv)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         imageVector = Icons.Filled.ArrowDropDown,
-                        contentDescription = if (isExpanded) "收起" else "展开",
+                        contentDescription = if (isExpanded) stringResource(R.string.salary_predictor_collapse) else stringResource(R.string.salary_predictor_expand),
                         tint = onSv,
                         modifier = Modifier.size(20.dp)
                     )
@@ -248,7 +257,7 @@ private fun SettingsSection(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             row.forEach { shiftType ->
-                                val label = shiftLabel(shiftType)
+                                val label = ShiftLabelMapper.toFullLabel(context, shiftType)
                                 val accentColor = v2ShiftColor(shiftType)
                                 val currentText = textValues[shiftType] ?: "0"
 
@@ -295,7 +304,7 @@ private fun SettingsSection(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "元",
+                                        text = stringResource(R.string.salary_predictor_unit),
                                         style = MaterialTheme.typography.bodySmall.copy(color = onSv)
                                     )
                                 }
@@ -322,6 +331,8 @@ private fun MonthTeamRow(
     onBg: androidx.compose.ui.graphics.Color,
     onSv: androidx.compose.ui.graphics.Color
 ) {
+    val context = LocalContext.current
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -332,11 +343,14 @@ private fun MonthTeamRow(
             IconButton(onClick = { onMonthChange(currentMonth.minusMonths(1)) }) {
                 Icon(
                     Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                    contentDescription = "上月",
+                    contentDescription = stringResource(R.string.calendar_prev_month),
                     tint = onBg
                 )
             }
-            val monthFormatter = remember { DateTimeFormatter.ofPattern("yyyy年M月") }
+            val monthFormatter = remember {
+                val pattern = context.getString(R.string.date_format_year_month)
+                DateTimeFormatter.ofPattern(pattern, Locale.getDefault())
+            }
             Text(
                 text = currentMonth.format(monthFormatter),
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -347,7 +361,7 @@ private fun MonthTeamRow(
             IconButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
                 Icon(
                     Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "下月",
+                    contentDescription = stringResource(R.string.calendar_next_month),
                     tint = onBg
                 )
             }
@@ -366,7 +380,7 @@ private fun MonthTeamRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = selectedTeam.name,
+                    text = TeamNameMapper.toName(selectedTeam.id, context),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = onBg,
                         fontWeight = FontWeight.Medium
@@ -384,7 +398,7 @@ private fun MonthTeamRow(
             ) {
                 availableTeams.forEach { team ->
                     DropdownMenuItem(
-                        text = { Text(team.name) },
+                        text = { Text(TeamNameMapper.toName(team.id, context)) },
                         onClick = {
                             onTeamSelected(team.id)
                             teamExpanded = false
@@ -418,7 +432,7 @@ private fun PremiumTotalCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "本月倒班津贴",
+                text = stringResource(R.string.salary_predictor_monthly_total),
                 style = MaterialTheme.typography.bodyMedium.copy(color = onSv)
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -441,6 +455,8 @@ private fun ShiftBreakdownSection(
     onBg: androidx.compose.ui.graphics.Color,
     onSv: androidx.compose.ui.graphics.Color
 ) {
+    val context = LocalContext.current
+
     Card(
         shape = V2CardShape,
         colors = CardDefaults.cardColors(
@@ -454,7 +470,7 @@ private fun ShiftBreakdownSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "班次统计",
+                text = stringResource(R.string.salary_predictor_shift_stats),
                 style = MaterialTheme.typography.titleSmall.copy(
                     color = onBg,
                     fontWeight = FontWeight.Medium
@@ -477,7 +493,7 @@ private fun ShiftBreakdownSection(
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = "${shiftLabel(type)} ${count}次",
+                            text = "${ShiftLabelMapper.toFullLabel(context, type)} ${stringResource(R.string.salary_predictor_count_unit, count)}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = color,
                                 fontWeight = FontWeight.Medium
@@ -499,8 +515,11 @@ private fun ShiftBreakdownSection(
 
             if (premiumDetails.isNotEmpty()) {
                 val formatted = premiumDetails.joinToString(" · ") { (type, count, subtotal) ->
+                    val label = ShiftLabelMapper.toFullLabel(context, type)
+                    val premiumStr = NumberFormat.getNumberInstance(Locale.getDefault())
+                        .format(config.shiftPremiums[type] ?: 0.0)
                     val amount = NumberFormat.getNumberInstance(Locale.getDefault()).format(subtotal)
-                    "${shiftLabel(type)} ${count}次 × ¥${config.shiftPremiums[type]} = ¥$amount"
+                    context.getString(R.string.salary_predictor_detail, label, count, premiumStr, amount)
                 }
                 Text(
                     text = formatted,
@@ -523,6 +542,7 @@ private fun SimulationCard(
     onBg: androidx.compose.ui.graphics.Color,
     primary: androidx.compose.ui.graphics.Color
 ) {
+    val context = LocalContext.current
     val premiumTypes = listOf(ShiftType.MORNING, ShiftType.AFTERNOON, ShiftType.NIGHT, ShiftType.STUDY)
     var typeExpanded by remember { mutableStateOf(false) }
     val accentColor = v2ShiftColor(extraShiftType)
@@ -540,7 +560,7 @@ private fun SimulationCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "假设分析",
+                text = stringResource(R.string.salary_predictor_simulation),
                 style = MaterialTheme.typography.titleSmall.copy(
                     color = onBg,
                     fontWeight = FontWeight.Medium
@@ -554,7 +574,7 @@ private fun SimulationCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "如果多上",
+                    text = stringResource(R.string.salary_predictor_if_more),
                     style = MaterialTheme.typography.bodyMedium.copy(color = onBg)
                 )
 
@@ -573,7 +593,7 @@ private fun SimulationCard(
                 }
 
                 Text(
-                    text = "天",
+                    text = stringResource(R.string.salary_predictor_day_unit),
                     style = MaterialTheme.typography.bodyMedium.copy(color = onBg)
                 )
             }
@@ -581,7 +601,7 @@ private fun SimulationCard(
             // Shift type selector
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "班次类型：",
+                    text = stringResource(R.string.salary_predictor_shift_type_hint),
                     style = MaterialTheme.typography.bodyMedium.copy(color = onBg)
                 )
                 Box {
@@ -594,7 +614,7 @@ private fun SimulationCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = shiftLabel(extraShiftType),
+                            text = ShiftLabelMapper.toFullLabel(context, extraShiftType),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = accentColor,
                                 fontWeight = FontWeight.Medium
@@ -612,7 +632,7 @@ private fun SimulationCard(
                     ) {
                         premiumTypes.forEach { type ->
                             DropdownMenuItem(
-                                text = { Text(shiftLabel(type)) },
+                                text = { Text(ShiftLabelMapper.toFullLabel(context, type)) },
                                 onClick = {
                                     onExtraShiftTypeChange(type)
                                     typeExpanded = false
@@ -636,7 +656,10 @@ private fun SimulationCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "→ 津贴 +¥${NumberFormat.getNumberInstance(Locale.getDefault()).format(extraAmount)}",
+                        text = stringResource(
+                            R.string.salary_predictor_extra_amount,
+                            NumberFormat.getNumberInstance(Locale.getDefault()).format(extraAmount)
+                        ),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = primary,
                             fontWeight = FontWeight.Bold
@@ -646,14 +669,6 @@ private fun SimulationCard(
             }
         }
     }
-}
-
-private fun shiftLabel(type: ShiftType): String = when (type) {
-    ShiftType.MORNING -> "早班"
-    ShiftType.AFTERNOON -> "中班"
-    ShiftType.NIGHT -> "夜班"
-    ShiftType.REST -> "休班"
-    ShiftType.STUDY -> "学班"
 }
 
 private fun formatPremium(value: Double): String {

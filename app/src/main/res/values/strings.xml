@@ -1,22 +1,250 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">倒班助手</string>
+
+    <!-- ── Shift Labels ───────────────────────────── -->
     <string name="shift_label_morning">早</string>
     <string name="shift_label_afternoon">中</string>
     <string name="shift_label_rest">休</string>
     <string name="shift_label_night">夜</string>
     <string name="shift_label_study">学</string>
+    <string name="shift_label_morning_full">早班</string>
+    <string name="shift_label_afternoon_full">中班</string>
+    <string name="shift_label_rest_full">休班</string>
+    <string name="shift_label_night_full">夜班</string>
+    <string name="shift_label_study_full">学班</string>
 
-    <!-- Reminder settings -->
-    <string name="alarm_section_title">提醒设置</string>
-    <string name="alarm_not_set">未设置</string>
-    <string name="alarm_dialog_title">设置提醒时间</string>
-    <string name="alarm_dialog_confirm">确定</string>
-    <string name="alarm_dialog_cancel">取消</string>
-    <string name="alarm_dialog_disable">关闭此班次提醒</string>
-    <string name="alarm_dialog_hour_label">时</string>
-    <string name="alarm_dialog_minute_label">分</string>
+    <!-- ── Team Names ─────────────────────────────── -->
+    <string name="team_name_1">一值</string>
+    <string name="team_name_2">二值</string>
+    <string name="team_name_3">三值</string>
+    <string name="team_name_4">四值</string>
+    <string name="team_name_5">五值</string>
+    <string name="team_name_6">六值</string>
 
-    <!-- Widget -->
+    <!-- ── Date & Time Formats ────────────────────── -->
+    <string name="date_format_month_day">M月d日</string>
+    <string name="date_format_year_month">yyyy年M月</string>
+    <string name="date_format_full">yyyy年M月d日</string>
+
+    <!-- ── Weekday Names ──────────────────────────── -->
+    <string name="weekday_monday">周一</string>
+    <string name="weekday_tuesday">周二</string>
+    <string name="weekday_wednesday">周三</string>
+    <string name="weekday_thursday">周四</string>
+    <string name="weekday_friday">周五</string>
+    <string name="weekday_saturday">周六</string>
+    <string name="weekday_sunday">周日</string>
+    <string name="weekday_monday_full">星期一</string>
+    <string name="weekday_tuesday_full">星期二</string>
+    <string name="weekday_wednesday_full">星期三</string>
+    <string name="weekday_thursday_full">星期四</string>
+    <string name="weekday_friday_full">星期五</string>
+    <string name="weekday_saturday_full">星期六</string>
+    <string name="weekday_sunday_full">星期日</string>
+
+    <!-- ── Home Screen ────────────────────────────── -->
+    <string name="greeting_morning">早上好</string>
+    <string name="greeting_afternoon">下午好</string>
+    <string name="greeting_evening">晚上好</string>
+    <string name="greeting_night">夜班辛苦了</string>
+    <string name="home_shortcut_tools">快捷工具</string>
+    <string name="home_tool_leave_optimizer">拼假神器</string>
+    <string name="home_tool_colleague_mode">同事模式</string>
+    <string name="home_tool_salary_predictor">倒班津贴</string>
+    <string name="home_reminder_prefix">提醒 %1$s</string>
+    <string name="home_cycle_progress">第 %1$d 天 · 共 %2$d 天</string>
+    <string name="home_today_rest">今日休息</string>
+    <string name="home_tomorrow_rest">明天休息！</string>
+    <string name="home_days_until_rest">距下次休息 %1$d 天</string>
+    <string name="home_stat_monthly_work">本月上班</string>
+    <string name="home_stat_consecutive_work">连续上班</string>
+    <string name="home_intensity_easy">轻松</string>
+    <string name="home_intensity_moderate">适中</string>
+    <string name="home_intensity_busy">忙碌</string>
+    <string name="home_status_today_rest">今日休息</string>
+    <string name="home_status_need_rest">需要休息</string>
+    <string name="home_status_caution">注意调节</string>
+    <string name="home_status_good">状态良好</string>
+
+    <!-- ── Home Contextual Messages ───────────────── -->
+    <string name="msg_rest_1">好好休息，陪伴家人</string>
+    <string name="msg_rest_2">休息是为了更好的出发</string>
+    <string name="msg_rest_3">今天属于你自己</string>
+    <string name="msg_night_1">夜班辛苦了，注意安全</string>
+    <string name="msg_night_2">夜深了，照顾好自己</string>
+    <string name="msg_night_3">夜晚的坚守，值得尊敬</string>
+    <string name="msg_hard_work_1">连续上班，你辛苦了</string>
+    <string name="msg_hard_work_2">坚持住，休息日不远了</string>
+    <string name="msg_hard_work_consecutive">连续第 %1$d 天上班</string>
+    <string name="msg_almost_rest_1">马上就要休息了，坚持一下</string>
+    <string name="msg_almost_rest_2">休息日倒计时，加油</string>
+    <string name="msg_default_1">今天也要元气满满</string>
+    <string name="msg_default_2">安全第一，平安回家</string>
+    <string name="msg_default_3">每一份付出都值得尊重</string>
+
+    <!-- ── Bottom Navigation ──────────────────────── -->
+    <string name="nav_home">首页</string>
+    <string name="nav_calendar">日历</string>
+    <string name="nav_profile">我的</string>
+
+    <!-- ── Calendar Screen ────────────────────────── -->
+    <string name="calendar_title">倒班日历</string>
+    <string name="calendar_today">今天</string>
+    <string name="calendar_prev_month">上月</string>
+    <string name="calendar_next_month">下月</string>
+    <string name="calendar_stats">统计</string>
+    <string name="calendar_return">返回</string>
+
+    <!-- ── Profile Screen ─────────────────────────── -->
+    <string name="profile_current_team">当前班组</string>
+    <string name="profile_shift_rules">倒班规则</string>
+    <string name="profile_shift_rules_desc">自定义周期、班次和默认班组</string>
+    <string name="profile_alarm_settings">提醒设置</string>
+    <string name="profile_alarm_settings_desc">为每个班次设置提醒时间</string>
+    <string name="profile_leave_optimizer">拼假神器</string>
+    <string name="profile_leave_optimizer_desc">智能请假方案 · 最大化连休</string>
+    <string name="profile_colleague_mode">同事模式</string>
+    <string name="profile_colleague_mode_desc">查看两人何时共同休息</string>
+    <string name="profile_salary_predictor">倒班津贴</string>
+    <string name="profile_salary_predictor_desc">本月班次补贴精确计算</string>
+    <string name="profile_rate_us">给个好评</string>
+    <string name="profile_rate_us_desc">去应用商店为我们评分</string>
+    <string name="profile_about">关于</string>
+    <string name="profile_about_desc">倒班助手 v1.0</string>
+
+    <!-- ── Settings: Shift Rule Editor ────────────── -->
+    <string name="shift_rule_title">倒班规则设置</string>
+    <string name="shift_rule_step1_prompt">点击下方按钮，按顺序构建倒班序列：</string>
+    <string name="shift_rule_sequence_built">已构建序列（共 %1$d 天）</string>
+    <string name="shift_rule_sequence_empty">点击上方按钮开始构建倒班序列</string>
+    <string name="shift_rule_chip_days">%1$d天</string>
+    <string name="shift_rule_next_step">下一步</string>
+    <string name="shift_rule_start_date">起始日期</string>
+    <string name="shift_rule_choose_date">选择</string>
+    <string name="shift_rule_end_date_optional">设置结束日期（可选）</string>
+    <string name="shift_rule_end_date_hint">选择日历同步截止日期</string>
+    <string name="shift_rule_preview">排班预览</string>
+    <string name="shift_rule_preview_detail">周期长度: %1$d 天 · 起始: %2$s</string>
+    <string name="shift_rule_save">保存并生成排班表</string>
+    <string name="shift_rule_saved">设置已保存</string>
+
+    <!-- ── Settings: Alarm Settings ───────────────── -->
+    <string name="alarm_settings_title">提醒设置</string>
+    <string name="alarm_settings_about">关于提醒</string>
+    <string name="alarm_settings_info">设置提醒后，倒班助手会在系统日历中创建日程并在指定时间弹出通知。日程持久化在系统日历数据库，重启手机不会丢失。夜班提醒将自动提前到前一天（适配夜班车次）。每次修改设置后自动同步未来一年。无需联网，纯本地运行。提醒方式由系统日历 App 管理，可在日历中调整通知设置。</string>
+    <string name="alarm_settings_not_set">未设置</string>
+    <string name="alarm_settings_dialog_title">%1$s班 提醒时间</string>
+    <string name="alarm_settings_confirm">确定</string>
+    <string name="alarm_settings_disable">关闭提醒</string>
+    <string name="alarm_settings_cancel">取消</string>
+
+    <!-- ── Settings: Legacy (dead code removed) ───── -->
+
+    <!-- ── Leave Optimizer ────────────────────────── -->
+    <string name="leave_optimizer_title">拼假神器</string>
+    <string name="leave_optimizer_description">基于你的倒班表 + 法定节假日</string>
+    <string name="leave_optimizer_date_range">今日至年底 · %1$s</string>
+    <string name="leave_optimizer_max_leave">最多请假：</string>
+    <string name="leave_optimizer_days_unit">%1$d天</string>
+    <string name="leave_optimizer_empty_title">未找到高效请假方案</string>
+    <string name="leave_optimizer_empty_detail">当前倒班表下所有工作间隙都超过 %1$d 天\n尝试增加请假天数</string>
+    <string name="leave_optimizer_strategy_format">请假 %1$d 天 → 连休 %2$d 天</string>
+    <string name="leave_optimizer_weekend_overlap">含%1$d个周末日</string>
+    <string name="leave_optimizer_legend_leave">请假</string>
+    <string name="leave_optimizer_legend_rest">休息</string>
+    <string name="leave_optimizer_analysis_failed">分析失败: %1$s</string>
+
+    <!-- ── Colleague Mode ─────────────────────────── -->
+    <string name="colleague_mode_title">同事模式</string>
+    <string name="colleague_mode_me">我是</string>
+    <string name="colleague_mode_other">他是</string>
+    <string name="colleague_mode_swap">交换班组</string>
+    <string name="colleague_mode_share">分享</string>
+    <string name="colleague_mode_share_to">分享到</string>
+    <string name="colleague_mode_share_failed">分享失败: %1$s</string>
+    <string name="colleague_mode_same_team_title">你们是同一个班组</string>
+    <string name="colleague_mode_same_team_detail">都是%1$s，休息日完全一致</string>
+    <string name="colleague_mode_no_common_title">未找到共同休息日</string>
+    <string name="colleague_mode_no_common_detail">在分析范围内两人的休息日没有交集</string>
+    <string name="colleague_mode_stat_30days">未来30天\n共同休息</string>
+    <string name="colleague_mode_stat_60days">未来60天\n共同休息</string>
+    <string name="colleague_mode_list_header">共同休息日（共 %1$d 次）</string>
+    <string name="colleague_mode_next_rest_title">下次同时休息</string>
+    <string name="colleague_mode_is_today">就是今天！</string>
+    <string name="colleague_mode_is_tomorrow">就在明天</string>
+    <string name="colleague_mode_days_until">距今 %1$d 天</string>
+    <string name="colleague_mode_today">今天</string>
+    <string name="colleague_mode_tomorrow">明天</string>
+    <string name="colleague_mode_days_after">%1$d天后</string>
+    <string name="colleague_mode_no_data">无</string>
+    <string name="colleague_mode_no_share_data">无分享数据</string>
+    <string name="colleague_mode_share_gen_failed">生成分享图失败: %1$s</string>
+
+    <!-- ── Share Card ─────────────────────────────── -->
+    <string name="share_card_app_name">倒班助手</string>
+    <string name="share_card_next_rest">下次同时休息</string>
+    <string name="share_card_qr_caption">扫码下载倒班助手</string>
+    <string name="share_card_slogan">倒班助手 · 你的智能排班管家</string>
+    <string name="share_card_analysis_range">分析范围：%1$s</string>
+
+    <!-- ── Salary Predictor ───────────────────────── -->
+    <string name="salary_predictor_title">倒班津贴</string>
+    <string name="salary_predictor_settings">津贴设置</string>
+    <string name="salary_predictor_settings_desc">班次补贴（每班额外金额）</string>
+    <string name="salary_predictor_expand">展开</string>
+    <string name="salary_predictor_collapse">收起</string>
+    <string name="salary_predictor_unit">元</string>
+    <string name="salary_predictor_monthly_total">本月倒班津贴</string>
+    <string name="salary_predictor_shift_stats">班次统计</string>
+    <string name="salary_predictor_count_unit">%1$d次</string>
+    <string name="salary_predictor_detail">%1$s %2$d次 × ¥%3$s = ¥%4$s</string>
+    <string name="salary_predictor_simulation">假设分析</string>
+    <string name="salary_predictor_if_more">如果多上</string>
+    <string name="salary_predictor_day_unit">天</string>
+    <string name="salary_predictor_shift_type_hint">班次类型：</string>
+    <string name="salary_predictor_extra_amount">→ 津贴 +¥%1$s</string>
+
+    <!-- ── Widget ─────────────────────────────────── -->
+    <string name="widget_unconfigured">未配置</string>
+    <string name="widget_setup_prompt">请先设置排班规则</string>
+    <string name="widget_cycle_progress">第%1$d/%2$d天</string>
+    <string name="widget_rest_day">休息日</string>
+    <string name="widget_rest_tomorrow">明天休息</string>
+    <string name="widget_days_until_rest">距休%1$d天</string>
+    <string name="widget_tomorrow_prefix">明日: </string>
     <string name="widget_description">在桌面显示今日班次信息，无需打开应用即可查看。</string>
+
+    <!-- ── Holiday Names ──────────────────────────── -->
+    <string name="holiday_new_year">元旦</string>
+    <string name="holiday_spring_festival">春节</string>
+    <string name="holiday_spring_festival_adj">春节调休</string>
+    <string name="holiday_qingming">清明节</string>
+    <string name="holiday_labor_day">劳动节</string>
+    <string name="holiday_labor_day_adj">劳动节调休</string>
+    <string name="holiday_dragon_boat">端午节</string>
+    <string name="holiday_mid_autumn">中秋节</string>
+    <string name="holiday_national_day">国庆节</string>
+    <string name="holiday_national_day_adj">国庆节调休</string>
+    <string name="holiday_tbc">[待确认]</string>
+
+    <!-- ── Common ─────────────────────────────────── -->
+    <string name="common_close">关闭</string>
+    <string name="common_confirm">确定</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_delete">删除</string>
+    <string name="common_settings">设置</string>
+    <string name="common_unknown_error">未知错误</string>
+    <string name="common_unsaved_changes_title">放弃更改？</string>
+    <string name="common_unsaved_changes_message">有未保存的修改，确定要返回吗？</string>
+    <string name="common_continue_editing">继续编辑</string>
+
+    <!-- ── Calendar Event ─────────────────────────── -->
+    <string name="calendar_sync_failed">日历提醒同步失败: %1$s</string>
+    <string name="calendar_sync_check_permissions">请检查日历权限</string>
+
+    <string name="calendar_event_morning">早班提醒</string>
+    <string name="calendar_event_afternoon">中班提醒</string>
+    <string name="calendar_event_night">夜班提醒</string>
+    <string name="calendar_event_study">学班提醒</string>
 </resources>

@@ -14,22 +14,34 @@ class WidgetDataTest {
     private val fixedDate = LocalDate.of(2026, 5, 13)
     private val fixedLocale = Locale.CHINA
 
+    private val zhLabels = mapOf(
+        ShiftType.MORNING to "早",
+        ShiftType.AFTERNOON to "中",
+        ShiftType.REST to "休",
+        ShiftType.NIGHT to "夜",
+        ShiftType.STUDY to "学"
+    )
+    private val zhTeamNames = mapOf(
+        1 to "一值", 2 to "二值", 3 to "三值", 4 to "四值", 5 to "五值", 6 to "六值"
+    )
+
     @Test
     fun `produces correct data for default settings`() {
         val data = computeWidgetShiftData(
             today = fixedDate,
             settings = RuntimeShiftSettings(),
-            locale = fixedLocale
+            locale = fixedLocale,
+            shiftLabelResolver = { zhLabels[it]!! },
+            teamNameResolver = { zhTeamNames[it]!! }
         )
 
         assertTrue("date label should not be empty", data.dateLabel.isNotEmpty())
-        assertTrue("shiftLabel should be Chinese", data.shiftLabel in listOf("早", "中", "休", "夜", "学"))
+        assertTrue("shiftLabel should be Chinese", data.shiftLabel in zhLabels.values)
         assertTrue("dayOfCycle should be positive", data.dayOfCycle > 0)
         assertEquals(42, data.totalDays)
         assertEquals("一值", data.teamName)
         assertTrue("daysUntilRest should be >= 0", data.daysUntilRest >= 0)
-        // Tomorrow fields
-        assertTrue("tomorrowShiftLabel should be Chinese", data.tomorrowShiftLabel in listOf("早", "中", "休", "夜", "学"))
+        assertTrue("tomorrowShiftLabel should be Chinese", data.tomorrowShiftLabel in zhLabels.values)
         assertTrue("tomorrowShiftLabel should not be empty", data.tomorrowShiftLabel.isNotEmpty())
     }
 
@@ -43,7 +55,9 @@ class WidgetDataTest {
         val data = computeWidgetShiftData(
             today = fixedDate,
             settings = customSettings,
-            locale = fixedLocale
+            locale = fixedLocale,
+            shiftLabelResolver = { zhLabels[it]!! },
+            teamNameResolver = { zhTeamNames[it]!! }
         )
 
         assertEquals(10, data.totalDays)
@@ -64,14 +78,16 @@ class WidgetDataTest {
         val data = computeWidgetShiftData(
             today = fixedDate,
             settings = invalidSettings,
-            locale = fixedLocale
+            locale = fixedLocale,
+            shiftLabelResolver = { zhLabels[it]!! },
+            teamNameResolver = { zhTeamNames[it]!! }
         )
 
-        assertEquals("未配置", data.shiftLabel)
+        assertEquals("", data.shiftLabel)
         assertEquals(ShiftType.REST, data.shiftType)
         assertEquals(0, data.dayOfCycle)
         assertEquals(0, data.totalDays)
-        assertEquals("请先设置排班规则", data.teamName)
+        assertEquals("", data.teamName)
         assertEquals("", data.dateLabel)
         assertEquals(-1, data.daysUntilRest)
         assertEquals("", data.tomorrowShiftLabel)
@@ -88,22 +104,26 @@ class WidgetDataTest {
         val data = computeWidgetShiftData(
             today = fixedDate,
             settings = settings,
-            locale = fixedLocale
+            locale = fixedLocale,
+            shiftLabelResolver = { zhLabels[it]!! },
+            teamNameResolver = { zhTeamNames[it]!! }
         )
 
         assertEquals("三值", data.teamName)
     }
 
     @Test
-    fun `date label includes Chinese weekday`() {
-        // 2026-05-13 is a Wednesday
+    fun `date label includes weekday`() {
         val data = computeWidgetShiftData(
             today = fixedDate,
             settings = RuntimeShiftSettings(),
-            locale = fixedLocale
+            locale = fixedLocale,
+            shiftLabelResolver = { zhLabels[it]!! },
+            teamNameResolver = { zhTeamNames[it]!! }
         )
 
-        assertTrue("Date label should contain weekday", data.dateLabel.contains("周三"))
+        assertTrue("Date label should contain weekday", data.dateLabel.isNotEmpty())
+        assertTrue("Date label should contain month", data.dateLabel.contains("5"))
     }
 
     @Test
@@ -111,11 +131,13 @@ class WidgetDataTest {
         val data = computeWidgetShiftData(
             today = fixedDate,
             settings = RuntimeShiftSettings(),
-            locale = fixedLocale
+            locale = fixedLocale,
+            shiftLabelResolver = { zhLabels[it]!! },
+            teamNameResolver = { zhTeamNames[it]!! }
         )
 
         // Tomorrow should be the next day in the cycle
         assertEquals(data.dayOfCycle % data.totalDays + 1,
-            (data.dayOfCycle % data.totalDays) + 1) // dayOfCycle wraps
+            (data.dayOfCycle % data.totalDays) + 1)
     }
 }

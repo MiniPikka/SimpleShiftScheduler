@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">シフトアシスタント</string>
+
+    <!-- ── Shift Labels ───────────────────────────── -->
+    <string name="shift_label_morning">早</string>
+    <string name="shift_label_afternoon">中</string>
+    <string name="shift_label_rest">休</string>
+    <string name="shift_label_night">夜</string>
+    <string name="shift_label_study">学</string>
+    <string name="shift_label_morning_full">早番</string>
+    <string name="shift_label_afternoon_full">中番</string>
+    <string name="shift_label_rest_full">休番</string>
+    <string name="shift_label_night_full">夜番</string>
+    <string name="shift_label_study_full">学番</string>
+
+    <!-- ── Team Names ─────────────────────────────── -->
+    <string name="team_name_1">一値</string>
+    <string name="team_name_2">二値</string>
+    <string name="team_name_3">三値</string>
+    <string name="team_name_4">四値</string>
+    <string name="team_name_5">五値</string>
+    <string name="team_name_6">六値</string>
+
+    <!-- ── Date & Time Formats ────────────────────── -->
+    <string name="date_format_month_day">M月d日</string>
+    <string name="date_format_year_month">yyyy年M月</string>
+    <string name="date_format_full">yyyy年M月d日</string>
+
+    <!-- ── Weekday Names ──────────────────────────── -->
+    <string name="weekday_monday">月曜日</string>
+    <string name="weekday_tuesday">火曜日</string>
+    <string name="weekday_wednesday">水曜日</string>
+    <string name="weekday_thursday">木曜日</string>
+    <string name="weekday_friday">金曜日</string>
+    <string name="weekday_saturday">土曜日</string>
+    <string name="weekday_sunday">日曜日</string>
+    <string name="weekday_monday_full">月曜日</string>
+    <string name="weekday_tuesday_full">火曜日</string>
+    <string name="weekday_wednesday_full">水曜日</string>
+    <string name="weekday_thursday_full">木曜日</string>
+    <string name="weekday_friday_full">金曜日</string>
+    <string name="weekday_saturday_full">土曜日</string>
+    <string name="weekday_sunday_full">日曜日</string>
+
+    <!-- ── Home Screen ────────────────────────────── -->
+    <string name="greeting_morning">おはようございます</string>
+    <string name="greeting_afternoon">こんにちは</string>
+    <string name="greeting_evening">こんばんは</string>
+    <string name="greeting_night">夜勤お疲れさまです</string>
+    <string name="home_shortcut_tools">クイックツール</string>
+    <string name="home_tool_leave_optimizer">連休プランナー</string>
+    <string name="home_tool_colleague_mode">同僚モード</string>
+    <string name="home_tool_salary_predictor">手当計算</string>
+    <string name="home_reminder_prefix">リマインダー %1$s</string>
+    <string name="home_cycle_progress">%1$d日目 · %2$d日中</string>
+    <string name="home_today_rest">本日休み</string>
+    <string name="home_tomorrow_rest">明日休み！</string>
+    <string name="home_days_until_rest">次の休みまで %1$d日</string>
+    <string name="home_stat_monthly_work">今月の出勤</string>
+    <string name="home_stat_consecutive_work">連続出勤</string>
+    <string name="home_intensity_easy">余裕</string>
+    <string name="home_intensity_moderate">適度</string>
+    <string name="home_intensity_busy">多忙</string>
+    <string name="home_status_today_rest">本日休み</string>
+    <string name="home_status_need_rest">休息必要</string>
+    <string name="home_status_caution">要注意</string>
+    <string name="home_status_good">良好</string>
+
+    <!-- ── Home Contextual Messages ───────────────── -->
+    <string name="msg_rest_1">ゆっくり休んで、家族と過ごそう</string>
+    <string name="msg_rest_2">休息はより良い明日のために</string>
+    <string name="msg_rest_3">今日は自分のための日</string>
+    <string name="msg_night_1">夜勤お疲れさま、安全第一で</string>
+    <string name="msg_night_2">夜も更けた、体を大切に</string>
+    <string name="msg_night_3">夜の坚守、尊敬に値する</string>
+    <string name="msg_hard_work_1">連続出勤、お疲れさまです</string>
+    <string name="msg_hard_work_2">頑張って、休日はもうすぐ</string>
+    <string name="msg_hard_work_consecutive">連続%1$d日目の出勤</string>
+    <string name="msg_almost_rest_1">もうすぐ休み、あと少し</string>
+    <string name="msg_almost_rest_2">休日カウントダウン、ファイト</string>
+    <string name="msg_default_1">今日も元気いっぱい</string>
+    <string name="msg_default_2">安全第一、無事に帰ろう</string>
+    <string name="msg_default_3">すべての努力は尊重される</string>
+
+    <!-- ── Bottom Navigation ──────────────────────── -->
+    <string name="nav_home">ホーム</string>
+    <string name="nav_calendar">カレンダー</string>
+    <string name="nav_profile">マイ</string>
+
+    <!-- ── Calendar Screen ────────────────────────── -->
+    <string name="calendar_title">シフトカレンダー</string>
+    <string name="calendar_today">今日</string>
+    <string name="calendar_prev_month">前月</string>
+    <string name="calendar_next_month">翌月</string>
+    <string name="calendar_stats">統計</string>
+    <string name="calendar_return">戻る</string>
+
+    <!-- ── Profile Screen ─────────────────────────── -->
+    <string name="profile_current_team">現在の班</string>
+    <string name="profile_shift_rules">シフトルール</string>
+    <string name="profile_shift_rules_desc">周期・班次・既定班を設定</string>
+    <string name="profile_alarm_settings">リマインダー設定</string>
+    <string name="profile_alarm_settings_desc">各班次の通知時間を設定</string>
+    <string name="profile_leave_optimizer">連休プランナー</string>
+    <string name="profile_leave_optimizer_desc">最小休暇で最大連休を</string>
+    <string name="profile_colleague_mode">同僚モード</string>
+    <string name="profile_colleague_mode_desc">二人がいつ一緒に休めるか</string>
+    <string name="profile_salary_predictor">手当計算</string>
+    <string name="profile_salary_predictor_desc">今月のシフト手当を正確計算</string>
+    <string name="profile_rate_us">評価する</string>
+    <string name="profile_rate_us_desc">アプリストアで評価をお願いします</string>
+    <string name="profile_about">について</string>
+    <string name="profile_about_desc">シフトアシスタント v1.0</string>
+
+    <!-- ── Settings: Shift Rule Editor ────────────── -->
+    <string name="shift_rule_title">シフトルール設定</string>
+    <string name="shift_rule_step1_prompt">下のボタンをタップしてシフト順を構築：</string>
+    <string name="shift_rule_sequence_built">構築済み（全%1$d日）</string>
+    <string name="shift_rule_sequence_empty">上のボタンでシフト順の構築を開始</string>
+    <string name="shift_rule_chip_days">%1$d日</string>
+    <string name="shift_rule_next_step">次へ</string>
+    <string name="shift_rule_start_date">開始日</string>
+    <string name="shift_rule_choose_date">選択</string>
+    <string name="shift_rule_end_date_optional">終了日を設定（任意）</string>
+    <string name="shift_rule_end_date_hint">カレンダー同期の締切日を選択</string>
+    <string name="shift_rule_preview">シフトプレビュー</string>
+    <string name="shift_rule_preview_detail">周期: %1$d日 · 開始: %2$s</string>
+    <string name="shift_rule_save">保存してシフト表を生成</string>
+    <string name="shift_rule_saved">保存しました</string>
+
+    <!-- ── Settings: Alarm Settings ───────────────── -->
+    <string name="alarm_settings_title">リマインダー設定</string>
+    <string name="alarm_settings_about">リマインダーについて</string>
+    <string name="alarm_settings_info">リマインダーを設定すると、システムカレンダーに予定が作成され指定時刻に通知されます。予定はシステムカレンダーデータベースに保存され、再起動後も消えません。夜勤リマインダーは自動的に前日へ調整されます（夜勤車両に適応）。設定変更ごとに未来一年分が自動同期。ネットワーク不要、完全ローカル動作。通知方法はシステムカレンダーアプリが管理します。</string>
+    <string name="alarm_settings_not_set">未設定</string>
+    <string name="alarm_settings_dialog_title">%1$s番 リマインダー時間</string>
+    <string name="alarm_settings_confirm">確定</string>
+    <string name="alarm_settings_disable">リマインダー解除</string>
+    <string name="alarm_settings_cancel">キャンセル</string>
+
+    <!-- ── Leave Optimizer ────────────────────────── -->
+    <string name="leave_optimizer_title">連休プランナー</string>
+    <string name="leave_optimizer_description">あなたのシフト表＋祝休日</string>
+    <string name="leave_optimizer_date_range">今日から年末まで · %1$s</string>
+    <string name="leave_optimizer_max_leave">最大休暇日数：</string>
+    <string name="leave_optimizer_days_unit">%1$d日</string>
+    <string name="leave_optimizer_empty_title">効率的な休暇プランが見つかりません</string>
+    <string name="leave_optimizer_empty_detail">現在のシフトでは全作業ギャップが%1$d日を超えています\n休暇日数を増やしてお試しください</string>
+    <string name="leave_optimizer_strategy_format">休暇%1$d日 → 連休%2$d日</string>
+    <string name="leave_optimizer_weekend_overlap">週末%1$d日含む</string>
+    <string name="leave_optimizer_legend_leave">休暇</string>
+    <string name="leave_optimizer_legend_rest">休息</string>
+    <string name="leave_optimizer_analysis_failed">分析失敗: %1$s</string>
+
+    <!-- ── Colleague Mode ─────────────────────────── -->
+    <string name="colleague_mode_title">同僚モード</string>
+    <string name="colleague_mode_me">自分</string>
+    <string name="colleague_mode_other">相手</string>
+    <string name="colleague_mode_swap">班を交換</string>
+    <string name="colleague_mode_share">共有</string>
+    <string name="colleague_mode_share_to">共有先</string>
+    <string name="colleague_mode_share_failed">共有失敗: %1$s</string>
+    <string name="colleague_mode_same_team_title">同じ班です</string>
+    <string name="colleague_mode_same_team_detail">両方とも%1$s、休日が完全一致</string>
+    <string name="colleague_mode_no_common_title">共通の休日が見つかりません</string>
+    <string name="colleague_mode_no_common_detail">分析範囲内で二人の休日が重なりません</string>
+    <string name="colleague_mode_stat_30days">30日以内\n共通休日</string>
+    <string name="colleague_mode_stat_60days">60日以内\n共通休日</string>
+    <string name="colleague_mode_list_header">共通休日一覧（全%1$d回）</string>
+    <string name="colleague_mode_next_rest_title">次の共通休日</string>
+    <string name="colleague_mode_is_today">今日です！</string>
+    <string name="colleague_mode_is_tomorrow">明日です</string>
+    <string name="colleague_mode_days_until">あと%1$d日</string>
+    <string name="colleague_mode_today">今日</string>
+    <string name="colleague_mode_tomorrow">明日</string>
+    <string name="colleague_mode_days_after">%1$d日後</string>
+    <string name="colleague_mode_no_data">なし</string>
+    <string name="colleague_mode_no_share_data">共有データなし</string>
+    <string name="colleague_mode_share_gen_failed">共有画像の生成に失敗: %1$s</string>
+
+    <!-- ── Share Card ─────────────────────────────── -->
+    <string name="share_card_app_name">シフトアシスタント</string>
+    <string name="share_card_next_rest">次の共通休日</string>
+    <string name="share_card_qr_caption">QRコードをスキャンしてダウンロード</string>
+    <string name="share_card_slogan">シフトアシスタント · あなたのスマートシフト管理</string>
+    <string name="share_card_analysis_range">分析範囲：%1$s</string>
+
+    <!-- ── Salary Predictor ───────────────────────── -->
+    <string name="salary_predictor_title">手当計算</string>
+    <string name="salary_predictor_settings">手当設定</string>
+    <string name="salary_predictor_settings_desc">班次手当（1回あたり）</string>
+    <string name="salary_predictor_expand">展開</string>
+    <string name="salary_predictor_collapse">折りたたむ</string>
+    <string name="salary_predictor_unit">円</string>
+    <string name="salary_predictor_monthly_total">今月のシフト手当</string>
+    <string name="salary_predictor_shift_stats">班次統計</string>
+    <string name="salary_predictor_count_unit">%1$d回</string>
+    <string name="salary_predictor_detail">%1$s %2$d回 × ¥%3$s = ¥%4$s</string>
+    <string name="salary_predictor_simulation">仮定分析</string>
+    <string name="salary_predictor_if_more">あと</string>
+    <string name="salary_predictor_day_unit">日</string>
+    <string name="salary_predictor_shift_type_hint">班次：</string>
+    <string name="salary_predictor_extra_amount">→ 手当 +¥%1$s</string>
+
+    <!-- ── Widget ─────────────────────────────────── -->
+    <string name="widget_unconfigured">未設定</string>
+    <string name="widget_setup_prompt">シフトルールを設定してください</string>
+    <string name="widget_cycle_progress">%1$d/%2$d日目</string>
+    <string name="widget_rest_day">休み</string>
+    <string name="widget_rest_tomorrow">明日休み</string>
+    <string name="widget_days_until_rest">休みまで%1$d日</string>
+    <string name="widget_tomorrow_prefix">明日: </string>
+    <string name="widget_description">今日のシフト情報をホーム画面に表示します。</string>
+
+    <!-- ── Holiday Names ──────────────────────────── -->
+    <string name="holiday_new_year">元旦</string>
+    <string name="holiday_spring_festival">春節</string>
+    <string name="holiday_spring_festival_adj">春節振替</string>
+    <string name="holiday_qingming">清明節</string>
+    <string name="holiday_labor_day">労働節</string>
+    <string name="holiday_labor_day_adj">労働節振替</string>
+    <string name="holiday_dragon_boat">端午節</string>
+    <string name="holiday_mid_autumn">中秋節</string>
+    <string name="holiday_national_day">国慶節</string>
+    <string name="holiday_national_day_adj">国慶節振替</string>
+    <string name="holiday_tbc">[未確認]</string>
+
+    <!-- ── Common ─────────────────────────────────── -->
+    <string name="common_close">閉じる</string>
+    <string name="common_confirm">確定</string>
+    <string name="common_cancel">キャンセル</string>
+    <string name="common_delete">削除</string>
+    <string name="common_settings">設定</string>
+    <string name="common_unknown_error">不明なエラー</string>
+    <string name="common_unsaved_changes_title">変更を破棄しますか？</string>
+    <string name="common_unsaved_changes_message">保存されていない変更があります。戻りますか？</string>
+    <string name="common_continue_editing">編集を続ける</string>
+
+    <!-- ── Calendar Event ─────────────────────────── -->
+    <string name="calendar_sync_failed">カレンダー同期に失敗: %1$s</string>
+    <string name="calendar_sync_check_permissions">カレンダー権限を確認してください</string>
+
+    <string name="calendar_event_morning">早番リマインダー</string>
+    <string name="calendar_event_afternoon">中番リマインダー</string>
+    <string name="calendar_event_night">夜番リマインダー</string>
+    <string name="calendar_event_study">学番リマインダー</string>
+</resources>

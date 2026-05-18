@@ -29,13 +29,17 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.model.AlarmTime
 import com.simpleshift.scheduler.domain.model.ShiftType
+import com.simpleshift.scheduler.util.ShiftLabelMapper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,10 +52,10 @@ fun AlarmSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("提醒设置") },
+                title = { Text(stringResource(R.string.alarm_settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.calendar_return))
                     }
                 }
             )
@@ -86,18 +90,14 @@ fun AlarmSettingsScreen(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "关于提醒",
+                            text = stringResource(R.string.alarm_settings_about),
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "设置提醒后，倒班助手会在系统日历中创建日程并在指定时间弹出通知。" +
-                                "日程持久化在系统日历数据库，重启手机不会丢失。" +
-                                "夜班提醒将自动提前到前一天（适配夜班车次）。" +
-                                "每次修改设置后自动同步未来一年。无需联网，纯本地运行。" +
-                                "提醒方式由系统日历 App 管理，可在日历中调整通知设置。",
+                            text = stringResource(R.string.alarm_settings_info),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -133,7 +133,8 @@ private fun ShiftAlarmRow(
     onEdit: (AlarmTime) -> Unit,
     onRemove: () -> Unit
 ) {
-    val label = com.simpleshift.scheduler.util.ShiftLabelMapper.toLabel(shiftType)
+    val context = LocalContext.current
+    val label = ShiftLabelMapper.toLabel(context, shiftType)
     var showDialog by remember { mutableStateOf(false) }
 
     Row(
@@ -141,13 +142,13 @@ private fun ShiftAlarmRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("${label}班", style = MaterialTheme.typography.bodyLarge)
+        Text(ShiftLabelMapper.toFullLabel(context, shiftType), style = MaterialTheme.typography.bodyLarge)
         TextButton(onClick = { showDialog = true }) {
             Text(
                 if (alarmTime != null) {
                     "${alarmTime.hour.toString().padStart(2, '0')}:${alarmTime.minute.toString().padStart(2, '0')}"
                 } else {
-                    "未设置"
+                    stringResource(R.string.alarm_settings_not_set)
                 }
             )
         }
@@ -162,7 +163,7 @@ private fun ShiftAlarmRow(
 
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text("${label}班 提醒时间") },
+            title = { Text(stringResource(R.string.alarm_settings_dialog_title, label)) },
             text = {
                 TimePicker(state = state)
             },
@@ -170,7 +171,7 @@ private fun ShiftAlarmRow(
                 TextButton(onClick = {
                     onEdit(AlarmTime(state.hour, state.minute))
                     showDialog = false
-                }) { Text("确定") }
+                }) { Text(stringResource(R.string.alarm_settings_confirm)) }
             },
             dismissButton = {
                 Row {
@@ -179,10 +180,10 @@ private fun ShiftAlarmRow(
                             onRemove()
                             showDialog = false
                         }) {
-                            Text("关闭提醒", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.alarm_settings_disable), color = MaterialTheme.colorScheme.error)
                         }
                     }
-                    TextButton(onClick = { showDialog = false }) { Text("取消") }
+                    TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.alarm_settings_cancel)) }
                 }
             }
         )

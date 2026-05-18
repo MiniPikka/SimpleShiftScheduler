@@ -283,6 +283,34 @@ app/
 
 全部规划功能（阶段 1-24）已完成。Kotlin 1.9.24 + Compose BOM 2024.04.00 + Material3 1.2.1。编译零警告。应用功能完整，150 个单元测试全部通过（BUILD SUCCESSFUL）。
 
+阶段 27（多语言支持）：中文（默认）、日本語、한국어、English 四种语言。Android 标准资源限定符方案。新增 `TeamNameMapper`、`HolidayNameMapper`、Context-based `ShiftLabelMapper`。首页 V1-V4 多轨合并为单一 `HomeScreen.kt`。
+
+---
+
+## 16. 多语言支持技术选型（阶段 27）
+
+### 方案
+
+* **Android 标准资源限定符** — `values/strings.xml`（zh 默认）+ `values-ja/`、`values-ko/`、`values-en/`
+  * 无第三方 i18n 库依赖
+  * Compose 中用 `stringResource(R.string.xxx)`
+  * 非 Compose 代码中用 `context.getString(R.string.xxx)`
+  * Widget 在 `provideGlance()` 中预解析字符串
+
+### i18n 工具层
+
+* **`ShiftLabelMapper.toLabel(context, shiftType)`** — 班次短标签（早/AM/조/早）
+* **`ShiftLabelMapper.toFullLabel(context, shiftType)`** — 班次全称（早班/Morning/조번/早番）
+* **`TeamNameMapper.toName(teamId, context)`** — 班组名（一值/Shift A/1조/一値）
+* **`HolidayNameMapper.toLocalizedName(chineseName, context)`** — 节假日名本地化
+
+### 设计原则
+
+* Domain 层保持纯函数，通过 resolver 函数参数传入显示字符串
+* `Team` 数据类仅存储 `id`，不含 `name`
+* Widget 字符串预解析（Glance 不支持 `stringResource()`）
+* 测试不断言特定语言的字符串值，改为检查非空/结构正确
+
 ---
 
 ## 10. 桌面 Widget 技术选型（阶段 15）

@@ -6,6 +6,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.CalendarContract
 import android.provider.CalendarContract.Calendars
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.domain.getShiftTypeForDate
 import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.AlarmTime
@@ -175,7 +176,13 @@ class CalendarEventManager(
         date: LocalDate,
         shiftType: ShiftType
     ): Long {
-        val title = "${shiftTypeLabel(shiftType)}班提醒"
+        val title = when (shiftType) {
+            ShiftType.MORNING -> context.getString(R.string.calendar_event_morning)
+            ShiftType.AFTERNOON -> context.getString(R.string.calendar_event_afternoon)
+            ShiftType.NIGHT -> context.getString(R.string.calendar_event_night)
+            ShiftType.STUDY -> context.getString(R.string.calendar_event_study)
+            else -> shiftTypeLabel(shiftType)
+        }
         val dayStart = date.atStartOfDay(zoneId).toInstant().toEpochMilli()
         val dayEnd = date.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli()
 
@@ -212,10 +219,18 @@ class CalendarEventManager(
         val startMillis = alarmTime.toEpochMillis(date)
         val endMillis = startMillis + EVENT_DURATION_MS
 
+        val title = when (shiftType) {
+            ShiftType.MORNING -> context.getString(R.string.calendar_event_morning)
+            ShiftType.AFTERNOON -> context.getString(R.string.calendar_event_afternoon)
+            ShiftType.NIGHT -> context.getString(R.string.calendar_event_night)
+            ShiftType.STUDY -> context.getString(R.string.calendar_event_study)
+            else -> shiftTypeLabel(shiftType)
+        }
+
         val values = ContentValues().apply {
             put(CalendarContract.Events.CALENDAR_ID, calendarId)
-            put(CalendarContract.Events.TITLE, "${shiftTypeLabel(shiftType)}班提醒")
-            put(CalendarContract.Events.DESCRIPTION, "${shiftTypeLabel(shiftType)}班 - 倒班助手")
+            put(CalendarContract.Events.TITLE, title)
+            put(CalendarContract.Events.DESCRIPTION, title)
             put(CalendarContract.Events.DTSTART, startMillis)
             put(CalendarContract.Events.DTEND, endMillis)
             put(CalendarContract.Events.EVENT_TIMEZONE, zoneId.id)
@@ -270,7 +285,7 @@ class CalendarEventManager(
         }
     }
 
-    private fun shiftTypeLabel(shiftType: ShiftType): String = ShiftLabelMapper.toLabel(shiftType)
+    private fun shiftTypeLabel(shiftType: ShiftType): String = ShiftLabelMapper.toLabel(context, shiftType)
 
     companion object {
         private const val ACCOUNT_NAME = "SimpleShiftScheduler"

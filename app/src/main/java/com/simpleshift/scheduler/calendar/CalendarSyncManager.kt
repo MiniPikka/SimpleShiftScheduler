@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.result.ActivityResultLauncher
 import androidx.core.content.ContextCompat
+import com.simpleshift.scheduler.R
 import com.simpleshift.scheduler.data.repository.SettingsRepository
 import com.simpleshift.scheduler.domain.model.AlarmSettings
 import com.simpleshift.scheduler.domain.model.CalendarEventIds
@@ -71,7 +72,7 @@ class CalendarSyncManager(
                             syncCalendarEvents(alarmSettings, shiftSettings, eventIds)
                             _syncError.value = null
                         } catch (e: Exception) {
-                            _syncError.value = "日历提醒同步失败: ${e.localizedMessage ?: "请检查日历权限"}"
+                            _syncError.value = context.getString(R.string.calendar_sync_failed, e.localizedMessage ?: context.getString(R.string.calendar_sync_check_permissions))
                         }
                     }
                 }
@@ -92,7 +93,7 @@ class CalendarSyncManager(
                     }
                     _syncError.value = null
                 } catch (e: Exception) {
-                    _syncError.value = "日历提醒同步失败: ${e.localizedMessage ?: "请检查日历权限"}"
+                    _syncError.value = context.getString(R.string.calendar_sync_failed, e.localizedMessage ?: context.getString(R.string.calendar_sync_check_permissions))
                 }
             }
         }
