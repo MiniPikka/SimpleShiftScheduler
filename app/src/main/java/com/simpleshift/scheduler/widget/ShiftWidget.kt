@@ -137,7 +137,7 @@ private fun ShiftWidgetContent(data: WidgetShiftData) {
                         color = ColorProvider(shiftAccentColor(ShiftType.REST))
                     )
                 )
-            } else if (data.daysUntilRest == 1) {
+            } else if (data.daysUntilRest == 0) {
                 Text(
                     text = "明天休息",
                     style = TextStyle(
