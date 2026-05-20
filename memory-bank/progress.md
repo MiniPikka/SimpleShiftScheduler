@@ -1,5 +1,67 @@
 # 倒班助手开发进度记录
 
+## 2026-05-20：CP 版本 — 阶段 2 核心功能迁移完成
+
+### 阶段 2：核心功能迁移 ✅
+
+**2.1 Domain 模型** — 11 个 Freezed 等价数据类：
+- `ShiftType` 枚举 + `ShiftCycleConfig`（42天常量）+ `ShiftInfo` + `CalendarDayInfo`
+- `Team` + `MonthlyStats` + `RuntimeShiftSettings`（isValid + teamPhaseStep）
+- `LeaveStrategy` + `CommonRestResult` + `SalaryConfig` + `SalaryBreakdown`
+- 所有模型从 Android 版直接翻译，行为一致
+
+**2.2 Domain 算法** — 5 个纯函数文件：
+- `shift_calculator.dart`（calculateDayOffset / normalizeCycleIndex / getShiftTypeForDate / getShiftInfo / teamPhaseOffsetFor）
+- `calendar_generator.dart`（generateMonthCalendarDays，42格）
+- `shift_metrics.dart`（countShiftTypeInMonth / countWorkDaysInMonth / consecutiveWorkDays / daysUntilNextRest）
+- `colleague_mode.dart`（findCommonRestDays，双班组交叉对比）
+- `salary_calculator.dart`（countAllShiftTypesInMonth / calculateSalaryBreakdown / simulateExtraShifts）
+
+**2.3 数据层**：
+- `SettingsRepository` 抽象接口 + `serializeShiftCycle()` / `deserializeShiftCycle()` 序列化工具
+- 保持与 Android 版一致的逗号分隔枚举名格式
+
+**2.4 HomeNotifier 接入真实算法**：
+- 替换演示数据，`refresh()` 调用 domain 层 getShiftInfo() + shift_metrics
+- 新增纯辅助函数：`teamIdToName()`、`weekDayLabel()`、`workloadLabelFor()`、`consecutiveStatusFor()`、`contextualMessage()`
+- `selectedTeamProvider` + `settingsProvider` 支持班组切换
+
+**2.5 单元测试** — 67 个测试全部通过：
+| 测试文件 | 用例数 | 覆盖范围 |
+|---------|--------|---------|
+| `shift_calculator_test.dart` | 16 | offset/normalize/getShiftType/getShiftInfo/teamPhase |
+| `shift_metrics_test.dart` | 8 | count/countWork/consecutive/daysUntilRest |
+| `calendar_generator_test.dart` | 6 | 42格/跨月/ShiftType/currentMonth/teamPhase |
+| `colleague_mode_test.dart` | 7 | sameTeam/differentTeam/nextDate/count30/count60 |
+| `salary_calculator_test.dart` | 5 | countAllTypes/zeroConfig/premiumCalc/extraShifts |
+| `home_state_test.dart` | 18 | greeting/shiftLabel/teamName/weekday/workload/status/contextual |
+
+### 构建结果
+
+```
+flutter analyze    # 0 errors, 0 warnings
+flutter test       # 67/67 passed
+```
+
+### CP 项目文件清单（共 42 个文件）
+
+| 层 | 文件数 | 关键文件 |
+|----|--------|---------|
+| Domain models | 11 | shift_type, shift_cycle_config, shift_info, team, ... |
+| Domain algorithms | 5 | shift_calculator, calendar_generator, shift_metrics, colleague_mode, salary_calculator |
+| Core/theme | 5 | colors, typography, spacing, shapes, theme |
+| Features/home | 6 | home_state, home_screen, hero_card, stats_row, tools_row, message_banner |
+| Features/其他 | 5 | calendar, profile, leave_opt, colleague_mode, salary (占位) |
+| Data | 1 | settings_repository |
+| App | 2 | routes, main |
+| Tests | 7 | 67 用例 |
+
+### 剩余：holiday_data + leave_optimizer
+
+Android 版 `holiday_data.kt`（~110行）和 `leave_optimizer.kt`（~170行）体积较大，留待后续按需迁移。
+
+---
+
 ## 2026-05-20：CP（Cross Platform）版本 — 阶段 1 Flutter 骨架完成
 
 ### 阶段 1：Flutter 骨架 ✅
