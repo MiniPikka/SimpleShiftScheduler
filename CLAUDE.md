@@ -1,81 +1,122 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with this monorepo.
 
-## Build & Test
+## Project Structure
+
+```
+SimpleShiftScheduler/          ← git repo root
+├── CLAUDE.md                  ← this file
+├── memory-bank/               ← shared documentation (both projects)
+├── android/                   ← Android 原版 (Kotlin + Compose, Phase 1 完成)
+└── flutter/                   ← CP 跨平台版 (Flutter + Riverpod, 迁移进行中)
+```
+
+- **Android 版**：功能完整的参考实现，162 tests，不再活跃开发。作为算法参考和产品验证基础。
+- **Flutter CP 版**：主力开发目标，72 tests，正在从 Android 版逐步迁移功能。跨 Android / iOS / Web / Desktop。
+
+---
+
+## Android 项目 (`android/`)
+
+### Build & Test
 
 ```bash
-# Build debug APK
-./gradlew assembleDebug
-
-# Run all unit tests
-./gradlew testDebugUnitTest
-
-# Run a single test class
+cd android
+./gradlew assembleDebug                    # Build debug APK
+./gradlew testDebugUnitTest                # Run all unit tests
 ./gradlew testDebugUnitTest --tests "com.simpleshift.scheduler.domain.ShiftCalculatorTest"
-
-# Clean and re-run all tests
 ./gradlew cleanTestDebugUnitTest testDebugUnitTest
 ```
 
-Tests use JUnit 4 + Robolectric. `testOptions.unitTests.isIncludeAndroidResources = true` is required in `app/build.gradle.kts` for tests that access Android resources (e.g., string resource mapping in ViewModel tests).
+Tests use JUnit 4 + Robolectric. `testOptions.unitTests.isIncludeAndroidResources = true` is required.
 
-## Architecture
+### Architecture
 
 **Stack**: Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore Preferences
 
-**Layers** (`app/src/main/java/com/simpleshift/scheduler/`):
-- `domain/model/` — Pure Kotlin business models (`ShiftType` enum, `ShiftCycleConfig`, `ShiftInfo`, `CalendarDayInfo`, `Team`, `MonthlyStats`, `RuntimeShiftSettings`, `AlarmSettings`, `CalendarEventIds`). No Android dependencies.
-- `domain/` — Pure functions: `shift_calculator.kt` (date offset → cycle index → shift type lookup) and `calendar_generator.kt` (42-cell 7×7 month grid generation). All functions accept optional `teamPhaseOffset`/`customCycle` parameters.
-- `viewmodel/` — `HomeViewModel`, `CalendarViewModel`, `SettingsViewModel`. Expose `StateFlow<UiState>`. ViewModels accept injectable `currentDateProvider`/`localeProvider` for testability.
-- `ui/` — Compose screens: `HomeScreen`, `CalendarScreen`, `SettingsScreen`. Pure display + event callbacks, no business logic.
-- `calendar/` — `CalendarEventManager` (Calendar Provider CRUD via ContentResolver) and `CalendarSyncManager` (auto-sync via `combine` of three DataStore flows + Mutex guard).
-- `data/repository/` — `SettingsRepository`: DataStore persistence for shift cycle config, alarm settings, and calendar event ID tracking. Uses comma-separated `ShiftType` enum names for serialization (no extra serialization library).
+**Layers** (`android/app/src/main/java/com/simpleshift/scheduler/`):
+- `domain/model/` — Pure Kotlin data classes, no Android deps
+- `domain/` — Pure functions: shift_calculator, calendar_generator, shift_metrics, colleague_mode, leave_optimizer, salary_calculator, holiday_data
+- `viewmodel/` — HomeViewModel, CalendarViewModel, etc. StateFlow<UiState>
+- `ui/` — Compose screens, pure display + callbacks
+- `calendar/` — CalendarEventManager (Calendar Provider CRUD), CalendarSyncManager
+- `data/repository/` — SettingsRepository (DataStore persistence)
 
-**Key data flow**: `SettingsRepository` → `MutableStateFlow<RuntimeShiftSettings>` in `MainActivity` → `HomeViewModel.customCycle` / `CalendarViewModel.customCycle` → domain functions. SettingsViewModel writes back through a callback.
+**Core algorithm**: `shift_calculator.kt` — date offset → cycle index → shift type. Default cycle: 42 days, 6 teams, REFERENCE_DATE = 2025-12-15.
 
-**Navigation**: `MainActivity` uses Navigation Compose with two routes: `"main"` (Home + Calendar stacked) and `"settings"`. The `runtimeSettingsFlow` bridges state across ViewModels — no event bus or DI framework.
+### i18n
 
-## Core Algorithm
+4 languages (zh/ja/ko/en) via Android resource qualifiers. Always use `stringResource(R.string.xxx)` in Compose, never hardcode user-facing strings.
 
-Shift calculation in `shift_calculator.kt`:
-1. `calculateDayOffset(date)` — days between `REFERENCE_DATE` (2025-12-15) and target date
-2. `normalizeCycleIndex(offsetDays)` — `(offset % cycleLength + cycleLength) % cycleLength` into `0..cycleLength-1`
-3. `getShiftTypeForDate(date, teamPhaseOffset, customCycle)` — offset + phase → lookup in cycle list
-4. `getShiftInfo(date, teamPhaseOffset, customCycle)` — aggregate output with `dayOfCycle = cycleIndex + 1`
+---
 
-Default cycle: 42 days, 6 teams, phase offset = `(teamId - 1) * 7`. Custom cycles use `teamPhaseStepFor()` which divides the custom cycle length by 6.
+## Flutter CP 项目 (`flutter/`)
 
-## Calendar Sync
+### Build & Test
 
-`CalendarSyncManager` watches three DataStore flows via `combine`: settings, alarm settings, and calendar event IDs. Any change triggers a Mutex-guarded sync of the next 7 days' shift events into the system Calendar Provider using a local account (`ACCOUNT_TYPE_LOCAL`). Events persist in the system calendar DB across reboots. Permissions: `READ_CALENDAR` + `WRITE_CALENDAR` (requested at runtime).
+```bash
+cd flutter
+flutter analyze                # Static analysis
+flutter test                   # Run all tests
+flutter test --name "produces correct offset"
+dart run build_runner build --delete-conflicting-outputs  # After model changes
+```
+
+Tests use `flutter_test` + manual assertions, no mocking framework.
+
+### Architecture
+
+**Stack**: Dart/Flutter + Riverpod + GoRouter + Hive + Freezed
+
+**Layers** (`flutter/lib/`):
+- `domain/models/` — Pure Dart data classes (same models as Android, Freezed-free)
+- `domain/algorithms/` — Pure Dart functions (1:1 migrated from Android domain/)
+- `data/repositories/` — SettingsRepository abstract interface + HiveSettingsRepository
+- `data/providers.dart` — Riverpod FutureProvider for async Hive init
+- `features/` — StateNotifier + ConsumerWidget per feature
+- `core/theme/` — Design Token system (colors, typography, spacing, shapes, theme)
+- `core/utils/l10n.dart` — Centralized localization helpers
+- `app/routes.dart` — GoRouter with StatefulShellRoute (3-tab bottom nav)
+- `l10n/` — flutter gen-l10n output (zh/en/ja/ko)
+
+**Key data flow**: HiveSettingsRepository → SettingsNotifier (Riverpod) → homeProvider → domain functions. `selectedTeamProvider` bridges team selection.
+
+### i18n
+
+4 languages via `flutter gen-l10n` + `.arb` files. Never hardcode strings — use `context.l10n` extension or `AppLocalizations.of(context)`.
+
+---
+
+## Domain Algorithm Sync
+
+Both projects share the **same algorithm logic**. When changing one, update the other:
+
+| Android (`android/app/.../domain/`) | Flutter (`flutter/lib/domain/algorithms/`) |
+|---|---|
+| `shift_calculator.kt` | `shift_calculator.dart` |
+| `calendar_generator.kt` | `calendar_generator.dart` |
+| `shift_metrics.kt` | `shift_metrics.dart` |
+| `leave_optimizer.kt` | `leave_optimizer.dart` |
+| `colleague_mode.kt` | `colleague_mode.dart` |
+| `salary_calculator.kt` | `salary_calculator.dart` |
+| `holiday_data.kt` | `holiday_data.dart` |
+
+Core constants (REFERENCE_DATE=2025-12-15, CYCLE_LENGTH=42, 6 teams) must stay identical.
+
+---
 
 ## Project Memory
 
-Before writing code, read `memory-bank/architecture.md` (complete file-by-file architecture) and `memory-bank/app-design-document.md` (full design spec). After completing a major feature, update `memory-bank/architecture.md`.
+Before writing code, read:
+- `memory-bank/architecture.md` — complete file-by-file architecture
+- `memory-bank/app-design-document.md` — full design spec
+- `memory-bank/progress.md` — current progress and recent changes
 
-## i18n (Multi-Language Support)
-
-App supports Chinese (zh, default), Japanese (ja), Korean (ko), and English (en).
-
-### String Resources
-
-- `values/strings.xml` — Chinese (default)
-- `values-ja/strings.xml` — Japanese
-- `values-ko/strings.xml` — Korean
-- `values-en/strings.xml` — English
-
-### Rules
-
-1. **NEVER hardcode user-facing strings** in Compose `Text()` or Kotlin code. Always use `stringResource(R.string.xxx)` in Composables or `context.getString(R.string.xxx)` in non-Composable code.
-2. **Shift labels**: Use `ShiftLabelMapper.toLabel(context, shiftType)` for short labels (早/AM) or `toFullLabel(context, shiftType)` for full labels (早班/Morning).
-3. **Team names**: Use `TeamNameMapper.toName(teamId, context)`. `Team` data class has no `name` field — only `id`.
-4. **Holiday names**: Use `HolidayNameMapper.toLocalizedName(chineseName, context)`.
-5. **Domain layer**: Domain functions must NOT depend on Android Context. Use function parameters (e.g., `shiftLabelResolver: (ShiftType) -> String`) to pass display strings from callers.
-6. **Widget**: Glance doesn't support `stringResource()`. Pre-resolve strings in `provideGlance()` using `context.getString()` before passing to `@Composable` content.
-7. **Tests**: Don't assert specific localized string values (they depend on locale). Test structure and non-empty invariants instead.
+After completing a major feature, update `memory-bank/architecture.md` and `memory-bank/progress.md`.
 
 # 重要提示：
-# 写任何代码前必须完整阅读 memory-bank/architecture.md（包含完整项目架构和文件职责）
+# 写任何代码前必须完整阅读 memory-bank/architecture.md
 # 写任何代码前必须完整阅读 memory-bank/app-design-document.md
-# 每完成一个重大功能或里程碑后，必须更新 memory-bank/architecture.md
+# 每完成一个重大功能或里程碑后，必须更新 memory-bank/architecture.md 和 progress.md
+# 两个项目的 domain 算法必须保持同步

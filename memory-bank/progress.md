@@ -1,5 +1,29 @@
 # 倒班助手开发进度记录
 
+## 2026-05-20：Monorepo 重构
+
+将 Android 原版与 Flutter CP 版合并为单一 monorepo，统一管理。
+
+### 新结构
+
+```
+SimpleShiftScheduler/
+├── CLAUDE.md          ← 统一指导文件
+├── memory-bank/       ← 共享文档
+├── android/           ← Android 原版 (Kotlin + Compose, Phase 1 完成, 162 tests)
+└── flutter/           ← Flutter CP 版 (主力开发, 72 tests, 迁移进行中)
+```
+
+### 变更
+- Android 项目文件移入 `android/` 子目录
+- Flutter 项目文件移入 `flutter/` 子目录
+- 统一 `CLAUDE.md` 指导两个子项目
+- 统一 `.gitignore`
+- `memory-bank/` 为共享文档，不再在两个项目中各存一份
+- 原 `scheduler_cp/` 独立 repo 可归档
+
+---
+
 ## 2026-05-20：CP 版本 — 阶段 2 核心功能迁移完成
 
 ### 阶段 2：核心功能迁移 ✅

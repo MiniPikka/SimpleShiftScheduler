@@ -1,0 +1,312 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for English (`en`).
+class AppLocalizationsEn extends AppLocalizations {
+  AppLocalizationsEn([String locale = 'en']) : super(locale);
+
+  @override
+  String get appTitle => 'Shift Mate';
+
+  @override
+  String get homeTab => 'Home';
+
+  @override
+  String get calendarTab => 'Calendar';
+
+  @override
+  String get profileTab => 'Me';
+
+  @override
+  String get greetingMorning => 'Good Morning';
+
+  @override
+  String get greetingAfternoon => 'Good Afternoon';
+
+  @override
+  String get greetingEvening => 'Good Evening';
+
+  @override
+  String get greetingNight => 'Night Shift Hero';
+
+  @override
+  String get shiftMorning => 'AM';
+
+  @override
+  String get shiftAfternoon => 'PM';
+
+  @override
+  String get shiftRest => 'Off';
+
+  @override
+  String get shiftNight => 'NT';
+
+  @override
+  String get shiftStudy => 'TR';
+
+  @override
+  String get shiftMorningFull => 'Morning';
+
+  @override
+  String get shiftAfternoonFull => 'Afternoon';
+
+  @override
+  String get shiftRestFull => 'Rest';
+
+  @override
+  String get shiftNightFull => 'Night';
+
+  @override
+  String get shiftStudyFull => 'Training';
+
+  @override
+  String get team1 => 'Shift A';
+
+  @override
+  String get team2 => 'Shift B';
+
+  @override
+  String get team3 => 'Shift C';
+
+  @override
+  String get team4 => 'Shift D';
+
+  @override
+  String get team5 => 'Shift E';
+
+  @override
+  String get team6 => 'Shift F';
+
+  @override
+  String get todayShift => 'Today\'s Shift';
+
+  @override
+  String daysUntilRest(Object days) {
+    return '${days}d until rest';
+  }
+
+  @override
+  String get restDay => 'Rest Day';
+
+  @override
+  String get tomorrowRest => 'Rest Tomorrow';
+
+  @override
+  String cycleProgress(Object current, Object total) {
+    return 'Day $current / $total';
+  }
+
+  @override
+  String alarmTime(Object time) {
+    return '⏰ $time';
+  }
+
+  @override
+  String get monthlyWork => 'Monthly Work';
+
+  @override
+  String get consecutiveWork => 'Consecutive';
+
+  @override
+  String get workloadEasy => 'Easy';
+
+  @override
+  String get workloadModerate => 'Fair';
+
+  @override
+  String get workloadHard => 'Hard';
+
+  @override
+  String get statusNormal => 'Normal';
+
+  @override
+  String get statusWarning => 'Take Care';
+
+  @override
+  String get statusRestNeeded => 'Rest Needed';
+
+  @override
+  String get leaveOptimizer => 'Leave Optimizer';
+
+  @override
+  String get colleagueMode => 'Colleague Mode';
+
+  @override
+  String get salaryPredictor => 'Shift Pay';
+
+  @override
+  String get leaveOptimizerDesc => 'Best leave plans';
+
+  @override
+  String get colleagueModeDesc => 'Common rest days';
+
+  @override
+  String get salaryPredictorDesc => 'Monthly pay';
+
+  @override
+  String get calendarTitle => 'Shift Calendar';
+
+  @override
+  String get today => 'Today';
+
+  @override
+  String get teamLabel => 'Team: ';
+
+  @override
+  String get weekSun => 'Sun';
+
+  @override
+  String get weekMon => 'Mon';
+
+  @override
+  String get weekTue => 'Tue';
+
+  @override
+  String get weekWed => 'Wed';
+
+  @override
+  String get weekThu => 'Thu';
+
+  @override
+  String get weekFri => 'Fri';
+
+  @override
+  String get weekSat => 'Sat';
+
+  @override
+  String get statWork => 'Work';
+
+  @override
+  String get statRest => 'Rest';
+
+  @override
+  String get statNight => 'Night';
+
+  @override
+  String get statStudy => 'Study';
+
+  @override
+  String get profileTitle => 'Me';
+
+  @override
+  String get currentTeam => 'Current Team';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get shiftRule => 'Shift Rules';
+
+  @override
+  String get shiftRuleDesc => 'Custom cycle & shifts';
+
+  @override
+  String get alarmSettings => 'Reminder';
+
+  @override
+  String get alarmSettingsDesc => 'Shift time alerts';
+
+  @override
+  String get leaveOptimizerExplain =>
+      'Find the best leave plans based on your shift schedule and public holidays';
+
+  @override
+  String get maxLeave => 'Max leave: ';
+
+  @override
+  String get noLeavePlanFound =>
+      'No efficient leave plan found. Try increasing the max leave days.';
+
+  @override
+  String get colleagueModeTitle => 'Colleague Mode';
+
+  @override
+  String get iam => 'I am';
+
+  @override
+  String get heis => 'They are';
+
+  @override
+  String get sameTeam => 'You are on the same team. All rest days match.';
+
+  @override
+  String get nextCommonRest => 'Next Shared Rest';
+
+  @override
+  String get noCommonRest => 'None';
+
+  @override
+  String daysUntil(Object days) {
+    return '$days days away';
+  }
+
+  @override
+  String get next30days => 'Next 30 Days';
+
+  @override
+  String get next60days => 'Next 60 Days';
+
+  @override
+  String commonRestDaysList(Object count) {
+    return 'Shared Rest Days ($count total)';
+  }
+
+  @override
+  String get noCommonRestFound =>
+      'No shared rest days found in the analysis range.';
+
+  @override
+  String dayCount(Object days) {
+    return '${days}d later';
+  }
+
+  @override
+  String get statusToday => 'Today';
+
+  @override
+  String get salaryTitle => 'Shift Pay';
+
+  @override
+  String get premiumPerShift => 'Premium per shift (CNY)';
+
+  @override
+  String get monthlyPremium => 'Monthly Shift Pay';
+
+  @override
+  String get whatIf => 'What-if Analysis';
+
+  @override
+  String get ifMore => 'If extra';
+
+  @override
+  String whatIfResult(Object amount) {
+    return '→ Pay +¥$amount';
+  }
+
+  @override
+  String get messageRest => 'Enjoy your well-deserved rest';
+
+  @override
+  String get messageNight => 'Night shift warrior, stay warm';
+
+  @override
+  String get messageRestToday => 'It\'s a rest day, enjoy!';
+
+  @override
+  String get messageRestTomorrow => 'Rest day is tomorrow, hang in there';
+
+  @override
+  String get messageRestSoon => 'Rest day coming soon, keep going';
+
+  @override
+  String get messageConsecutive => 'Long stretch — take care of yourself';
+
+  @override
+  String get messageDefault => 'Take it easy, rest day will come';
+
+  @override
+  String get versionInfo => 'Shift Mate CP v1.0.0';
+}
