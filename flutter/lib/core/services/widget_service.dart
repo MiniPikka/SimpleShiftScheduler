@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// 桌面小组件更新服务
@@ -15,6 +16,9 @@ class WidgetService {
     required String dateLabel,
     required String progressText,
     required String restText,
+    required String tomorrowShiftLabel,
+    required String shiftBadgeColor,
+    required String tomorrowDotColor,
   }) async {
     try {
       await _channel.invokeMethod('updateWidget', {
@@ -23,10 +27,12 @@ class WidgetService {
         'date_label': dateLabel,
         'progress_text': progressText,
         'rest_text': restText,
+        'tomorrow_shift_label': tomorrowShiftLabel,
+        'shift_badge_color': shiftBadgeColor,
+        'tomorrow_dot_color': tomorrowDotColor,
       });
     } catch (e) {
-      // Widget may not be placed on home screen — that's OK
-      // debugPrint('WidgetService: update failed — $e');
+      debugPrint('WidgetService: update failed — $e');
     }
   }
 }

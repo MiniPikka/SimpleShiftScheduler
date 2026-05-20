@@ -25,6 +25,9 @@ class MainActivity : FlutterActivity() {
                         putString("date_label", args["date_label"] as? String ?: "")
                         putString("progress_text", args["progress_text"] as? String ?: "")
                         putString("rest_text", args["rest_text"] as? String ?: "")
+                        putString("tomorrow_shift_label", args["tomorrow_shift_label"] as? String ?: "")
+                        putString("shift_badge_color", args["shift_badge_color"] as? String ?: "#7C5CFF")
+                        putString("tomorrow_dot_color", args["tomorrow_dot_color"] as? String ?: "#7C5CFF")
                         apply()
                     }
                     ShiftWidgetProvider.updateWidgets(this)

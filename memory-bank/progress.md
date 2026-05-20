@@ -1,5 +1,62 @@
 # 倒班助手开发进度记录
 
+## 2026-05-20：CP 版本 — 阶段 3.3 Widget 升级完成
+
+### 阶段 3.3：桌面小组件升级 ✅
+
+Flutter CP 原有 Widget（MethodChannel + RemoteViews XML）功能简陋。本次升级对齐 Android 参考版（Jetpack Glance）的设计水平。
+
+**3.3.1 Domain 层**
+- 新增：`domain/models/widget_shift_data.dart` — `WidgetShiftData` 数据模型（9 字段：今日+明日班次、距休等）+ `computeWidgetShiftData()` 纯函数，复用 `getShiftInfo()` + `daysUntilNextRest()`
+- 新增：`core/theme/colors.dart` — `CpColorHex.toHex()` 扩展，Color → #RRGGBB 字符串（供 Widget 颜色传递）
+
+**3.3.2 Widget 布局升级**
+- 改造：`res/layout/shift_widget_layout.xml` — 从 3 行纯文本 → 双行富布局：
+  - Row 1: 彩色班次徽章（圆角有色背景） + 班组名/周期进度 + 休息倒计时
+  - Row 2: 日期 + 明日预览（彩色圆点 + "明日: X班"）
+- 深色背景 `#1B1F26` 保持
+
+**3.3.3 数据通道增强**
+- 改造：`widget_service.dart` — 新增 `tomorrowShiftLabel`、`shiftBadgeColor`、`tomorrowDotColor` 参数，错误日志从静默改为 `debugPrint`
+- 改造：`MainActivity.kt` — 新增 `tomorrow_shift_label`、`shift_badge_color`、`tomorrow_dot_color` 的 SharedPreferences 写入
+- 改造：`ShiftWidgetProvider.kt` — 绑定新布局 view IDs，动态设置徽章/圆点颜色，未配置状态改进
+
+**3.3.4 鲁棒性**
+- 改造：`home_screen.dart` — 使用 `computeWidgetShiftData()` 纯函数 + `_lastWidgetFingerprint` dedup guard（数据不变时跳过 SharedPreferences 写入和 Widget 更新）
+
+**3.3.5 单元测试** — 5 个新测试全部通过
+- 新增：`widget_shift_data_test.dart`（5 用例）— 未配置兜底、默认设置、非法设置、明日差异、dateFormatter
+
+### 新增/改造文件汇总
+
+| 新增（2 个） | 改造（5 个） |
+|-------------|-------------|
+| `domain/models/widget_shift_data.dart` | `res/layout/shift_widget_layout.xml` |
+| `test/domain/models/widget_shift_data_test.dart`（5 用例） | `core/services/widget_service.dart` |
+| | `core/theme/colors.dart`（+toHex 扩展） |
+| | `features/home/home_screen.dart` |
+| | `ShiftWidgetProvider.kt` |
+| | `MainActivity.kt` |
+
+### 构建与测试
+
+```bash
+flutter analyze    # 0 errors
+flutter test       # 95/95 passed（+5 新测试）
+flutter build apk  # 21.5s
+adb install        # Success
+```
+
+### Widget 使用方式
+
+长按桌面 → 添加小部件 → 找到 "scheduler_cp" → 放置 4×1 Widget。Widget 显示今日班次（彩色徽章）、周期进度、距休倒计时、明日班次预览。点击打开 App。
+
+### 下一步
+
+阶段 3 全部完成（3.1 本地通知 + 3.2 分享长图 + 3.3 Widget + 3.4 多语言）。下一步进入阶段 4：产品化（Supabase 集成、数据同步）。
+
+---
+
 ## 2026-05-20：Bug 修复与真机测试
 
 ### 拼假神器算法修复 ✅

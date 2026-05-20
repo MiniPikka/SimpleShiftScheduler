@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
 import '../../core/services/widget_service.dart';
 import '../../core/utils/l10n.dart';
 import '../../domain/models/shift_type.dart';
+import '../../domain/models/widget_shift_data.dart';
 import 'home_state.dart';
 import 'widgets/hero_card.dart';
 import 'widgets/stats_row.dart';
@@ -14,10 +16,14 @@ import 'widgets/message_banner.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  // Dedup guard: skip widget update if data unchanged
+  static String? _lastWidgetFingerprint;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(homeProvider);
     final teamId = ref.watch(selectedTeamProvider);
+    final settings = ref.watch(settingsProvider);
     final l10n = context.l10n;
     final now = DateTime.now();
 
@@ -27,14 +33,27 @@ class HomeScreen extends ConsumerWidget {
     final dateText = '${now.year}年${now.month}月${now.day}日 $weekday';
     final shiftLabel = localizedShiftLabel(state.shiftType, l10n);
 
-    // Update desktop widget
+    // Update desktop widget via domain pure function + dedup guard
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final wd = computeWidgetShiftData(
+        today: now,
+        settings: settings,
+        shiftLabelResolver: (t) => localizedShiftLabel(t, l10n),
+        teamNameResolver: (id) => localizedTeamName(id, l10n),
+        dateFormatter: (d) => '${d.month}月${d.day}日 ${localizedWeekday(d.weekday, l10n)}',
+      );
+      final fp = '${wd.shiftLabel}|${wd.teamName}|${wd.dateLabel}|${wd.dayOfCycle}|${wd.totalDays}|${wd.daysUntilRest}|${wd.tomorrowShiftLabel}';
+      if (fp == _lastWidgetFingerprint) return;
+      _lastWidgetFingerprint = fp;
       WidgetService.update(
-        shiftLabel: shiftLabel,
-        teamName: teamName,
-        dateLabel: dateText,
-        progressText: l10n.cycleProgress(state.dayOfCycle, state.totalDays),
-        restText: state.daysUntilRest == 0 ? l10n.restDay : l10n.daysUntilRest(state.daysUntilRest),
+        shiftLabel: wd.shiftLabel,
+        teamName: wd.teamName,
+        dateLabel: wd.dateLabel,
+        progressText: l10n.cycleProgress(wd.dayOfCycle, wd.totalDays),
+        restText: wd.daysUntilRest == 0 ? l10n.restDay : wd.daysUntilRest == 1 ? l10n.tomorrowRest : l10n.daysUntilRest(wd.daysUntilRest),
+        tomorrowShiftLabel: wd.tomorrowShiftLabel,
+        shiftBadgeColor: shiftColor(wd.shiftType).toHex(),
+        tomorrowDotColor: shiftColor(wd.tomorrowShiftType).toHex(),
       );
     });
 

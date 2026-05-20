@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,21 +74,19 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
         ],
       ),
       body: Stack(
+        clipBehavior: Clip.hardEdge,
         children: [
-          // 离屏渲染：分享长图（仅在分享时构建，用 Opacity 0 隐藏但保持布局）
+          // 离屏渲染：分享长图置于底层，被 ListView 遮盖但正常绘制
           if (_isSharing && _shareData != null)
             Positioned(
               left: 0,
               top: 0,
-              child: Opacity(
-                opacity: 0,
-                child: RepaintBoundary(
-                  key: _shareKey,
-                  child: ShareCardLayout(data: _shareData!),
-                ),
+              child: RepaintBoundary(
+                key: _shareKey,
+                child: ShareCardLayout(data: _shareData!),
               ),
             ),
-          // 正常内容
+          // 正常内容（上层，遮住分享长图）
           ListView(padding: const EdgeInsets.all(16), children: [
             Row(children: [
               Expanded(
@@ -255,8 +254,10 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
 
       setState(() => _shareData = data);
 
-      // 2. 等待一帧确保 RepaintBoundary 布局完成
-      await Future.delayed(const Duration(milliseconds: 100));
+      // 2. 等待下一帧渲染完成（RepaintBoundary 必须已经绘制才能 toImage）
+      final frameCompleter = Completer<void>();
+      WidgetsBinding.instance.addPostFrameCallback((_) => frameCompleter.complete());
+      await frameCompleter.future;
 
       // 3. 离屏渲染
       ui.Image image;
