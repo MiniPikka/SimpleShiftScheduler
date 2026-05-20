@@ -78,6 +78,8 @@
   "shiftRuleDesc": "カスタムサイクル",
   "alarmSettings": "リマインダー",
   "alarmSettingsDesc": "シフト通知時刻",
+  "alarmSettingsInfo": "リマインダー時間を設定すると、各シフト日に通知が届きます。夜勤の通知は1日前に送信されます。システム設定で通知を許可してください。",
+  "alarmNotSet": "未設定",
 
   "leaveOptimizerExplain": "シフト表と祝日に基づいて最適な休暇プランを見つける",
   "maxLeave": "最大休暇：",

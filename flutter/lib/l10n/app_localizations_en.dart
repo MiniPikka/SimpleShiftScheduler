@@ -210,6 +210,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get alarmSettingsDesc => 'Shift time alerts';
 
   @override
+  String get alarmSettingsInfo =>
+      'Set a reminder time and you\'ll receive a notification on each shift day. Night shift reminders are sent one day earlier. Allow notification permissions in system settings for the best experience.';
+
+  @override
+  String get alarmNotSet => 'Not set';
+
+  @override
   String get leaveOptimizerExplain =>
       'Find the best leave plans based on your shift schedule and public holidays';
 

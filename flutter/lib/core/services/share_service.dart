@@ -22,12 +22,35 @@ Future<Uint8List> imageToPngBytes(ui.Image image) async {
   return byteData.buffer.asUint8List();
 }
 
-/// 保存 PNG 到缓存并返回文件路径
+/// 保存 PNG 到缓存子目录并返回文件路径
 Future<String> saveToCache(Uint8List pngBytes, String filename) async {
-  final dir = await getTemporaryDirectory();
+  final tmp = await getTemporaryDirectory();
+  final dir = Directory('${tmp.path}/share_images');
+  if (!await dir.exists()) await dir.create(recursive: true);
   final file = File('${dir.path}/$filename.png');
   await file.writeAsBytes(pngBytes);
   return file.path;
+}
+
+/// 清理 24 小时前的分享图片缓存
+Future<void> cleanupOldShareImages() async {
+  try {
+    final tmp = await getTemporaryDirectory();
+    final dir = Directory('${tmp.path}/share_images');
+    if (!await dir.exists()) return;
+
+    final cutoff = DateTime.now().subtract(const Duration(hours: 24));
+    await for (final entity in dir.list()) {
+      if (entity is File && entity.path.endsWith('.png')) {
+        final stat = await entity.stat();
+        if (stat.modified.isBefore(cutoff)) {
+          await entity.delete();
+        }
+      }
+    }
+  } catch (_) {
+    // 清理失败不影响主流程
+  }
 }
 
 /// 分享图片文件

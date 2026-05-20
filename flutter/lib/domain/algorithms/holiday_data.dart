@@ -128,7 +128,9 @@ bool isWeekend(DateTime date) {
 
 /// 是否为"自然休息日"（节假日或周末，且非调休工作日）
 bool isNaturallyOff(DateTime date, Map<DateTime, HolidayInfo> holidays) {
-  final info = holidays[date];
+  // Normalize to midnight: DateTime equality includes time component
+  final d = DateTime(date.year, date.month, date.day);
+  final info = holidays[d];
   if (info != null) return info.isHoliday;
   return isWeekend(date);
 }

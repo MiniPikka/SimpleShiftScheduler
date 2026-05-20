@@ -210,6 +210,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get alarmSettingsDesc => '근무 알림 시간';
 
   @override
+  String get alarmSettingsInfo =>
+      '알림 시간을 설정하면 근무일에 알림이 발송됩니다. 야간 근무 알림은 하루 전에 발송됩니다. 시스템 설정에서 알림을 허용해 주세요.';
+
+  @override
+  String get alarmNotSet => '설정 안 함';
+
+  @override
   String get leaveOptimizerExplain => '근무표와 공휴일에 기반하여 최적의 휴가 계획을 찾습니다';
 
   @override

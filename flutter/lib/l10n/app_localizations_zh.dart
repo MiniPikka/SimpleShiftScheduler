@@ -210,6 +210,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get alarmSettingsDesc => '班次提醒时间';
 
   @override
+  String get alarmSettingsInfo =>
+      '设置提醒时间后，系统会在对应班次日期发出通知提醒。夜班提醒会提前一天发出。建议在系统设置中允许通知权限以获得更好的提醒体验。';
+
+  @override
+  String get alarmNotSet => '未设置';
+
+  @override
   String get leaveOptimizerExplain => '基于你的倒班表 + 法定节假日，找到最佳请假方案';
 
   @override

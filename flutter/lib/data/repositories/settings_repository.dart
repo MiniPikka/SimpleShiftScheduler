@@ -1,5 +1,6 @@
 import '../../domain/models/runtime_shift_settings.dart';
 import '../../domain/models/shift_type.dart';
+import '../../domain/models/alarm_settings.dart';
 
 /// 设置持久化抽象接口
 ///
@@ -12,6 +13,12 @@ abstract class SettingsRepository {
 
   /// 保存运行时设置
   Future<void> saveSettings(RuntimeShiftSettings settings);
+
+  /// 加载提醒设置，首次安装返回默认值（全部禁用）
+  Future<AlarmSettings> loadAlarmSettings();
+
+  /// 保存提醒设置
+  Future<void> saveAlarmSettings(AlarmSettings settings);
 }
 
 /// 序列化：List<ShiftType> → 逗号分隔字符串

@@ -24,11 +24,13 @@ class _LeaveOptimizerScreenState extends ConsumerState<LeaveOptimizerScreen> {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final now = DateTime.now();
+    final yearEnd = DateTime(now.year, 12, 31);
+    final daysLeft = yearEnd.difference(now).inDays + 1;
 
     final cycle = settings.isValid ? settings.shiftCycle : null;
     final refDate = settings.isValid ? settings.referenceDate : null;
     final phaseOffset = teamPhaseOffsetFor(teamId, customCycle: cycle);
-    final plans = findBestLeavePlans(today: now, teamPhaseOffset: phaseOffset, customCycle: cycle, referenceDate: refDate, maxLeaveDays: _maxLeaveDays);
+    final plans = findBestLeavePlans(today: now, daysToAnalyze: daysLeft, teamPhaseOffset: phaseOffset, customCycle: cycle, referenceDate: refDate, maxLeaveDays: _maxLeaveDays);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.leaveOptimizer)),
@@ -36,10 +38,10 @@ class _LeaveOptimizerScreenState extends ConsumerState<LeaveOptimizerScreen> {
         Text(l10n.leaveOptimizerExplain, style: theme.textTheme.bodySmall),
         Text('${now.year}年${now.month}月${now.day}日 — ${now.year}年12月31日 · ${localizedTeamName(teamId, l10n)}', style: theme.textTheme.bodySmall),
         const SizedBox(height: 12),
-        Row(children: [
-          Text(l10n.maxLeave),
+        Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, children: [
+          Padding(padding: const EdgeInsets.only(top: 8), child: Text(l10n.maxLeave)),
           for (final d in [1, 2, 3, 4, 5])
-            Padding(padding: const EdgeInsets.only(right: 8), child: FilterChip(label: Text('$d'), selected: _maxLeaveDays == d, onSelected: (_) => setState(() => _maxLeaveDays = d))),
+            FilterChip(label: Text('$d'), selected: _maxLeaveDays == d, onSelected: (_) => setState(() => _maxLeaveDays = d)),
         ]),
         const SizedBox(height: 12),
         if (plans.isEmpty)

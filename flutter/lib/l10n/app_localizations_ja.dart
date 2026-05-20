@@ -210,6 +210,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get alarmSettingsDesc => 'シフト通知時刻';
 
   @override
+  String get alarmSettingsInfo =>
+      'リマインダー時間を設定すると、各シフト日に通知が届きます。夜勤の通知は1日前に送信されます。システム設定で通知を許可してください。';
+
+  @override
+  String get alarmNotSet => '未設定';
+
+  @override
   String get leaveOptimizerExplain => 'シフト表と祝日に基づいて最適な休暇プランを見つける';
 
   @override

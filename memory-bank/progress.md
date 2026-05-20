@@ -1,5 +1,219 @@
 # 倒班助手开发进度记录
 
+## 2026-05-20：Bug 修复与真机测试
+
+### 拼假神器算法修复 ✅
+
+真机测试发现 3 个 Bug，逐一修复：
+
+**Bug 1：`isOff` 死代码 —— 周末/节假日未被算法利用**
+- 文件：`domain/algorithms/leave_optimizer.dart`
+- `DayStatus.isOff` getter 已定义（综合班次休+节假日+周末），但算法中从未使用
+- `restBefore`/`restAfter` 预计算只用 `isRest`（仅班次休），周末和节假日不参与桥接
+- 修复：`restBefore`/`restAfter` 改用 `isOff`，正确将周末/节假日纳入休息块计算
+- 请假过滤仍用 `isRest`（允许跨周末请假，周末自然桥接不需请假）
+
+**Bug 2：DateTime 时间分量导致节假日匹配失败**
+- `DateTime.now()` 带时分秒（如 `15:30:00`），节假日 Map key 是午夜（`00:00:00`）
+- Dart `DateTime` 判等包含时间分量 → `holidays[date]` 永远返回 `null`
+- 影响：法定节假日从未被检测到，策略卡片不显示节日标记
+- 修复：`findBestLeavePlans` 入口规范化 `today` 为午夜；`isNaturallyOff` 查询前同样处理
+
+**Bug 3：分析范围跨年导致 2027 待确认数据泄露**
+- `daysToAnalyze=365` 从 5 月算起跨到 2027 年，2027 节假日标记 `[待确认]` 显示在 UI 中
+- 设计文档要求不跨年
+- 修复：UI 层计算今天到 12 月 31 日实际天数传入
+
+### 拼假神器最少请假天数调整
+- 请假天数循环起点从 1 改为 2（`maxLeaveDays==1` 例外）
+- 原因：请 1 天假效率分极高（10x+），挤占所有 Top 10 位
+
+### 验证
+
+```bash
+flutter analyze    # 0 errors
+flutter test       # 90/90 passed
+flutter build apk  # 10s, 零警告
+adb install        # Success
+```
+
+### 新增脚本
+- `flutter/install.sh` — 一键编译+安装脚本（含镜像配置）
+
+### 全部变更文件汇总
+
+| 类型 | 文件 |
+|------|------|
+| 新增 (12) | `domain/models/alarm_time.dart`, `domain/models/alarm_settings.dart`, `features/home/alarm_settings_notifier.dart`, `core/services/notification_scheduler.dart`, `features/alarm_settings/alarm_settings_screen.dart`, `features/colleague_mode/share_card_data.dart`, `features/colleague_mode/share_card_layout.dart`, `test/domain/models/alarm_time_test.dart`, `test/domain/models/alarm_settings_test.dart`, `test/features/colleague_mode/share_card_data_test.dart`, `install.sh` |
+| 改造 (18) | `domain/algorithms/leave_optimizer.dart`, `domain/algorithms/holiday_data.dart`, `features/leave_optimizer/leave_optimizer_screen.dart`, `features/colleague_mode/colleague_mode_screen.dart`, `core/services/notification_service.dart`, `core/services/share_service.dart`, `app/routes.dart`, `features/profile/profile_screen.dart`, `features/home/home_state.dart`, `main.dart`, `data/repositories/settings_repository.dart`, `data/repositories/settings_repository_hive.dart`, `pubspec.yaml`, `AndroidManifest.xml`, 4 个 `.arb` 文件 |
+
+---
+
+## 2026-05-20：CP 版本 — 阶段 3.3 分享长图完成
+
+### 阶段 3.3：分享长图（Share Image）✅
+
+Flutter CP 版实现同事模式分享长图功能。通过 `RepaintBoundary` 离屏渲染 + `qr_flutter` QR 码 + `share_plus` 系统分享面板，与 Android 版功能对齐。
+
+对应 Android 版的阶段 22 图片分享（ComposeView 离屏渲染 → ZXing QR → FileProvider → Intent）。
+
+**3.3.1 依赖**
+- 新增：`qr_flutter: ^4.1.0` — QR 码 Widget，通过 RepaintBoundary 捕获
+
+**3.3.2 数据模型**
+- 新增：`features/colleague_mode/share_card_data.dart` — `ShareCardData` 纯数据类（10 字段）：双班组名、下次共同休息日期/星期、距今、30/60 天次数、日期列表（最多 12 项）、分析范围
+
+**3.3.3 分享长图布局**
+- 新增：`features/colleague_mode/share_card_layout.dart`（~230 行）— 1080×1920px 深色主题分享卡：
+  - 背景 `#0B0D10` + 48dp 内边距
+  - 主结果卡片：`#7C5CFF`(40%)→`#4DA3FF`(25%) 渐变 + 28dp 圆角
+  - 日期：48sp Bold 白色、距今：20sp 金色 `#FACC15`
+  - 统计卡片行：30 天/60 天（`#1B1F26` 背景 + 32sp Bold 计数）
+  - 共同休息日列表：2 列 Wrap，最多 12 项
+  - QR 码：200×200dp `QrImageView`（白色背景 + 16dp 圆角）
+  - 页脚：Slogan + 分析范围
+
+**3.3.4 分享流程改造**
+- 改造：`colleague_mode_screen.dart` — 文本分享 → 图片分享：
+  1. 点击分享按钮 → `_isSharing = true`（按钮变 CircularProgressIndicator）
+  2. 构建 `ShareCardData` → 通过 `Opacity(opacity:0)` + `RepaintBoundary` 离屏构建 Widget
+  3. `renderToImage(pixelRatio: 1.0)` → PNG bytes
+  4. `saveToCache(bytes, 'colleague_$timestamp.png')` → 缓存文件
+  5. `shareImageFile(path)` → 调起系统分享面板（`share_plus`）
+  6. 异常：显示错误 SnackBar（可关闭）
+
+**3.3.5 缓存清理**
+- 改造：`share_service.dart` — 新增 `cleanupOldShareImages()`：删除 `share_images/` 子目录中 24 小时前的 PNG
+- 改造：`main.dart` — 启动时调用 `cleanupOldShareImages()`
+
+**3.3.6 单元测试** — 5 个新测试全部通过
+- 新增：`share_card_data_test.dart`（5 用例）— 构造、空列表、不可变性、12 项上限、daysUntilNext=0 边界
+
+### 新增/改造文件汇总
+
+| 新增（4 个） | 改造（3 个） |
+|-------------|-------------|
+| `features/colleague_mode/share_card_data.dart` | `features/colleague_mode/colleague_mode_screen.dart` |
+| `features/colleague_mode/share_card_layout.dart` | `core/services/share_service.dart`（+cleanup） |
+| `test/features/colleague_mode/share_card_data_test.dart`（5 用例） | `main.dart`（+cleanup 调用） |
+| | `pubspec.yaml`（+qr_flutter） |
+
+### 构建与测试
+
+```bash
+flutter analyze    # 0 errors
+flutter test       # 90/90 passed（+5 新测试）
+```
+
+零回归。测试覆盖从 85 扩展到 90 个用例，11 个测试文件。
+
+### 技术要点
+
+- **离屏渲染**：`Opacity(opacity:0)` + `RepaintBoundary` 在 `Stack` 中，确保 Widget 已布局但不可见
+- **免 FileProvider**：Flutter `share_plus` 直接使用文件路径分享，无需 Android FileProvider 配置
+- **QR 码**：`qr_flutter` 的 `QrImageView` 直接嵌入分享卡 Widget 树，RepaintBoundary 一次性捕获
+- **Robustness**：`image.dispose()` 防止内存泄漏；`cleanupOldShareImages()` 防止磁盘积累
+
+### 下一步
+
+按实施计划，阶段 3 最后一步：
+- Step 3.3：Widget（home_widget 插件）— Android 桌面小组件 + iOS WidgetKit bridge
+
+---
+
+## 2026-05-20：CP 版本 — 阶段 3.2 本地通知完成
+
+### 阶段 3.2：本地通知（Local Notifications）✅
+
+Flutter CP 版实现完整的班次提醒通知系统。采用 `flutter_local_notifications` v21 + `timezone` 方案，跨 Android / iOS 双平台。
+
+对应 Android 版的 Calendar Provider 提醒系统，Flutter 版使用本地通知直接调度。
+
+**3.2.1 数据模型**
+- 新增：`domain/models/alarm_time.dart` — `AlarmTime(hour, minute)` 纯数据类，含 `serialize()` / `deserialize()` 序列化
+- 新增：`domain/models/alarm_settings.dart` — `AlarmSettings(alarms: Map<ShiftType, AlarmTime?>)` 每个班次独立配置
+
+**3.2.2 持久化扩展**
+- 改造：`SettingsRepository` 抽象接口新增 `loadAlarmSettings()` / `saveAlarmSettings()`
+- 改造：`HiveSettingsRepository` 新增 `alarm_settings` 独立 Hive Box，5 个 key（`alarm_time_morning/afternoon/rest/night/study`），序列化格式 `"HH:mm"` 与 Android 版一致
+
+**3.2.3 Riverpod 状态管理**
+- 新增：`alarm_settings_notifier.dart` — `AlarmSettingsNotifier` + `alarmSettingsProvider`，自动加载 + `updateAlarmTime()` 立即保存
+
+**3.2.4 NotificationService 实现**
+- 改造：`core/services/notification_service.dart` — 从 stub 升级为完整实现：
+  - `init()` 初始化时区数据库 + 通知插件
+  - `scheduleShiftReminder()` 使用 `zonedSchedule()` 调度（TZDateTime）
+  - `cancelShiftReminder()` / `cancelAllShiftReminders()`
+  - Android 通知渠道：`shift_reminders`（高重要性 + 振动 + 声音）
+
+**3.2.5 通知调度器**
+- 新增：`core/services/notification_scheduler.dart` — `scheduleShiftNotifications()`
+  - 遍历未来 30 天，按倒班表计算每日班次 → 查找提醒时间 → 调度通知
+  - NIGHT 班次前移一天（夜班前一天晚上提醒）
+  - 确定性通知 ID：`(daysSinceEpoch * 10) + shiftType.index`
+  - 每次调用先取消全部旧通知再重新调度
+- 改造：`main.dart` — `_NotificationScheduler` ConsumerStatefulWidget 监听 `alarmSettingsProvider` 变化自动重新调度
+
+**3.2.6 AlarmSettingsScreen UI**
+- 新增：`features/alarm_settings/alarm_settings_screen.dart`（~170 行）
+  - 说明卡片 + 5 个班次提醒行（彩色圆点 + 班次名 + 时间/未设置 + 删除按钮）
+  - Material 3 `showTimePicker()` 24 小时制
+  - 自动保存（无需保存按钮）
+
+**3.2.7 导航接线**
+- 改造：`routes.dart` — 新增 `/alarm-settings` 路由
+- 改造：`profile_screen.dart` — "提醒设置" `onTap` 接线到新路由
+- 改造：`home_state.dart` — `HomeNotifier.refresh()` 从 AlarmSettings 读取今日提醒时间并填充 `alarmTime` 字段
+
+**3.2.8 权限**
+- 改造：`AndroidManifest.xml` — 新增 `POST_NOTIFICATIONS` 权限
+
+**3.2.9 多语言**
+- 改造：4 个 `.arb` 文件 — 新增 `alarmSettingsInfo` + `alarmNotSet` 字符串
+
+**3.2.10 单元测试** — 13 个新测试全部通过
+- 新增：`alarm_time_test.dart`（8 用例）— 构造、序列化、反序列化、边界、相等性
+- 新增：`alarm_settings_test.dart`（5 用例）— 默认全禁用、启用检测、更新替换、禁用、相等性
+
+### 新增/改造文件汇总
+
+| 新增（7 个） | 改造（8 个） |
+|-------------|-------------|
+| `domain/models/alarm_time.dart` | `data/repositories/settings_repository.dart` |
+| `domain/models/alarm_settings.dart` | `data/repositories/settings_repository_hive.dart` |
+| `features/home/alarm_settings_notifier.dart` | `core/services/notification_service.dart` |
+| `core/services/notification_scheduler.dart` | `app/routes.dart` |
+| `features/alarm_settings/alarm_settings_screen.dart` | `features/profile/profile_screen.dart` |
+| `test/domain/models/alarm_time_test.dart`（8 用例） | `features/home/home_state.dart` |
+| `test/domain/models/alarm_settings_test.dart`（5 用例） | `main.dart` |
+| | `pubspec.yaml`（+timezone 依赖） |
+
+### 构建与测试
+
+```bash
+flutter analyze    # 0 errors（仅 info 级别的枚举命名等已有警告）
+flutter test       # 85/85 passed（+13 新测试）
+```
+
+零回归。测试覆盖从 72 扩展到 85 个用例，10 个测试文件。
+
+### 技术选型
+
+采用 `flutter_local_notifications` v21 + `timezone` 方案（而非 Android Calendar Provider），理由：
+- 跨平台：Android + iOS 统一 API
+- 无需日历读写权限（Calendar Provider 需要 READ/WRITE_CALENDAR）
+- 通知直接由系统通知栏展示，用户感知更强
+- 与 Android 版架构对应：CalendarEventManager → NotificationService + NotificationScheduler
+
+### 下一步
+
+按实施计划，阶段 3 剩余步骤：
+- Step 3.2：分享长图（RepaintBoundary + QR 码 + share_plus）
+- Step 3.3：Widget（home_widget 插件）
+
+---
+
 ## 2026-05-20：Monorepo 重构
 
 将 Android 原版与 Flutter CP 版合并为单一 monorepo，统一管理。

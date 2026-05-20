@@ -79,7 +79,9 @@ List<LeaveStrategy> findBestLeavePlans({
 }) {
   if (daysToAnalyze < 1 || maxLeaveDays < 1) return [];
 
-  final t = today ?? DateTime.now();
+  final raw = today ?? DateTime.now();
+  // Normalize to midnight: DateTime(2026, 6, 19, 0, 0, 0) matches holiday map keys
+  final t = DateTime(raw.year, raw.month, raw.day);
   final ref = referenceDate ?? ShiftCycleConfig.referenceDate;
   final hols = holidays ?? getChinaHolidays();
 
@@ -99,17 +101,21 @@ List<LeaveStrategy> findBestLeavePlans({
   final restAfter = List.filled(n, 0);
 
   for (int i = 1; i < n; i++) {
-    restBefore[i] = status[i - 1].isRest ? restBefore[i - 1] + 1 : 0;
+    restBefore[i] = status[i - 1].isOff ? restBefore[i - 1] + 1 : 0;
   }
   for (int i = n - 2; i >= 0; i--) {
-    restAfter[i] = status[i + 1].isRest ? restAfter[i + 1] + 1 : 0;
+    restAfter[i] = status[i + 1].isOff ? restAfter[i + 1] + 1 : 0;
   }
 
   final strategies = <LeaveStrategy>[];
 
-  for (int leaveDays = 1; leaveDays <= maxLeaveDays; leaveDays++) {
+  // Start from 2: single-day leave is trivial (user doesn't need the app for that).
+  // Unless maxLeaveDays == 1 (user explicitly filtered to 1).
+  final minLeaveDays = maxLeaveDays == 1 ? 1 : 2;
+  for (int leaveDays = minLeaveDays; leaveDays <= maxLeaveDays; leaveDays++) {
     for (int startIdx = 0; startIdx <= n - leaveDays; startIdx++) {
-      // All leave days must be work days
+      // All leave days must be work days (only exclude shift rest/study, not weekends)
+      // Weekends and holidays are naturally off but can be bridged without leave
       var anyRest = false;
       for (int j = 0; j < leaveDays; j++) {
         if (status[startIdx + j].isRest) {

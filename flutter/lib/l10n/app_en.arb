@@ -78,6 +78,8 @@
   "shiftRuleDesc": "Custom cycle & shifts",
   "alarmSettings": "Reminder",
   "alarmSettingsDesc": "Shift time alerts",
+  "alarmSettingsInfo": "Set a reminder time and you'll receive a notification on each shift day. Night shift reminders are sent one day earlier. Allow notification permissions in system settings for the best experience.",
+  "alarmNotSet": "Not set",
 
   "leaveOptimizerExplain": "Find the best leave plans based on your shift schedule and public holidays",
   "maxLeave": "Max leave: ",

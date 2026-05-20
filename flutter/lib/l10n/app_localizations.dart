@@ -492,6 +492,18 @@ abstract class AppLocalizations {
   /// **'班次提醒时间'**
   String get alarmSettingsDesc;
 
+  /// No description provided for @alarmSettingsInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置提醒时间后，系统会在对应班次日期发出通知提醒。夜班提醒会提前一天发出。建议在系统设置中允许通知权限以获得更好的提醒体验。'**
+  String get alarmSettingsInfo;
+
+  /// No description provided for @alarmNotSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置'**
+  String get alarmNotSet;
+
   /// No description provided for @leaveOptimizerExplain.
   ///
   /// In zh, this message translates to:

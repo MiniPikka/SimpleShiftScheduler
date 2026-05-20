@@ -4,6 +4,7 @@ import '../../domain/models/runtime_shift_settings.dart';
 import '../../domain/algorithms/shift_calculator.dart';
 import '../../domain/algorithms/shift_metrics.dart';
 import '../../data/providers.dart';
+import 'alarm_settings_notifier.dart';
 
 /// 首页状态 — 存储域数据，展示字符串由 UI 层通过 l10n 计算
 class HomeState {
@@ -116,6 +117,11 @@ class HomeNotifier extends StateNotifier<HomeState> {
 
     final totalDays = cycle?.length ?? 42;
 
+    // 今日班次对应的提醒时间
+    final alarmSettings = _ref.read(alarmSettingsProvider);
+    final alarmTimeOfShift = alarmSettings.alarms[shiftInfo.shiftType];
+    final alarmTimeStr = alarmTimeOfShift?.serialize();
+
     state = state.copyWith(
       shiftType: shiftInfo.shiftType,
       dayOfCycle: shiftInfo.dayOfCycle,
@@ -124,6 +130,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
       monthlyWorkDays: workDays,
       monthTotalDays: monthDays,
       consecutiveWorkDays: consecWork,
+      alarmTime: alarmTimeStr,
     );
   }
 

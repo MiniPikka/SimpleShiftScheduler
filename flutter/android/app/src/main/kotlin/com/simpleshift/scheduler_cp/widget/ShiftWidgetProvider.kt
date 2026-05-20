@@ -1,5 +1,6 @@
 package com.simpleshift.scheduler_cp.widget
 
+import com.simpleshift.scheduler_cp.R
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider

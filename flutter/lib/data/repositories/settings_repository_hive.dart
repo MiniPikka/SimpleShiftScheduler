@@ -1,21 +1,27 @@
 import 'package:hive/hive.dart';
 import '../../domain/models/shift_type.dart';
 import '../../domain/models/runtime_shift_settings.dart';
+import '../../domain/models/alarm_time.dart';
+import '../../domain/models/alarm_settings.dart';
 import 'settings_repository.dart';
 
 /// Hive 实现的设置持久化
 ///
 /// 使用 JSON 兼容格式存储，避免复杂的 TypeAdapter。
-/// Box key: 'runtime_settings', value: Map<String, dynamic>
+/// Box key: 'settings', value: Map<String, dynamic>
 
 class HiveSettingsRepository implements SettingsRepository {
   static const _boxName = 'settings';
+  static const _alarmBoxName = 'alarm_settings';
   static const _key = 'runtime_settings';
+  static const _alarmKeyPrefix = 'alarm_time_';
 
   late Box<Map> _box;
+  late Box<String> _alarmBox;
 
   Future<void> init() async {
     _box = await Hive.openBox<Map>(_boxName);
+    _alarmBox = await Hive.openBox<String>(_alarmBoxName);
   }
 
   @override
@@ -53,6 +59,32 @@ class HiveSettingsRepository implements SettingsRepository {
       'shiftCycle': serializeShiftCycle(settings.shiftCycle),
       'defaultTeamId': settings.defaultTeamId,
     });
+  }
+
+  // ── 提醒设置持久化 ──
+
+  String _alarmKey(ShiftType type) => '$_alarmKeyPrefix${type.name.toLowerCase()}';
+
+  @override
+  Future<AlarmSettings> loadAlarmSettings() async {
+    try {
+      final alarms = <ShiftType, AlarmTime?>{};
+      for (final type in ShiftType.values) {
+        final raw = _alarmBox.get(_alarmKey(type));
+        alarms[type] = AlarmTime.deserialize(raw ?? '');
+      }
+      return AlarmSettings(alarms: alarms);
+    } catch (_) {
+      return AlarmSettings();
+    }
+  }
+
+  @override
+  Future<void> saveAlarmSettings(AlarmSettings settings) async {
+    for (final type in ShiftType.values) {
+      final time = settings.alarms[type];
+      await _alarmBox.put(_alarmKey(type), time?.serialize() ?? '');
+    }
   }
 }
 
