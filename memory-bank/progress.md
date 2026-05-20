@@ -1,5 +1,133 @@
 # 倒班助手开发进度记录
 
+## 2026-05-20：CP（Cross Platform）版本 — 阶段 1 Flutter 骨架完成
+
+### 阶段 1：Flutter 骨架 ✅
+
+**1.1 Flutter 项目创建**
+- `flutter create --org com.simpleshift --project-name scheduler_cp`
+- 项目路径：`/home/zxl/Documents/myprojects/scheduler_cp/`
+- Flutter 3.38.7 · Dart 3.10.7 · 平台：Android + iOS
+
+**1.2 核心依赖**
+- 状态管理：`flutter_riverpod: ^2.6.1` + `riverpod_annotation: ^2.6.1`
+- 路由：`go_router: ^17.2.3`
+- 数据模型：`freezed_annotation: ^2.4.4` + `json_annotation: ^4.9.0`
+- 本地存储：`hive: ^2.2.3` + `hive_flutter: ^1.1.0`
+- 国际化：`intl: ^0.20.2`
+- 代码生成：`build_runner: ^2.5.4` + `freezed: ^2.5.8` + `json_serializable: ^6.9.5` + `riverpod_generator: ^2.6.4`
+
+**1.3 Design Token 系统（core/theme/）**
+| 文件 | 内容 |
+|------|------|
+| `colors.dart` | Dark Productivity Design 颜色 Token（3背景 + 3文字 + 5班次色 + 4语义色 + shiftColor() 辅助函数） |
+| `typography.dart` | 5级字体规格（28/20/16/13/36sp）+ TextTheme |
+| `spacing.dart` | 4级间距（xs=12/sm=16/md=20/lg=24） |
+| `shapes.dart` | 4级圆角（Button 18dp/Card 24dp/MainCard 28dp/Sheet 32dp） |
+| `theme.dart` | 深色/浅色双主题 ThemeData，自动跟随系统 `isSystemInDarkTheme()` |
+
+**1.4 GoRouter 路由**
+- `lib/app/routes.dart` — `StatefulShellRoute.indexedStack` + 底部三 Tab（首页/日历/我的）
+- 子页面 push 进入：leave-optimizer / colleague-mode / salary-predictor
+- `AppShell` widget 管理 NavigationBar 的选中状态切换
+
+**1.5 首页 UI（HomeScreen + 4 Widgets）**
+- `home_state.dart` — HomeState（16 字段）+ HomeNotifier（Riverpod）+ greetingForHour() 纯函数
+- `widgets/hero_card.dart` — 64dp 圆形徽章 + 班组详情 + 休息倒计时胶囊 + 周期进度条
+- `widgets/stats_row.dart` — 两等宽指标卡片（本月上班/连续上班）
+- `widgets/tools_row.dart` — 三个特色功能入口（拼假神器/同事模式/倒班津贴）
+- `widgets/message_banner.dart` — 上下文共情文案卡片
+- `home_screen.dart` — 组装全部组件，SafeArea + SingleChildScrollView + ConstrainedBox(maxWidth: 600)
+
+### 构建与测试
+
+```bash
+$ flutter analyze    # No issues found!
+$ flutter test       # All tests passed!
+```
+
+### 新增文件清单
+
+| 路径 | 用途 |
+|------|------|
+| `lib/main.dart` | App 入口 + ProviderScope + MaterialApp.router |
+| `lib/app/routes.dart` | GoRouter + AppShell + 底部导航 |
+| `lib/core/theme/colors.dart` | 颜色 Token |
+| `lib/core/theme/typography.dart` | 字体层级 |
+| `lib/core/theme/spacing.dart` | 间距系统 |
+| `lib/core/theme/shapes.dart` | 圆角系统 |
+| `lib/core/theme/theme.dart` | ThemeData 组装 |
+| `lib/features/home/home_state.dart` | HomeState + HomeNotifier |
+| `lib/features/home/home_screen.dart` | 首页组装 |
+| `lib/features/home/widgets/hero_card.dart` | HeroCard 主卡片 |
+| `lib/features/home/widgets/stats_row.dart` | 指标统计行 |
+| `lib/features/home/widgets/tools_row.dart` | 功能入口行 |
+| `lib/features/home/widgets/message_banner.dart` | 共情文案卡片 |
+| `lib/features/calendar/calendar_screen.dart` | 日历页（占位） |
+| `lib/features/profile/profile_screen.dart` | 我的页（占位） |
+| `lib/features/leave_optimizer/leave_optimizer_screen.dart` | 拼假神器（占位） |
+| `lib/features/colleague_mode/colleague_mode_screen.dart` | 同事模式（占位） |
+| `lib/features/salary_predictor/salary_predictor_screen.dart` | 倒班津贴（占位） |
+
+### 下一步：阶段 2 — 核心功能迁移
+
+Domain 算法从 Android 版翻译为 Dart 纯函数：
+1. `shift_calculator.dart`（偏移计算 + 周期索引 + getShiftTypeForDate）
+2. `calendar_generator.dart`（42格月历生成）
+3. `shift_metrics.dart`（月度统计 + 连续上班 + 距休）
+4. `holiday_data.dart` + `leave_optimizer.dart`（拼假算法）
+5. `colleague_mode.dart`（双班组交叉对比）
+6. `salary_calculator.dart`（津贴计算）
+
+---
+
+## 2026-05-20：CP（Cross Platform）版本规划
+
+### 重大决策：启动 CP 版本
+
+倒班助手从 Android 原生工具 App 正式升级为 **Cross Platform 产品**。Phase 1 Android 版（阶段 1-27）已完成并稳定，作为 CP 版的算法参考和产品验证基础。
+
+### CP 版本核心目标
+
+- **平台**：Android / iOS / Web（后期）/ Desktop（后期）
+- **技术栈**：Flutter + Riverpod + GoRouter + Freezed + Hive
+- **设计语言**：Dark Productivity Design（统一 Design Token 系统）
+- **核心战略**：从"Android 工具"升级为"倒班人群的生活助手"
+
+### CP 版本 5 阶段规划
+
+| 阶段 | 目标 | 关键交付 |
+|------|------|---------|
+| 阶段 1：Flutter 骨架 | 跑通 Flutter、Design Token、路由、首页 | 项目初始化 + 首页 UI |
+| 阶段 2：核心功能迁移 | 倒班算法、日历、拼假神器、同事模式 | Domain 纯函数 + 核心页面 |
+| 阶段 3：平台能力 | 本地通知、分享长图、Widget、多语言 | 平台适配 |
+| 阶段 4：产品化 | 数据同步、云备份、登录、用户系统 | Supabase 集成 |
+| 阶段 5：增长阶段 | 社交传播、应用商店上架 | ASO + 裂变 |
+
+### 算法迁移策略
+
+Android 版 domain 层全部为纯函数（零 Android 依赖），可直接翻译为 Dart：
+- `shift_calculator.kt` → `shift_calculator.dart`
+- `calendar_generator.kt` → `calendar_generator.dart`
+- `shift_metrics.kt` → `shift_metrics.dart`
+- `leave_optimizer.kt` → `leave_optimizer.dart`
+- `colleague_mode.kt` → `colleague_mode.dart`
+- `salary_calculator.kt` → `salary_calculator.dart`
+- `holiday_data.kt` → `holiday_data.dart`
+
+### 文档更新
+
+- `app-design-document.md`：新增 Part A（CP 版设计文档）
+- `tech-stack.md`：新增 Part A（CP 版 Flutter 技术栈）
+- `architecture.md`：新增 Part A（CP 版架构 + 项目结构 + 迁移映射）
+- `implementation-plan.md`：新增 Part A（CP 版 5 阶段实施计划）
+
+### Android 版状态
+
+Phase 1 Android 版（阶段 1-27）功能完整、稳定。162 个单元测试全部通过，编译零警告。Android 版作为产品验证基础保留，CP 版在其算法和产品经验上重构。
+
+---
+
 ## 2026-05-18：多语言支持（阶段 27）
 
 ### 功能概述

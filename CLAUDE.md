@@ -74,3 +74,8 @@ App supports Chinese (zh, default), Japanese (ja), Korean (ko), and English (en)
 5. **Domain layer**: Domain functions must NOT depend on Android Context. Use function parameters (e.g., `shiftLabelResolver: (ShiftType) -> String`) to pass display strings from callers.
 6. **Widget**: Glance doesn't support `stringResource()`. Pre-resolve strings in `provideGlance()` using `context.getString()` before passing to `@Composable` content.
 7. **Tests**: Don't assert specific localized string values (they depend on locale). Test structure and non-empty invariants instead.
+
+# 重要提示：
+# 写任何代码前必须完整阅读 memory-bank/architecture.md（包含完整项目架构和文件职责）
+# 写任何代码前必须完整阅读 memory-bank/app-design-document.md
+# 每完成一个重大功能或里程碑后，必须更新 memory-bank/architecture.md

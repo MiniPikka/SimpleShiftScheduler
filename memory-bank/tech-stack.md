@@ -1,6 +1,160 @@
 # tech-stack.md
 
-## 1. 设计目标
+## 0. 项目双阶段概述
+
+- **Phase 1（已完成）**：Android 原生版 — Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore
+- **Phase 2（规划中）**：CP（Cross Platform）版 — Flutter + Riverpod + GoRouter + Freezed + Hive
+
+---
+
+# Part A：CP（Cross Platform）版技术栈
+
+## A.1 总体方向
+
+CP 版本目标：Android / iOS / Web（后期）/ Desktop（后期）。统一代码架构，降低平台维护成本。
+
+---
+
+## A.2 技术栈总览
+
+| 层级 | 技术 |
+|------|------|
+| UI | Flutter |
+| 状态管理 | Riverpod |
+| 路由 | GoRouter |
+| 数据模型 | Freezed |
+| 本地存储 | Hive / Isar |
+| 国际化 | intl |
+| 动画 | Flutter Animation |
+| 网络 | Dio |
+| 后端（后期） | Supabase |
+| 高性能逻辑（后期） | Rust |
+
+---
+
+## A.3 为什么选择 Flutter
+
+### A.3.1 真跨平台
+
+一套 UI：Android / iOS / Web / Desktop。一致性极强。
+
+### A.3.2 UI 开发效率极高
+
+适合 Dashboard、日历、卡片、动画、数据展示。
+
+### A.3.3 AI 支持极强
+
+Claude、ChatGPT、Gemini 对 Flutter 支持远强于 Kotlin Multiplatform、Slint、React Native、SwiftUI。
+
+### A.3.4 生态成熟
+
+插件生态丰富：通知、Widget、分享、本地存储、动画、图表、日历。
+
+---
+
+## A.4 各层技术详解
+
+### A.4.1 UI 层：Flutter
+
+高性能、UI 一致性强、动画强、开发效率高、热重载优秀。统一 Design System：色彩、圆角、间距、动画、字体层级。Design Token：spacing / radius / typography / colors / elevation。
+
+### A.4.2 状态管理：Riverpod
+
+相比 Provider / Bloc / GetX，Riverpod 更现代、类型安全、测试友好、生命周期清晰。UI 使用 ConsumerWidget / HookConsumerWidget，业务逻辑使用 StateNotifier / AsyncNotifier。
+
+### A.4.3 路由：GoRouter
+
+官方推荐方向，Deep Link 友好，Web 兼容好，ShellRoute 适合 Bottom Navigation。
+
+### A.4.4 数据层
+
+- **Hive（MVP）**：简单、快、本地优先、学习成本低
+- **Isar（后期）**：更强查询能力、索引、关系模型
+
+### A.4.5 国际化：intl
+
+支持中文（默认）、English、日本語、한국어。
+
+### A.4.6 通知系统：flutter_local_notifications
+
+本地通知、定时提醒、Android/iOS 支持。
+
+### A.4.7 Widget
+
+- Android: home_widget / android widget
+- iOS: WidgetKit bridge
+
+### A.4.8 分享系统
+
+分享不是附属功能，而是增长核心。能力：长图生成、分享卡片、截图模板、QR Code。
+
+### A.4.9 动画系统
+
+动画服务于信息层级、状态变化、高级感，不是炫技。技术：AnimatedContainer、Hero、Custom Animation、Implicit Animation。
+
+### A.4.10 Domain 层
+
+纯函数、无平台依赖、无 UI 依赖。内容：倒班算法、拼假算法、日期计算、津贴统计、工作强度分析。
+
+### A.4.11 Rust（后期）
+
+Flutter 负责 UI，Rust 负责高性能算法、本地服务、复杂计算。适合：拼假优化器、AI 分析、大规模计算、Desktop Companion。
+
+### A.4.12 后端（后期）：Supabase
+
+开发快、Auth 简单、PostgreSQL、Realtime。后期功能：用户同步、云备份、分享社区、班组分享。
+
+---
+
+## A.5 不推荐技术
+
+| 技术 | 原因 |
+|------|------|
+| React Native | UI 一致性弱、动画体验一般、Android 兼容性复杂 |
+| Kotlin Multiplatform | AI 支持弱、生态碎片化、iOS 调试复杂 |
+| Electron | 太重、内存占用高、移动端能力弱 |
+
+---
+
+## A.6 CP 项目结构
+
+```text
+lib/
+ ├── app/
+ ├── core/
+ │    ├── theme/
+ │    ├── constants/
+ │    ├── utils/
+ │    ├── services/
+ ├── features/
+ │    ├── home/
+ │    ├── calendar/
+ │    ├── leave_optimizer/
+ │    ├── colleague_mode/
+ │    ├── salary_predictor/
+ │    ├── profile/
+ ├── domain/
+ │    ├── models/
+ │    ├── algorithms/
+ ├── data/
+ │    ├── repositories/
+ │    ├── datasources/
+ └── main.dart
+```
+
+---
+
+## A.7 开发原则
+
+- **MVP 第一**：功能完整、用户增长、快速上线优先，不过度架构、不技术炫技
+- **单人开发友好**：AI 友好、文档成熟、社区大、调试简单
+- **产品优先**：重点不是"用了什么框架"，而是"有没有用户愿意天天打开"
+
+---
+
+# Part B：Phase 1 Android 版技术栈（已完成）
+
+## B.1 设计目标
 
 本技术栈遵循两个核心原则：
 

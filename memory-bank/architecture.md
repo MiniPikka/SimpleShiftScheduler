@@ -1,8 +1,161 @@
-# 倒班助手架构说明（当前阶段）
+# 倒班助手架构说明
 
-## 1. 当前架构阶段
+## 0. 项目双阶段概述
 
-阶段 1-26 全部完成。阶段 27（多语言支持）基础架构完成。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
+- **Phase 1（已完成）**：Android 原生版 — 单模块 Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore。阶段 1-27 全部完成，150+ 单元测试全部通过。
+- **Phase 2（规划中）**：CP（Cross Platform）版 — Flutter + Riverpod + GoRouter，跨 Android / iOS / Web / Desktop。算法从 Android 版直接迁移（纯 Domain 层）。
+
+---
+
+# Part A：CP（Cross Platform）版架构
+
+## A.1 总体架构
+
+```
+┌──────────────────────────────────────────┐
+│ UI Layer (Flutter)                       │
+│ ├── features/ (home/calendar/...)       │
+│ ├── core/theme/ (Design Token)          │
+│ └── app/ (GoRouter + MaterialApp)       │
+├──────────────────────────────────────────┤
+│ State Management (Riverpod)             │
+│ ├── StateNotifier / AsyncNotifier       │
+│ └── ConsumerWidget / HookConsumerWidget │
+├──────────────────────────────────────────┤
+│ Domain Layer (Pure Dart)                │
+│ ├── models/ (Freezed data classes)      │
+│ ├── algorithms/ (shift/leave/colleague) │
+│ └── 零平台依赖、零 UI 依赖               │
+├──────────────────────────────────────────┤
+│ Data Layer                              │
+│ ├── repositories/ (抽象接口)             │
+│ ├── datasources/ (Hive/Isar 实现)       │
+│ └── services/ (通知/分享/权限)           │
+└──────────────────────────────────────────┘
+```
+
+## A.2 核心架构原则
+
+### A.2.1 UI 与业务彻底解耦
+
+UI：Flutter Widget + 页面状态 + 动画。Domain：排班算法、拼假算法、日期计算、统计逻辑——全部纯函数化。保证 Android / iOS / Web / Desktop 行为完全一致。
+
+### A.2.2 Domain 纯函数化
+
+所有核心逻辑无平台依赖、无 UI 依赖、无生命周期依赖。从 Android 版 Java/Kotlin domain 层直接翻译为 Dart 纯函数。
+
+### A.2.3 平台能力抽象
+
+平台相关能力（通知、Widget、分享、本地存储、权限）全部通过抽象接口实现，各平台有独立实现。
+
+## A.3 CP 项目结构
+
+```text
+lib/
+ ├── app/
+ │    ├── app.dart              # MaterialApp + GoRouter + Theme
+ │    └── routes.dart            # GoRouter 路由定义
+ │
+ ├── core/
+ │    ├── theme/
+ │    │    ├── colors.dart       # Design Token 颜色
+ │    │    ├── typography.dart   # 字体层级
+ │    │    ├── spacing.dart      # 间距系统
+ │    │    ├── shapes.dart       # 圆角系统
+ │    │    └── theme.dart        # ThemeData 组装
+ │    ├── constants/
+ │    │    └── app_constants.dart
+ │    ├── utils/
+ │    │    └── date_utils.dart
+ │    ├── services/
+ │    │    ├── notification_service.dart
+ │    │    ├── share_service.dart
+ │    │    └── storage_service.dart
+ │
+ ├── features/
+ │    ├── home/
+ │    │    ├── home_screen.dart
+ │    │    ├── widgets/          # HeroCard, StatsGrid, ToolsRow
+ │    │    └── home_notifier.dart (Riverpod)
+ │    ├── calendar/
+ │    │    ├── calendar_screen.dart
+ │    │    └── calendar_notifier.dart
+ │    ├── leave_optimizer/
+ │    │    ├── leave_optimizer_screen.dart
+ │    │    └── leave_optimizer_notifier.dart
+ │    ├── colleague_mode/
+ │    │    ├── colleague_mode_screen.dart
+ │    │    └── colleague_mode_notifier.dart
+ │    ├── salary_predictor/
+ │    │    ├── salary_predictor_screen.dart
+ │    │    └── salary_predictor_notifier.dart
+ │    ├── profile/
+ │    │    ├── profile_screen.dart
+ │    │    └── profile_notifier.dart
+ │
+ ├── domain/
+ │    ├── models/
+ │    │    ├── shift_type.dart         # Freezed 枚举
+ │    │    ├── shift_cycle_config.dart
+ │    │    ├── shift_info.dart
+ │    │    ├── leave_strategy.dart
+ │    │    ├── common_rest_result.dart
+ │    │    ├── salary_config.dart
+ │    │    └── salary_breakdown.dart
+ │    ├── algorithms/
+ │    │    ├── shift_calculator.dart   # 从 Android 版迁移
+ │    │    ├── calendar_generator.dart
+ │    │    ├── shift_metrics.dart
+ │    │    ├── leave_optimizer.dart
+ │    │    ├── colleague_mode.dart
+ │    │    ├── salary_calculator.dart
+ │    │    └── holiday_data.dart
+ │
+ ├── data/
+ │    ├── repositories/
+ │    │    ├── settings_repository.dart  # 抽象接口
+ │    │    └── settings_repository_hive.dart  # Hive 实现
+ │    ├── datasources/
+ │    │    └── local_datasource.dart
+ │
+ └── main.dart
+```
+
+## A.4 从 Android 版到 CP 版的迁移映射
+
+| Android 版 | CP 版 |
+|-----------|-------|
+| `domain/model/ShiftType.kt` | `domain/models/shift_type.dart` (Freezed) |
+| `domain/shift_calculator.kt` | `domain/algorithms/shift_calculator.dart` |
+| `domain/leave_optimizer.kt` | `domain/algorithms/leave_optimizer.dart` |
+| `domain/colleague_mode.kt` | `domain/algorithms/colleague_mode.dart` |
+| `domain/salary_calculator.kt` | `domain/algorithms/salary_calculator.dart` |
+| `domain/holiday_data.kt` | `domain/algorithms/holiday_data.dart` |
+| `viewmodel/HomeViewModel.kt` | `features/home/home_notifier.dart` (Riverpod) |
+| `data/repository/SettingsRepository.kt` | `data/repositories/settings_repository.dart` |
+| `ui/theme/` (Compose) | `core/theme/` (Flutter ThemeData) |
+| `ui/home/NewHomeScreenV3.kt` | `features/home/home_screen.dart` |
+| Jetpack Glance Widget | `home_widget` plugin |
+| Calendar Provider (Android) | `flutter_local_notifications` |
+| DataStore Preferences | Hive / Isar |
+
+## A.5 CP 版本阶段规划
+
+| 阶段 | 内容 | 关键产出 |
+|------|------|---------|
+| **阶段 1** | Flutter 骨架 | Design Token + GoRouter + 首页 |
+| **阶段 2** | 核心功能迁移 | 倒班算法 + 日历 + 拼假神器 + 同事模式 |
+| **阶段 3** | 平台能力 | 通知 + 分享长图 + Widget + 多语言 |
+| **阶段 4** | 产品化 | Supabase 集成 + Auth + 数据同步 |
+| **阶段 5** | 增长 | ASO + 分享裂变 + 应用商店上架 |
+
+---
+
+# Part B：Phase 1 Android 版架构（已完成）
+
+## B.1 当前架构阶段
+
+阶段 1-27 全部完成。应用功能完整，架构采用单模块 Android 应用，技术路线为 Kotlin + Jetpack Compose + MVVM + StateFlow。
 
 ### 2026-05-18：多语言支持（阶段 27）
 

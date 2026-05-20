@@ -1,4 +1,241 @@
-# 倒班助手 App 实施计划（重新版）
+# 倒班助手 App 实施计划
+
+## 0. 项目双阶段概述
+
+- **Phase 1（已完成）**：Android 原生版 — 阶段 1-27 全部完成，162 个单元测试全部通过。详见 Part B。
+- **Phase 2（规划中）**：CP（Cross Platform）版 — Flutter + Riverpod + GoRouter。详见 Part A。
+
+---
+
+# Part A：CP（Cross Platform）版实施计划
+
+## A.1 总体策略
+
+CP 版采用 5 阶段渐进式实施。Domain 算法从 Android 版直接翻译（纯函数、零平台依赖），UI 使用 Flutter 全新构建。
+
+---
+
+## A.2 阶段 1：Flutter 骨架
+
+**目标**：跑通 Flutter 项目、完成 Design Token 系统、GoRouter 路由、首页 UI。
+
+**前置条件**：Flutter SDK 安装、Android Studio / VS Code 配置。
+
+### Step 1.1：创建 Flutter 项目
+
+```bash
+flutter create --org com.simpleshift scheduler_cp
+```
+
+- 包名：`com.simpleshift.scheduler_cp`
+- 平台：Android + iOS + Web + Desktop
+- 目录结构按 A.6 规划创建
+
+### Step 1.2：添加核心依赖
+
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.0
+  riverpod_annotation: ^2.3.0
+  go_router: ^14.0.0
+  freezed_annotation: ^2.4.0
+  json_annotation: ^4.9.0
+  hive: ^2.2.0
+  intl: ^0.19.0
+
+dev_dependencies:
+  build_runner: ^2.4.0
+  freezed: ^2.5.0
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.0
+```
+
+### Step 1.3：Design Token 系统
+
+新建 `lib/core/theme/`：
+
+| 文件 | 内容 |
+|------|------|
+| `colors.dart` | Dark Productivity Design 颜色 Token（3 背景 + 3 文字 + 5 班次色 + 4 语义色） |
+| `typography.dart` | 5 级字体规格（28/20/16/13/36sp） |
+| `spacing.dart` | 间距系统（12/16/20/24dp） |
+| `shapes.dart` | 圆角系统（Button 18dp / Card 24dp / MainCard 28dp） |
+| `theme.dart` | ThemeData 组装（dark theme + light theme） |
+
+### Step 1.4：GoRouter 路由
+
+新建 `lib/app/routes.dart`：
+
+```dart
+final router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    ShellRoute(
+      builder: (context, state, child) => AppShell(child: child),
+      routes: [
+        GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+        GoRoute(path: '/calendar', builder: (_, __) => const CalendarScreen()),
+        GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+      ],
+    ),
+    GoRoute(path: '/leave-optimizer', builder: (_, __) => const LeaveOptimizerScreen()),
+    GoRoute(path: '/colleague-mode', builder: (_, __) => const ColleagueModeScreen()),
+    GoRoute(path: '/salary-predictor', builder: (_, __) => const SalaryPredictorScreen()),
+  ],
+);
+```
+
+底部导航栏：首页 / 日历 / 我的。子页面 push 进入。
+
+### Step 1.5：首页 UI（MVP）
+
+新建 `lib/features/home/`：
+
+- `home_screen.dart` — HeroCard + StatsGrid + ToolsRow + MessageBanner
+- `widgets/hero_card.dart` — 圆形徽章(64dp) + 班组标签 + 休息倒计时 + 进度条
+- `widgets/stats_grid.dart` — 两等宽指标卡片
+- `widgets/tools_row.dart` — 三个工具入口卡片
+- `home_notifier.dart` — Riverpod StateNotifier（初始使用硬编码数据）
+
+**验证**：`flutter run` 首页正常渲染，底部导航正常切换，Design Token 生效。
+
+---
+
+## A.3 阶段 2：核心功能迁移
+
+**目标**：Domain 算法全部迁移，核心页面全部实现。
+
+### Step 2.1：Domain 模型定义
+
+新建 `lib/domain/models/`，使用 Freezed：
+
+| 文件 | 对应 Android 版 |
+|------|----------------|
+| `shift_type.dart` | `ShiftType.kt`（enum） |
+| `shift_cycle_config.dart` | `ShiftCycleConfig.kt` |
+| `shift_info.dart` | `ShiftInfo.kt` |
+| `calendar_day_info.dart` | `CalendarDayInfo.kt` |
+| `team.dart` | `Team.kt` |
+| `runtime_shift_settings.dart` | `RuntimeShiftSettings.kt` |
+| `leave_strategy.dart` | `LeaveStrategy.kt` |
+| `common_rest_result.dart` | `CommonRestResult.kt` |
+| `salary_config.dart` | `SalaryConfig.kt` |
+| `salary_breakdown.dart` | `SalaryBreakdown.kt` |
+
+### Step 2.2：Domain 算法迁移
+
+新建 `lib/domain/algorithms/`，纯 Dart 函数：
+
+| 文件 | 对应 Android 版 | 复杂度 |
+|------|----------------|--------|
+| `shift_calculator.dart` | `shift_calculator.kt` | 低（~50 行） |
+| `calendar_generator.dart` | `calendar_generator.kt` | 低（~40 行） |
+| `shift_metrics.dart` | `shift_metrics.kt` | 低（~60 行） |
+| `holiday_data.dart` | `holiday_data.kt` | 中（~110 行数据） |
+| `leave_optimizer.dart` | `leave_optimizer.kt` | 高（~170 行） |
+| `colleague_mode.dart` | `colleague_mode.kt` | 低（~40 行） |
+| `salary_calculator.dart` | `salary_calculator.kt` | 低（~50 行） |
+
+### Step 2.3：数据层
+
+新建 `lib/data/`：
+
+- `repositories/settings_repository.dart` — 抽象接口
+- `repositories/settings_repository_hive.dart` — Hive 实现
+- 序列化格式与 Android 版一致（逗号分隔枚举名）
+
+### Step 2.4：核心页面实现
+
+| 页面 | 文件 | 对应 Android 版 |
+|------|------|----------------|
+| 首页 | `features/home/` | `NewHomeScreenV3.kt` + V3 组件 |
+| 日历页 | `features/calendar/` | `CalendarScreen.kt` |
+| 拼假神器 | `features/leave_optimizer/` | `LeaveOptimizerScreen.kt` |
+| 同事模式 | `features/colleague_mode/` | `ColleagueModeScreen.kt` |
+| 倒班津贴 | `features/salary_predictor/` | `SalaryPredictorScreen.kt` |
+| Profile | `features/profile/` | `ProfileScreen.kt` |
+
+### Step 2.5：Domain 单元测试
+
+新建 `test/domain/algorithms/`：
+
+| 测试文件 | 用例数（从 Android 版迁移） |
+|---------|--------------------------|
+| `shift_calculator_test.dart` | ~15 |
+| `calendar_generator_test.dart` | ~5 |
+| `shift_metrics_test.dart` | ~15 |
+| `leave_optimizer_test.dart` | ~17 |
+| `colleague_mode_test.dart` | ~8 |
+| `salary_calculator_test.dart` | ~8 |
+| `holiday_data_test.dart` | ~6 |
+
+**验证**：`flutter test` 全部通过，Domain 算法行为与 Android 版一致。
+
+---
+
+## A.4 阶段 3：平台能力
+
+**目标**：本地通知、分享长图、Widget、多语言。
+
+### Step 3.1：本地通知
+
+- `flutter_local_notifications` 集成
+- 提醒时间设置页面（Material3 TimePicker）
+- 通知权限请求（Android 13+ / iOS）
+
+### Step 3.2：分享长图
+
+- Flutter `RepaintBoundary` → 导出为 PNG
+- QR 码生成（`qr_flutter` 或纯 Dart 实现）
+- 系统分享面板（`share_plus`）
+- 首期：同事模式分享图
+
+### Step 3.3：Widget
+
+- Android: `home_widget` 插件
+- iOS: WidgetKit bridge（后期）
+
+### Step 3.4：多语言
+
+- `intl` + `.arb` 文件
+- 中文（默认）、English、日本語、한국어
+- 复用 Android 版翻译资源
+
+---
+
+## A.5 阶段 4：产品化
+
+**目标**：数据同步、云备份、登录、用户系统。
+
+### Step 4.1：Supabase 集成
+
+- `supabase_flutter` 依赖
+- Auth（邮箱 + Google + Apple）
+- 用户班组数据云同步
+- 分享社区（后期）
+
+### Step 4.2：数据同步
+
+- 本地 Hive + 远程 Supabase 双向同步
+- 冲突解决策略（本地优先）
+
+---
+
+## A.6 阶段 5：增长阶段
+
+**目标**：社交传播、应用商店上架。
+
+- 分享裂变优化（QR 码落地页 + App Store 链接）
+- ASO（应用商店优化）
+- Google Play 上架
+- App Store 上架
+- 小红书 / 抖音 / 工友群传播物料
+
+---
+
+# Part B：Phase 1 Android 版实施计划（已完成）
 
 ## ✅ 实施约束（已确认）
 
