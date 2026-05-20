@@ -56,9 +56,41 @@ flutter test       # 67/67 passed
 | App | 2 | routes, main |
 | Tests | 7 | 67 用例 |
 
-### 剩余：holiday_data + leave_optimizer
+### 后续补充（同日完成）
 
-Android 版 `holiday_data.kt`（~110行）和 `leave_optimizer.kt`（~170行）体积较大，留待后续按需迁移。
+**Step 2.6**: `holiday_data.dart` + `leave_optimizer.dart` — 全功能拼假算法迁移完成。
+- `holiday_data.dart`：2026-2027 中国法定节假日 + 调休日
+- `leave_optimizer.dart`：间隙桥接法（Gap-Merging），~170行 Dart 纯函数
+- 测试：`holiday_data_test.dart`（6 用例）+ `leave_optimizer_test.dart`（9 用例）
+
+**Step 2.7**: Calendar 页 — 7×7 月历网格 + 班组下拉 + 月份导航 + 内联统计卡片
+
+**Step 2.8**: Profile 页 — 卡片式菜单（当前班组 + 拼假神器/同事模式/津贴入口）
+
+**Step 2.9**: Feature 页面全部接入 domain 算法
+- `LeaveOptimizerScreen`：策略卡片列表 + FilterChip 筛选
+- `ColleagueModeScreen`：双班组选择 + 共同休息主卡片 + 日期列表
+- `SalaryPredictorScreen`：津贴总额大卡片 + 班次统计 + 假设分析
+
+### 最终验证
+
+```
+flutter analyze    # 0 errors, 0 warnings (仅 info 级别的枚举命名)
+flutter test       # 87/87 passed
+```
+
+### CP 版本阶段 2 完整交付清单
+
+| 层 | 文件数 | 说明 |
+|----|--------|------|
+| Domain models | 11 | 全部 Android 版模型 |
+| Domain algorithms | 7 | shift_calc + calendar_gen + shift_metrics + colleague_mode + salary_calc + holiday_data + leave_optimizer |
+| Core/theme | 5 | Design Token 系统 |
+| UI features | 9 | Home + Calendar + Profile + LeaveOpt + Colleague + Salary |
+| Data | 1 | SettingsRepository 抽象接口 |
+| App | 2 | routes + main |
+| Tests | 8 | 87 用例（domain algo + utils） |
+| **总计** | **43 文件** | **Android 版核心功能完整迁移** |
 
 ---
 
