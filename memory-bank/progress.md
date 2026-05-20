@@ -56,6 +56,12 @@ flutter test       # 67/67 passed
 | App | 2 | routes, main |
 | Tests | 7 | 67 用例 |
 
+---## 2026-05-20：CP 版本 — 阶段 3.1 多语言支持完成
+
+### 阶段 3.1：多语言 i18n ✅
+
+Flutter `flutter_localizations` + `intl` + `flutter gen-l10n`。4 种语言：中文（默认）、English、日本語、한국어。100+ 字符串覆盖全部 UI。`lib/core/utils/l10n.dart` 集中式本地化辅助层（`localizedGreeting()`, `localizedShiftLabel()`, `localizedTeamName()`, `localizedWeekday()` 等）。`HomeState` 简化：移除硬编码展示字符串，改为存储域类型，展示由 UI 通过 l10n 计算。全部 9 个页面已国际化。72 测试全部通过。
+
 ### 后续补充（同日完成）
 
 **Step 2.6**: `holiday_data.dart` + `leave_optimizer.dart` — 全功能拼假算法迁移完成。
