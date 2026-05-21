@@ -3,6 +3,7 @@ import '../../domain/models/shift_type.dart';
 import '../../domain/models/runtime_shift_settings.dart';
 import '../../domain/models/alarm_time.dart';
 import '../../domain/models/alarm_settings.dart';
+import '../../domain/models/salary_config.dart';
 import 'settings_repository.dart';
 
 /// Hive 实现的设置持久化
@@ -13,15 +14,19 @@ import 'settings_repository.dart';
 class HiveSettingsRepository implements SettingsRepository {
   static const _boxName = 'settings';
   static const _alarmBoxName = 'alarm_settings';
+  static const _salaryBoxName = 'salary_config';
   static const _key = 'runtime_settings';
   static const _alarmKeyPrefix = 'alarm_time_';
+  static const _salaryKey = 'premiums';
 
   late Box<Map> _box;
   late Box<String> _alarmBox;
+  late Box<String> _salaryBox;
 
   Future<void> init() async {
     _box = await Hive.openBox<Map>(_boxName);
     _alarmBox = await Hive.openBox<String>(_alarmBoxName);
+    _salaryBox = await Hive.openBox<String>(_salaryBoxName);
   }
 
   @override
@@ -85,6 +90,36 @@ class HiveSettingsRepository implements SettingsRepository {
       final time = settings.alarms[type];
       await _alarmBox.put(_alarmKey(type), time?.serialize() ?? '');
     }
+  }
+
+  // ── 津贴配置持久化 ──
+
+  @override
+  Future<SalaryConfig> loadSalaryConfig() async {
+    try {
+      final raw = _salaryBox.get(_salaryKey) ?? '';
+      if (raw.isEmpty) return const SalaryConfig();
+      final premiums = <ShiftType, double>{};
+      for (final entry in raw.split(',')) {
+        final parts = entry.split('=');
+        if (parts.length == 2) {
+          final type = ShiftType.values.byName(parts[0].trim());
+          final value = double.tryParse(parts[1].trim()) ?? 0;
+          premiums[type] = value;
+        }
+      }
+      return SalaryConfig(shiftPremiums: premiums);
+    } catch (_) {
+      return const SalaryConfig();
+    }
+  }
+
+  @override
+  Future<void> saveSalaryConfig(SalaryConfig config) async {
+    final raw = config.shiftPremiums.entries
+        .map((e) => '${e.key.name}=${e.value}')
+        .join(',');
+    await _salaryBox.put(_salaryKey, raw);
   }
 }
 

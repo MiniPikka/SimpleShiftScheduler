@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart';
 import '../../domain/models/shift_type.dart';
-import '../../domain/models/alarm_time.dart';
 import '../../domain/models/alarm_settings.dart';
 import '../../domain/algorithms/shift_calculator.dart';
 

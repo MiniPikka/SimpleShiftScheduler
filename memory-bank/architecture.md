@@ -228,6 +228,35 @@ Flutter Dart (home_screen.dart)
 | 根布局可点击 | 未配置状态下点击任何位置可打开 App |
 | try-catch 包裹反射调用 | 所有 `setInt("setBackgroundColor")` 防崩溃 |
 
+## A.8 CP 版倒班津贴架构
+
+### 数据流
+
+```
+SalaryConfigNotifier (Riverpod StateNotifier)
+  ├── 构造时从 Hive salary_config Box 加载
+  ├── updatePremium(type, value) → 即时写入 Hive
+  └── salaryConfigProvider → UI ConsumerWidget 订阅
+
+SalaryPredictorScreen
+  ├── 读取 salaryConfigProvider（津贴金额）
+  ├── 读取 settingsProvider（倒班周期 + referenceDate）
+  ├── 本地状态：_year, _month, _teamId, _extraCount, _extraType
+  ├── countAllShiftTypesInMonth() → 各班次次数
+  ├── calculateSalaryBreakdown() → 本月津贴
+  └── simulateExtraShifts() → 假设分析
+```
+
+### 组件结构
+
+| 组件 | 功能 |
+|------|------|
+| 可折叠设置卡片 | 展开后 4 行编辑区（早/中/夜/学），OutlinedTextField + 小数输入 |
+| 月份班组行 | ← 上月 / 当月标签 / 下月 → + 班组 DropdownButton |
+| 津贴总额卡片 | 渐变背景 + 大字体 ¥金额 |
+| 班次统计行 | 5 行彩色圆点 + 次数 + 小计金额 |
+| 假设分析卡片 | 0~5 FilterChip + 班次类型下拉 + 增量结果 |
+
 ---
 
 # Part B：Phase 1 Android 版架构（已完成）

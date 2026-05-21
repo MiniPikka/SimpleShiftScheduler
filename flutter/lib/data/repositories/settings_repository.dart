@@ -1,6 +1,7 @@
 import '../../domain/models/runtime_shift_settings.dart';
 import '../../domain/models/shift_type.dart';
 import '../../domain/models/alarm_settings.dart';
+import '../../domain/models/salary_config.dart';
 
 /// 设置持久化抽象接口
 ///
@@ -19,6 +20,12 @@ abstract class SettingsRepository {
 
   /// 保存提醒设置
   Future<void> saveAlarmSettings(AlarmSettings settings);
+
+  /// 加载津贴配置，首次安装返回默认值（全部 0）
+  Future<SalaryConfig> loadSalaryConfig();
+
+  /// 保存津贴配置
+  Future<void> saveSalaryConfig(SalaryConfig config);
 }
 
 /// 序列化：List<ShiftType> → 逗号分隔字符串
