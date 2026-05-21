@@ -7,7 +7,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.widget.RemoteViews
 
 class ShiftWidgetProvider : AppWidgetProvider() {
@@ -31,6 +30,14 @@ class ShiftWidgetProvider : AppWidgetProvider() {
             val provider = android.content.ComponentName(context, ShiftWidgetProvider::class.java)
             val ids = appWidgetManager.getAppWidgetIds(provider)
 
+            // Intent to open app — with fallback
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                ?: Intent(context, Class.forName("com.simpleshift.scheduler_cp.MainActivity"))
+            val pendingIntent = PendingIntent.getActivity(
+                context, 0, launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
             for (appWidgetId in ids) {
                 val views = RemoteViews(context.packageName, R.layout.shift_widget_layout).apply {
                     if (shift.isEmpty() || shift == "未配置") {
@@ -41,7 +48,9 @@ class ShiftWidgetProvider : AppWidgetProvider() {
                         setTextViewText(R.id.widget_rest, "")
                         setTextViewText(R.id.widget_date, "")
                         setTextViewText(R.id.widget_tomorrow_label, "")
-                        setInt(R.id.widget_shift_badge, "setBackgroundColor", Color.parseColor("#4B5563"))
+                        try {
+                            setInt(R.id.widget_shift_badge, "setBackgroundColor", Color.parseColor("#4B5563"))
+                        } catch (_: Exception) {}
                         setViewVisibility(R.id.widget_tomorrow, android.view.View.GONE)
                     } else {
                         setTextViewText(R.id.widget_shift_badge, shift)
@@ -52,33 +61,24 @@ class ShiftWidgetProvider : AppWidgetProvider() {
                         if (tomorrowLabel.isNotEmpty()) {
                             setTextViewText(R.id.widget_tomorrow_label, "明日: $tomorrowLabel")
                             setViewVisibility(R.id.widget_tomorrow, android.view.View.VISIBLE)
+                            // Set dot color via reflection (best-effort on TextView background)
+                            try {
+                                setInt(R.id.widget_tomorrow_dot, "setBackgroundColor", dotColor)
+                            } catch (_: Exception) {}
                         } else {
                             setViewVisibility(R.id.widget_tomorrow, android.view.View.GONE)
                         }
 
-                        // Badge background color
-                        setInt(R.id.widget_shift_badge, "setBackgroundColor", badgeColor)
-
-                        // Tomorrow dot color
+                        // Badge background color (best-effort via reflection)
                         try {
-                            val dotDrawable = GradientDrawable().apply {
-                                setColor(dotColor)
-                                cornerRadius = 12f
-                            }
-                            setInt(R.id.widget_tomorrow_dot, "setBackgroundColor", dotColor)
+                            setInt(R.id.widget_shift_badge, "setBackgroundColor", badgeColor)
                         } catch (_: Exception) {}
                     }
+
+                    // Click entire widget to open app
+                    setOnClickPendingIntent(R.id.widget_root, pendingIntent)
                 }
 
-                // Click to open app
-                val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-                if (intent != null) {
-                    val pendingIntent = PendingIntent.getActivity(
-                        context, 0, intent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    views.setOnClickPendingIntent(R.id.widget_shift_badge, pendingIntent)
-                }
                 appWidgetManager.updateAppWidget(appWidgetId, views)
             }
         }

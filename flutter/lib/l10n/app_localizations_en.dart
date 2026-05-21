@@ -180,6 +180,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get statWork => 'Work';
 
   @override
+  String get statMorning => 'Morning';
+
+  @override
+  String get statAfternoon => 'Afternoon';
+
+  @override
   String get statRest => 'Rest';
 
   @override

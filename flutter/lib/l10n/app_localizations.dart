@@ -432,6 +432,18 @@ abstract class AppLocalizations {
   /// **'上班'**
   String get statWork;
 
+  /// No description provided for @statMorning.
+  ///
+  /// In zh, this message translates to:
+  /// **'早班'**
+  String get statMorning;
+
+  /// No description provided for @statAfternoon.
+  ///
+  /// In zh, this message translates to:
+  /// **'中班'**
+  String get statAfternoon;
+
   /// No description provided for @statRest.
   ///
   /// In zh, this message translates to:

@@ -67,6 +67,8 @@
   "weekSat": "토",
 
   "statWork": "근무",
+  "statMorning": "조번",
+  "statAfternoon": "중번",
   "statRest": "휴식",
   "statNight": "야간",
   "statStudy": "연수",

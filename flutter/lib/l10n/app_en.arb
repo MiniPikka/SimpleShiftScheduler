@@ -67,6 +67,8 @@
   "weekSat": "Sat",
 
   "statWork": "Work",
+  "statMorning": "Morning",
+  "statAfternoon": "Afternoon",
   "statRest": "Rest",
   "statNight": "Night",
   "statStudy": "Study",

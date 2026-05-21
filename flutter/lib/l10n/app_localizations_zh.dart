@@ -180,6 +180,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get statWork => '上班';
 
   @override
+  String get statMorning => '早班';
+
+  @override
+  String get statAfternoon => '中班';
+
+  @override
   String get statRest => '休班';
 
   @override

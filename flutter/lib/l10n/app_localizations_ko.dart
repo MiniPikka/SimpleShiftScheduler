@@ -180,6 +180,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get statWork => '근무';
 
   @override
+  String get statMorning => '조번';
+
+  @override
+  String get statAfternoon => '중번';
+
+  @override
   String get statRest => '휴식';
 
   @override

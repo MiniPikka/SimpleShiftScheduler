@@ -67,6 +67,8 @@
   "weekSat": "六",
 
   "statWork": "上班",
+  "statMorning": "早班",
+  "statAfternoon": "中班",
   "statRest": "休班",
   "statNight": "夜班",
   "statStudy": "学习",

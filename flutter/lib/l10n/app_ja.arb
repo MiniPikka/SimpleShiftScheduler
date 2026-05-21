@@ -67,6 +67,8 @@
   "weekSat": "土",
 
   "statWork": "勤務",
+  "statMorning": "早番",
+  "statAfternoon": "中番",
   "statRest": "休み",
   "statNight": "夜勤",
   "statStudy": "研修",

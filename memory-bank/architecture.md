@@ -149,6 +149,85 @@ lib/
 | **阶段 4** | 产品化 | Supabase 集成 + Auth + 数据同步 |
 | **阶段 5** | 增长 | ASO + 分享裂变 + 应用商店上架 |
 
+## A.6 CP 版日历日程集成（新增）
+
+### 架构决策
+
+Flutter CP 版同时使用两套提醒系统，互补保障：
+- **本地通知**（`flutter_local_notifications`）：通知栏弹出，用户实时感知
+- **系统日历日程**（Calendar Provider）：写入手机日历 App，持久化 + 系统提醒
+
+### Dart ↔ Kotlin 数据流
+
+```
+main.dart _reschedule()
+  ├── scheduleShiftNotifications()          ← 本地通知（Dart 纯 Flutter）
+  └── CalendarService.syncShiftEvents()     ← MethodChannel 桥接
+        └── MainActivity.kt (CALENDAR_CHANNEL)
+              └── CalendarEventManager.syncShiftEvents()
+                    ├── EventIdStorage.load()    ← 读取已追踪 event ID
+                    ├── 两层去重：
+                    │     Tier 1: tracked ID map 查重
+                    │     Tier 2: findExistingEvent() 按标题+日期查系统日历
+                    ├── insertEvent()             ← 仅新建未追踪事件
+                    └── EventIdStorage.save()     ← 持久化更新后 ID
+```
+
+### 去重机制
+
+对齐 Android 参考版 `CalendarEventManager` 设计：
+
+1. **Event ID 追踪**：`CalendarEventIds`（`Map<String, Long>`），key = `"yyyy-MM-dd_X"`（X = 班次索引 0~4），value = 系统日历 event ID
+2. **持久化**：`EventIdStorage` 用 SharedPreferences 存储（因 Flutter CP 无 DataStore），序列化格式 `"key=id,key=id"`
+3. **两层查重**：① 内存 map 命中 → 跳过 ② 系统日历查询（按 CALENDAR_ID + TITLE + DTSTART 当天范围）→ 找到则记录跳过
+4. **过期清理**：sync 完成后删除 tracked ID 中不再需要的旧事件
+5. **并发防护**：`main.dart` 中 300ms 去抖 + `_isSyncingCalendar` guard + `_needsResync` 排队
+
+### 新增文件
+
+| 文件 | 用途 |
+|------|------|
+| `android/.../calendar/CalendarEventIds.kt` | Event ID 追踪数据模型 |
+| `android/.../calendar/EventIdStorage.kt` | SharedPreferences 持久化 |
+| `lib/core/services/calendar_service.dart` | Dart → Kotlin MethodChannel 桥接 |
+
+---
+
+## A.7 CP 版 Widget 架构（RemoteViews）
+
+### 架构决策
+
+Widget 使用 **RemoteViews**（Android 标准 AppWidget API），不使用 Glance。原因：
+
+- RemoteViews 是 API 1+ 标准组件，所有 Android 启动器必须支持
+- Glance 编译为 RemoteViews 底层同一机制，额外增加 Compose 编译层复杂度
+- Glance 对某些 Compose API（如 `LocalContext.current`）不支持内联，编译易失败
+- 当前项目 RemoteViews 方案逻辑正确，问题在配置细节而非框架选择
+
+### Widget 数据流
+
+```
+Flutter Dart (home_screen.dart)
+  → WidgetService.update() [MethodChannel]
+    → MainActivity.kt
+      → SharedPreferences("widget_prefs")
+      → sendBroadcast(ACTION_APPWIDGET_UPDATE)
+        → ShiftWidgetProvider.onUpdate()
+          → 读取 SharedPreferences
+          → 构建 RemoteViews (R.layout.shift_widget_layout)
+          → AppWidgetManager.updateAppWidget()
+```
+
+### 鲁棒性措施
+
+| 措施 | 说明 |
+|------|------|
+| `android:initialLayout` | 指向 `@layout/shift_widget_layout`，系统放置 Widget 时立即可见 |
+| 小圆点改用 TextView | 替代裸 `<View>` + 反射设置背景色，使用 `android:background` 声明式颜色 |
+| PendingIntent fallback | `getLaunchIntentForPackage` 返回 null 时用显式 Intent |
+| 根布局可点击 | 未配置状态下点击任何位置可打开 App |
+| try-catch 包裹反射调用 | 所有 `setInt("setBackgroundColor")` 防崩溃 |
+
 ---
 
 # Part B：Phase 1 Android 版架构（已完成）

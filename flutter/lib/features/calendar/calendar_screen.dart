@@ -50,7 +50,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     for (final type in ShiftType.values) {
       stats[type] = countShiftTypeInMonth(year, month, type, teamPhaseOffset: phaseOffset, customCycle: cycle, referenceDate: refDate);
     }
-    final workDays = stats.entries.where((e) => e.key != ShiftType.REST && e.key != ShiftType.STUDY).fold<int>(0, (a, e) => a + e.value);
 
     return Scaffold(
       appBar: AppBar(
@@ -116,7 +115,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 ),
                 const SizedBox(height: 16),
                 Card(shape: RoundedRectangleBorder(borderRadius: CpShapes.card), child: Padding(padding: const EdgeInsets.all(16), child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                  _StatItem(l10n.statWork, '$workDays', shiftMorning),
+                  _StatItem(l10n.statMorning, '${stats[ShiftType.MORNING] ?? 0}', shiftMorning),
+                  _StatItem(l10n.statAfternoon, '${stats[ShiftType.AFTERNOON] ?? 0}', shiftAfternoon),
                   _StatItem(l10n.statRest, '${stats[ShiftType.REST] ?? 0}', shiftRest),
                   _StatItem(l10n.statNight, '${stats[ShiftType.NIGHT] ?? 0}', shiftNight),
                   _StatItem(l10n.statStudy, '${stats[ShiftType.STUDY] ?? 0}', shiftStudy),

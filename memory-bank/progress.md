@@ -1,5 +1,160 @@
 # 倒班助手开发进度记录
 
+## 2026-05-21：CP 版本架构重构 — 算法统一到 Dart ✅
+
+### 重构动机
+
+`CalendarEventManager.kt` 中复制了排班计算逻辑（`ChronoUnit.DAYS.between` + cycle index），与 `shift_calculator.dart` 形成双源。上次 `Period.days` bug 的根因就是 Kotlin 侧独立实现算法导致两边不一致。
+
+### 重构方案
+
+**Dart 统一计算 → Kotlin 只做平台胶水**。
+
+- `calendar_service.dart`：用 Dart `getShiftTypeForDate()` 预计算未来 365 天所有 (日期, 班次, 提醒时间) 元组，一次性传 list 给 Kotlin
+- `CalendarEventManager.kt`：移除 shiftCycle/teamPhaseOffset/referenceDate 参数和计算循环，改为接收预计算好的事件列表，只处理日历 CRUD + 去重
+- `MainActivity.kt`：简化 calendar channel handler
+
+### 效果
+
+- 排班算法只在 `shift_calculator.dart` 一处维护（95 个测试保护）
+- `CalendarEventManager.kt` 从 ~220 行缩减到 ~170 行，逻辑更清晰
+- 未来算法修改只需改 Dart，Kotlin 侧自动一致
+
+---
+
+## 2026-05-21：CP 版本 Bug 修复（第二轮）— 日历去重 + Widget 改进
+
+### Bug 2 补充：日历日程重复 ✅
+
+真机测试发现：早班提醒在同一天出现 3 次，中班 2 次。根因分析：
+
+1. **冷启动时 `_reschedule()` 被调用 ≥2 次**：`alarmSettingsProvider` listener 和 `hiveRepoProvider` listener 分别在 Hive 加载完成后触发
+2. **`CalendarEventManager.syncShiftEvents()` 无去重逻辑**：`cleanOldEvents()` 仅删除过去事件，未来 365 天事件每次盲目 INSERT，无查重
+
+**修复方案（对齐 Android 参考版 CalendarEventManager 去重模式）**：
+
+| 文件 | 改动 |
+|------|------|
+| 新增 `CalendarEventIds.kt` | Event ID 追踪数据模型（`Map<String, Long>`） |
+| 新增 `EventIdStorage.kt` | SharedPreferences 持久化（序列化格式 `"key=id,key=id"`） |
+| 改造 `CalendarEventManager.kt` | 两层去重：① 追踪 ID map 查重 ② `findExistingEvent()` 按标题+日期查系统日历；过期事件自动清理；返回 `Pair<Int, CalendarEventIds>` |
+| 改造 `MainActivity.kt` | 日历 channel 接入 EventIdStorage load→sync→save 流程 |
+| 改造 `main.dart` | 300ms 去抖 + `_isSyncingCalendar` 并发 guard + `_needsResync` 排队标记 + `isAnyEnabled()` 前置检查 |
+
+### Bug 3 补充：Widget 方案决策 ✅
+
+**Glance 迁移尝试失败**：Glance 1.1.0 编译时 `LocalContext.current` 内联失败（`CompositionLocal` 在 Glance 中不支持内联），且 Glance 对 Compose API 支持有限。
+
+**结论**：保留 RemoteViews 方案 + 精准修复。RemoteViews 是 Android API 1+ 标准组件，全球无数 App 使用——不应因配置问题而更换框架。真正的根因分析：
+
+| 可能根因 | 修复 |
+|---------|------|
+| 裸 `<View>` 小圆点无背景，反射 `setBackgroundColor` 不可靠 | 改为 `<TextView>` + `android:background` |
+| `getLaunchIntentForPackage` 返回 null 时 PendingIntent 静默失败 | 添加 fallback 显式 Intent |
+| 仅徽章可点击，未配置状态下无可点击区域 | 根布局设置点击 |
+| 所有反射调用不稳定 | try-catch 包裹（已完成） |
+
+**实施**：
+- 删除 Glance 文件：`ShiftWidget.kt`（Glance）、`ShiftWidgetReceiver.kt`（Glance）
+- 移除 `build.gradle.kts` 中 Glance 依赖
+- 重建 `ShiftWidgetProvider.kt`（RemoteViews + 鲁棒性改进）
+- 重建 `shift_widget_layout.xml`（小圆点改为 TextView）
+- 恢复 `AndroidManifest.xml` receiver 为 `ShiftWidgetProvider`
+- 恢复 `shift_widget_info.xml` initialLayout 为 `@layout/shift_widget_layout`
+- 恢复 `MainActivity.kt` widget 刷新为 `ShiftWidgetProvider.updateWidgets()`
+
+### 改造文件汇总
+
+| 新增（2 个） | 改造（6 个） | 删除（2 个） |
+|-------------|-------------|-------------|
+| `calendar/CalendarEventIds.kt` | `calendar/CalendarEventManager.kt` | `widget/ShiftWidget.kt`（Glance） |
+| `calendar/EventIdStorage.kt` | `MainActivity.kt` | `widget/ShiftWidgetReceiver.kt`（Glance） |
+| | `main.dart` | |
+| | `ShiftWidgetProvider.kt`（重建） | |
+| | `shift_widget_layout.xml`（重建） | |
+| | `AndroidManifest.xml` | |
+| | `build.gradle.kts` | |
+| | `shift_widget_info.xml` | |
+
+### 验证
+
+```bash
+flutter analyze    # 0 errors
+flutter test       # 全部通过
+flutter build apk  # 构建成功
+```
+
+### 下一步
+
+真机验证：Widget 加载正常、日历日程不重复、日期与班次正确对应。
+
+### Bug 2 补充（关键修复）：日历日程日期错位 ✅
+
+根因：`CalendarEventManager.kt` 第 126 行 `referenceDate.until(date).days` 使用了 `java.time.Period.days`——它只返回日期的"天"分量（0~30），而非总天数。
+
+例如：`LocalDate.of(2025,12,15).until(LocalDate.of(2026,5,21))` 返回 `Period(P5M6D)`，`.days` = 6，而非正确的 158。
+
+修复：改用 `ChronoUnit.DAYS.between(referenceDate, date).toInt()`，返回精确的总天数。
+
+---
+
+## 2026-05-21：CP 版本 Bug 修复（第一轮）
+
+### Bug 1：倒班日历班次统计不全 ✅
+
+日历页底部统计卡片原来显示：上班（早+中+夜合计）、休班、夜班、学习。早班和中班数量被隐藏在合计中，用户无法看到各自的计数。
+
+修复：新增 `statMorning`/`statAfternoon` 本地化键（4 种语言），统计卡片改为分别显示早/中/休/夜/学五种班次的独立计数。
+
+### Bug 2：日历权限缺失 + 日历日程集成 ✅
+
+**问题一**：首次进入 App 未请求通知权限（Android 13+ 需要运行时请求 `POST_NOTIFICATIONS`），也未声明日历权限。
+
+**问题二**：Flutter CP 版使用 `flutter_local_notifications` 本地通知方案，未将提醒写入系统日历。用户设置提醒后，手机日历 App 中没有对应日程。
+
+**修复**：
+1. `AndroidManifest.xml` 新增 `READ_CALENDAR` + `WRITE_CALENDAR` 权限声明
+2. 新增 `permission_handler` 依赖，在 `main()` 启动时请求通知权限和日历权限
+3. 新增 native `CalendarEventManager.kt`（~170 行）— 从 Android 参考版移植 Calendar Provider 集成，管理本地日历账户 + 日程 CRUD + 提醒设置
+4. 新增 Dart `calendar_service.dart` — MethodChannel 桥接到原生日历管理器
+5. 改造 `MainActivity.kt` — 新增 `com.simpleshift.scheduler_cp/calendar` MethodChannel，处理 `syncShiftEvents`/`deleteAllEvents`
+6. 改造 `main.dart` — `_reschedule()` 中同时调用 `scheduleShiftNotifications()`（本地通知）和 `CalendarService.syncShiftEvents()`（日历日程），双重保障
+
+### Bug 3：桌面 Widget 载入错误 ✅
+
+Widget 放置时报"载入窗口小部件时出现问题"。
+
+**修复**：
+1. `shift_widget_info.xml` 新增 `android:initialLayout="@layout/shift_widget_layout"` — 为系统提供 Widget 初始占位布局
+2. `ShiftWidgetProvider.kt` 中所有反射式 `setInt("setBackgroundColor", ...)` 调用均包裹 try-catch，防止部分设备上 RemoteViews 反射失败导致崩溃
+3. 移除未使用的 `GradientDrawable` 死代码
+
+### 改造文件汇总
+
+| 新增（2 个） | 改造（13 个） |
+|-------------|-------------|
+| `android/.../calendar/CalendarEventManager.kt` | `lib/features/calendar/calendar_screen.dart` |
+| `lib/core/services/calendar_service.dart` | `lib/l10n/app_localizations.dart` |
+| | `lib/l10n/app_localizations_zh.dart` |
+| | `lib/l10n/app_localizations_en.dart` |
+| | `lib/l10n/app_localizations_ja.dart` |
+| | `lib/l10n/app_localizations_ko.dart` |
+| | `lib/main.dart` |
+| | `android/.../MainActivity.kt` |
+| | `android/.../widget/ShiftWidgetProvider.kt` |
+| | `android/.../res/xml/shift_widget_info.xml` |
+| | `android/.../AndroidManifest.xml` |
+| | `pubspec.yaml`（+permission_handler） |
+
+### 验证
+
+```bash
+flutter analyze    # 0 errors（仅预存 info）
+flutter test       # 全部通过，零回归
+```
+
+---
+
 ## 2026-05-20：CP 版本 — 阶段 3.3 Widget 升级完成
 
 ### 阶段 3.3：桌面小组件升级 ✅
