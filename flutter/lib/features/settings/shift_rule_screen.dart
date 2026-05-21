@@ -74,11 +74,11 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
         final ok = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('放弃修改？'),
-            content: const Text('有未保存的修改，确定要离开吗？'),
+            title: Text(l10n.discardChangesTitle),
+            content: Text(l10n.discardChangesMsg),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('继续编辑')),
-              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('放弃')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.continueEdit)),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l10n.discard)),
             ],
           ),
         );
@@ -97,7 +97,7 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(children: [
-                    const Text('周期长度', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                    Text(l10n.cycleLengthLabel, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                     const SizedBox(width: 12),
                     SizedBox(
                       width: 72,
@@ -113,7 +113,7 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text('天', style: TextStyle(fontSize: 14)),
+                    Text(l10n.dayUnit, style: const TextStyle(fontSize: 14)),
                     const Spacer(),
                     Text('${state.sequence.length} 项',
                         style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
@@ -127,23 +127,23 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
               Wrap(spacing: 8, runSpacing: 4, children: [
                 ActionChip(
                   avatar: const Icon(Icons.restore, size: 16),
-                  label: const Text('默认42天'),
+                  label: Text(l10n.preset42Day),
                   onPressed: () => notifier.applyPreset(ShiftCycleConfig.shiftCycle),
                   visualDensity: VisualDensity.compact,
                 ),
                 ActionChip(
-                  label: const Text('7天轮转'),
+                  label: Text(l10n.preset7Day),
                   onPressed: () => notifier.applyPreset(_preset7),
                   visualDensity: VisualDensity.compact,
                 ),
                 ActionChip(
-                  label: const Text('14天轮转'),
+                  label: Text(l10n.preset14Day),
                   onPressed: () => notifier.applyPreset(_preset14),
                   visualDensity: VisualDensity.compact,
                 ),
                 ActionChip(
                   avatar: const Icon(Icons.delete_outline, size: 16),
-                  label: const Text('清空'),
+                  label: Text(l10n.clearAllLabel),
                   onPressed: () => notifier.clearAll(),
                   visualDensity: VisualDensity.compact,
                 ),
@@ -152,7 +152,7 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
               const SizedBox(height: 16),
 
               // ── ③ Add buttons ──
-              const Text('添加班次', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              Text(l10n.addShiftLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(spacing: 8, runSpacing: 4, children: [
                 _AddButton(ShiftType.MORNING, localizedShiftFullLabel(ShiftType.MORNING, l10n), shiftMorning, () => notifier.addShift(ShiftType.MORNING)),
@@ -172,11 +172,11 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('轮转序列（${state.sequence.length} 项）',
+                      Text(l10n.rotationSeqLabel(state.sequence.length),
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
                       if (state.sequence.isEmpty)
-                        Text('请添加至少一个班次',
+                        Text(l10n.addAtLeastOne,
                             style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
                       Wrap(spacing: 4, runSpacing: 4, children: List.generate(state.sequence.length, (i) {
                         final type = state.sequence[i];
@@ -223,7 +223,7 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
                         child: Row(children: [
                           const Icon(Icons.calendar_today, size: 20),
                           const SizedBox(width: 12),
-                          const Text('起始日期', style: TextStyle(fontSize: 14)),
+                          Text(l10n.startDateLabel, style: const TextStyle(fontSize: 14)),
                           const Spacer(),
                           Text(
                             '${state.startDate.year}-${state.startDate.month.toString().padLeft(2, '0')}-${state.startDate.day.toString().padLeft(2, '0')}',
@@ -237,7 +237,7 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
                     Row(children: [
                       const Icon(Icons.group_outlined, size: 20),
                       const SizedBox(width: 12),
-                      const Text('默认班组', style: TextStyle(fontSize: 14)),
+                      Text(l10n.defaultTeamLabel, style: const TextStyle(fontSize: 14)),
                       const Spacer(),
                       DropdownButton<int>(
                         value: state.defaultTeamId,
@@ -265,9 +265,9 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('预览', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text(l10n.previewLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    Text('班组间隔: ${state.cycleLength ~/ Team.totalTeams} 天',
+                    Text(l10n.teamGapLabel(state.cycleLength ~/ Team.totalTeams),
                         style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
                     const SizedBox(height: 4),
                     Wrap(
@@ -301,12 +301,12 @@ class _ShiftRuleScreenState extends ConsumerState<ShiftRuleScreen> {
                         style: FilledButton.styleFrom(backgroundColor: Colors.green.withValues(alpha: 0.15)),
                         onPressed: null,
                         icon: const Icon(Icons.check_circle, color: Colors.green),
-                        label: const Text('已保存', style: TextStyle(color: Colors.green)),
+                        label: Text(l10n.savedLabel, style: const TextStyle(color: Colors.green)),
                       )
                     : FilledButton.icon(
                         onPressed: state.isDirty ? () => notifier.save() : null,
                         icon: const Icon(Icons.save),
-                        label: const Text('保存并生成排班表'),
+                        label: Text(l10n.saveAndGenerate),
                       ),
               ),
               const SizedBox(height: 32),

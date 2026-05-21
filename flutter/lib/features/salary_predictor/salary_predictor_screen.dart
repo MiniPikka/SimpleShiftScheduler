@@ -141,7 +141,7 @@ class _SalaryPredictorScreenState
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Row(children: [
                 IconButton(onPressed: _prevMonth, icon: const Icon(Icons.chevron_left), visualDensity: VisualDensity.compact),
-                Text('$_year年$_month月', style: theme.textTheme.headlineMedium),
+                Text(l10n.monthYearFormat(_year, _month), style: theme.textTheme.headlineMedium),
                 IconButton(onPressed: _nextMonth, icon: const Icon(Icons.chevron_right), visualDensity: VisualDensity.compact),
                 if (!isCurrentMonth)
                   TextButton(onPressed: () { setState(() { _year = now.year; _month = now.month; }); }, child: Text(l10n.today, style: const TextStyle(fontSize: 12))),
@@ -227,11 +227,11 @@ class _SalaryPredictorScreenState
                   const SizedBox(width: 8),
                   Text(label, style: const TextStyle(fontSize: 14)),
                   const Spacer(),
-                  Text(value == 0 ? '未设置' : '¥${value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 1)}',
+                  Text(value == 0 ? context.l10n.alarmNotSet : '¥${value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 1)}',
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
                           color: value > 0 ? color : Theme.of(context).colorScheme.onSurfaceVariant)),
                   const SizedBox(width: 4),
-                  const Text('元/班', style: TextStyle(fontSize: 13)),
+                  Text(context.l10n.yuanPerShift, style: const TextStyle(fontSize: 13)),
                   const SizedBox(width: 4),
                   Icon(Icons.edit, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ]),

@@ -116,5 +116,27 @@
   "messageConsecutive": "連続勤務お疲れ様、体調に気をつけて",
   "messageDefault": "無理せず、もうすぐ休みです",
 
+  "monthYearFormat": "{year}年{month}月",
+  "saveAndGenerate": "保存して生成",
+  "savedLabel": "保存済み",
+  "discardChangesTitle": "変更を破棄しますか？",
+  "discardChangesMsg": "保存されていない変更があります。本当に終了しますか？",
+  "continueEdit": "編集を続ける",
+  "discard": "破棄",
+  "cycleLengthLabel": "サイクル長",
+  "dayUnit": "日",
+  "preset42Day": "デフォルト42日",
+  "preset7Day": "7日ローテ",
+  "preset14Day": "14日ローテ",
+  "clearAllLabel": "クリア",
+  "addShiftLabel": "シフト追加",
+  "rotationSeqLabel": "ローテーション（{count} 項目）",
+  "previewLabel": "プレビュー",
+  "startDateLabel": "開始日",
+  "defaultTeamLabel": "デフォルトチーム",
+  "teamGapLabel": "チーム間隔: {days} 日",
+  "yuanPerShift": "元/シフト",
+  "addAtLeastOne": "少なくとも1つのシフトを追加してください",
+
   "versionInfo": "倒班アシスト CP v1.0.0"
 }

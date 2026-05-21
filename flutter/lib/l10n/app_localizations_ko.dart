@@ -318,5 +318,74 @@ class AppLocalizationsKo extends AppLocalizations {
   String get messageDefault => '무리하지 마세요, 곧 휴식입니다';
 
   @override
+  String monthYearFormat(Object year, Object month) {
+    return '$year년 $month월';
+  }
+
+  @override
+  String get saveAndGenerate => '저장 및 생성';
+
+  @override
+  String get savedLabel => '저장됨';
+
+  @override
+  String get discardChangesTitle => '변경 사항을 취소할까요?';
+
+  @override
+  String get discardChangesMsg => '저장되지 않은 변경 사항이 있습니다. 정말 나가시겠습니까?';
+
+  @override
+  String get continueEdit => '계속 편집';
+
+  @override
+  String get discard => '취소';
+
+  @override
+  String get cycleLengthLabel => '주기 길이';
+
+  @override
+  String get dayUnit => '일';
+
+  @override
+  String get preset42Day => '기본 42일';
+
+  @override
+  String get preset7Day => '7일 로테이션';
+
+  @override
+  String get preset14Day => '14일 로테이션';
+
+  @override
+  String get clearAllLabel => '초기화';
+
+  @override
+  String get addShiftLabel => '근무 추가';
+
+  @override
+  String rotationSeqLabel(Object count) {
+    return '로테이션 ($count 항목)';
+  }
+
+  @override
+  String get previewLabel => '미리보기';
+
+  @override
+  String get startDateLabel => '시작일';
+
+  @override
+  String get defaultTeamLabel => '기본 팀';
+
+  @override
+  String teamGapLabel(Object days) {
+    return '팀 간격: $days 일';
+  }
+
+  @override
+  String get yuanPerShift => '위안/근무';
+
+  @override
+  String get addAtLeastOne => '최소 하나의 근무를 추가하세요';
+
+  @override
   String get versionInfo => '교대 도우미 CP v1.0.0';
 }

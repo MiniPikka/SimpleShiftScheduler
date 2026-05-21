@@ -63,21 +63,24 @@ class _NotificationSchedulerState
 
   @override
   Widget build(BuildContext context) {
-    final repoAsync = ref.watch(hiveRepoProvider);
+    ref.watch(hiveRepoProvider);
     ref.watch(alarmSettingsProvider);
     final settings = ref.watch(settingsProvider);
 
     ref.listen(alarmSettingsProvider, (prev, next) {
-      _debouncedReschedule(repoAsync, next, settings);
+      _debouncedReschedule(settings);
     });
 
     ref.listen(hiveRepoProvider, (prev, next) {
       next.whenData((_) {
         _debouncedReschedule(
-          repoAsync,
-          ref.read(alarmSettingsProvider),
           ref.read(settingsProvider),
         );
+      });
+      // Log error but don't block — sync with defaults if Hive fails
+      next.whenOrNull(error: (e, _) {
+        debugPrint('Hive repo load failed: $e — syncing with defaults');
+        _debouncedReschedule(ref.read(settingsProvider));
       });
     });
 
@@ -85,30 +88,23 @@ class _NotificationSchedulerState
   }
 
   /// Debounce reschedule calls to prevent duplicate syncs during cold start.
-  void _debouncedReschedule(
-    AsyncValue<dynamic> repoAsync,
-    AlarmSettings alarmSettings,
-    RuntimeShiftSettings settings,
-  ) {
-    if (!repoAsync.hasValue || !settings.isValid) return;
+  void _debouncedReschedule(RuntimeShiftSettings settings) {
+    if (!settings.isValid) return;
 
     _needsResync = true;
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      _performSync(repoAsync, alarmSettings, settings);
+      _performSync(settings);
     });
   }
 
-  Future<void> _performSync(
-    AsyncValue<dynamic> repoAsync,
-    AlarmSettings alarmSettings,
-    RuntimeShiftSettings settings,
-  ) async {
+  Future<void> _performSync(RuntimeShiftSettings settings) async {
     if (_isSyncingCalendar || !_needsResync) return;
     _needsResync = false;
     _isSyncingCalendar = true;
 
     try {
+      final alarmSettings = ref.read(alarmSettingsProvider);
       final teamId = ref.read(selectedTeamProvider);
       final phaseOffset = teamPhaseOffsetFor(
         teamId,

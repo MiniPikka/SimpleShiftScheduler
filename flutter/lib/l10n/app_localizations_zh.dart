@@ -318,5 +318,74 @@ class AppLocalizationsZh extends AppLocalizations {
   String get messageDefault => '累了就歇会儿，休息日很快就到';
 
   @override
+  String monthYearFormat(Object year, Object month) {
+    return '$year年$month月';
+  }
+
+  @override
+  String get saveAndGenerate => '保存并生成排班表';
+
+  @override
+  String get savedLabel => '已保存';
+
+  @override
+  String get discardChangesTitle => '放弃修改？';
+
+  @override
+  String get discardChangesMsg => '有未保存的修改，确定要离开吗？';
+
+  @override
+  String get continueEdit => '继续编辑';
+
+  @override
+  String get discard => '放弃';
+
+  @override
+  String get cycleLengthLabel => '周期长度';
+
+  @override
+  String get dayUnit => '天';
+
+  @override
+  String get preset42Day => '默认42天';
+
+  @override
+  String get preset7Day => '7天轮转';
+
+  @override
+  String get preset14Day => '14天轮转';
+
+  @override
+  String get clearAllLabel => '清空';
+
+  @override
+  String get addShiftLabel => '添加班次';
+
+  @override
+  String rotationSeqLabel(Object count) {
+    return '轮转序列（$count 项）';
+  }
+
+  @override
+  String get previewLabel => '预览';
+
+  @override
+  String get startDateLabel => '起始日期';
+
+  @override
+  String get defaultTeamLabel => '默认班组';
+
+  @override
+  String teamGapLabel(Object days) {
+    return '班组间隔: $days 天';
+  }
+
+  @override
+  String get yuanPerShift => '元/班';
+
+  @override
+  String get addAtLeastOne => '请添加至少一个班次';
+
+  @override
   String get versionInfo => '倒班助手 CP v1.0.0';
 }

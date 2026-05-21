@@ -87,7 +87,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   child: Column(key: ValueKey('$year-$month'), children: [
                     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                       IconButton(onPressed: _prevMonth, icon: const Icon(Icons.chevron_left)),
-                      Text('$year年${month}月', style: theme.textTheme.headlineMedium),
+                      Text(l10n.monthYearFormat(year, month), style: theme.textTheme.headlineMedium),
                       IconButton(onPressed: _nextMonth, icon: const Icon(Icons.chevron_right)),
                     ]),
                     const SizedBox(height: 8),

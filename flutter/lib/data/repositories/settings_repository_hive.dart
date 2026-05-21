@@ -107,10 +107,13 @@ class HiveSettingsRepository implements SettingsRepository {
       final premiums = <ShiftType, double>{};
       for (final entry in raw.split(',')) {
         final parts = entry.split('=');
-        if (parts.length == 2) {
-          final type = ShiftType.values.byName(parts[0].trim());
-          final value = double.tryParse(parts[1].trim()) ?? 0;
-          premiums[type] = value;
+        if (parts.length != 2) continue;
+        final typeName = parts[0].trim();
+        final value = double.tryParse(parts[1].trim()) ?? 0;
+        try {
+          premiums[ShiftType.values.byName(typeName)] = value;
+        } catch (_) {
+          // Skip invalid enum names, keep valid entries
         }
       }
       return SalaryConfig(shiftPremiums: premiums);

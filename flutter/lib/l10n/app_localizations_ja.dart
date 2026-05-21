@@ -318,5 +318,74 @@ class AppLocalizationsJa extends AppLocalizations {
   String get messageDefault => '無理せず、もうすぐ休みです';
 
   @override
+  String monthYearFormat(Object year, Object month) {
+    return '$year年$month月';
+  }
+
+  @override
+  String get saveAndGenerate => '保存して生成';
+
+  @override
+  String get savedLabel => '保存済み';
+
+  @override
+  String get discardChangesTitle => '変更を破棄しますか？';
+
+  @override
+  String get discardChangesMsg => '保存されていない変更があります。本当に終了しますか？';
+
+  @override
+  String get continueEdit => '編集を続ける';
+
+  @override
+  String get discard => '破棄';
+
+  @override
+  String get cycleLengthLabel => 'サイクル長';
+
+  @override
+  String get dayUnit => '日';
+
+  @override
+  String get preset42Day => 'デフォルト42日';
+
+  @override
+  String get preset7Day => '7日ローテ';
+
+  @override
+  String get preset14Day => '14日ローテ';
+
+  @override
+  String get clearAllLabel => 'クリア';
+
+  @override
+  String get addShiftLabel => 'シフト追加';
+
+  @override
+  String rotationSeqLabel(Object count) {
+    return 'ローテーション（$count 項目）';
+  }
+
+  @override
+  String get previewLabel => 'プレビュー';
+
+  @override
+  String get startDateLabel => '開始日';
+
+  @override
+  String get defaultTeamLabel => 'デフォルトチーム';
+
+  @override
+  String teamGapLabel(Object days) {
+    return 'チーム間隔: $days 日';
+  }
+
+  @override
+  String get yuanPerShift => '元/シフト';
+
+  @override
+  String get addAtLeastOne => '少なくとも1つのシフトを追加してください';
+
+  @override
   String get versionInfo => '倒班アシスト CP v1.0.0';
 }

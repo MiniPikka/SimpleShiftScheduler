@@ -690,6 +690,132 @@ abstract class AppLocalizations {
   /// **'累了就歇会儿，休息日很快就到'**
   String get messageDefault;
 
+  /// No description provided for @monthYearFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'{year}年{month}月'**
+  String monthYearFormat(Object year, Object month);
+
+  /// No description provided for @saveAndGenerate.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存并生成排班表'**
+  String get saveAndGenerate;
+
+  /// No description provided for @savedLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存'**
+  String get savedLabel;
+
+  /// No description provided for @discardChangesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃修改？'**
+  String get discardChangesTitle;
+
+  /// No description provided for @discardChangesMsg.
+  ///
+  /// In zh, this message translates to:
+  /// **'有未保存的修改，确定要离开吗？'**
+  String get discardChangesMsg;
+
+  /// No description provided for @continueEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续编辑'**
+  String get continueEdit;
+
+  /// No description provided for @discard.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃'**
+  String get discard;
+
+  /// No description provided for @cycleLengthLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'周期长度'**
+  String get cycleLengthLabel;
+
+  /// No description provided for @dayUnit.
+  ///
+  /// In zh, this message translates to:
+  /// **'天'**
+  String get dayUnit;
+
+  /// No description provided for @preset42Day.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认42天'**
+  String get preset42Day;
+
+  /// No description provided for @preset7Day.
+  ///
+  /// In zh, this message translates to:
+  /// **'7天轮转'**
+  String get preset7Day;
+
+  /// No description provided for @preset14Day.
+  ///
+  /// In zh, this message translates to:
+  /// **'14天轮转'**
+  String get preset14Day;
+
+  /// No description provided for @clearAllLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空'**
+  String get clearAllLabel;
+
+  /// No description provided for @addShiftLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'添加班次'**
+  String get addShiftLabel;
+
+  /// No description provided for @rotationSeqLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'轮转序列（{count} 项）'**
+  String rotationSeqLabel(Object count);
+
+  /// No description provided for @previewLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览'**
+  String get previewLabel;
+
+  /// No description provided for @startDateLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'起始日期'**
+  String get startDateLabel;
+
+  /// No description provided for @defaultTeamLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认班组'**
+  String get defaultTeamLabel;
+
+  /// No description provided for @teamGapLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'班组间隔: {days} 天'**
+  String teamGapLabel(Object days);
+
+  /// No description provided for @yuanPerShift.
+  ///
+  /// In zh, this message translates to:
+  /// **'元/班'**
+  String get yuanPerShift;
+
+  /// No description provided for @addAtLeastOne.
+  ///
+  /// In zh, this message translates to:
+  /// **'请添加至少一个班次'**
+  String get addAtLeastOne;
+
   /// No description provided for @versionInfo.
   ///
   /// In zh, this message translates to:

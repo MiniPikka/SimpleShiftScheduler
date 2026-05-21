@@ -321,5 +321,74 @@ class AppLocalizationsEn extends AppLocalizations {
   String get messageDefault => 'Take it easy, rest day will come';
 
   @override
+  String monthYearFormat(Object year, Object month) {
+    return '$month/$year';
+  }
+
+  @override
+  String get saveAndGenerate => 'Save & Generate';
+
+  @override
+  String get savedLabel => 'Saved';
+
+  @override
+  String get discardChangesTitle => 'Discard changes?';
+
+  @override
+  String get discardChangesMsg => 'You have unsaved changes. Leave anyway?';
+
+  @override
+  String get continueEdit => 'Keep Editing';
+
+  @override
+  String get discard => 'Discard';
+
+  @override
+  String get cycleLengthLabel => 'Cycle Length';
+
+  @override
+  String get dayUnit => 'days';
+
+  @override
+  String get preset42Day => 'Default 42';
+
+  @override
+  String get preset7Day => '7-day';
+
+  @override
+  String get preset14Day => '14-day';
+
+  @override
+  String get clearAllLabel => 'Clear All';
+
+  @override
+  String get addShiftLabel => 'Add Shift';
+
+  @override
+  String rotationSeqLabel(Object count) {
+    return 'Sequence ($count items)';
+  }
+
+  @override
+  String get previewLabel => 'Preview';
+
+  @override
+  String get startDateLabel => 'Start Date';
+
+  @override
+  String get defaultTeamLabel => 'Default Team';
+
+  @override
+  String teamGapLabel(Object days) {
+    return 'Team gap: $days days';
+  }
+
+  @override
+  String get yuanPerShift => 'CNY/shift';
+
+  @override
+  String get addAtLeastOne => 'Add at least one shift';
+
+  @override
   String get versionInfo => 'Shift Mate CP v1.0.0';
 }

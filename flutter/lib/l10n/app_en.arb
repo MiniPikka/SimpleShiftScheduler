@@ -116,5 +116,27 @@
   "messageConsecutive": "Long stretch — take care of yourself",
   "messageDefault": "Take it easy, rest day will come",
 
+  "monthYearFormat": "{month}/{year}",
+  "saveAndGenerate": "Save & Generate",
+  "savedLabel": "Saved",
+  "discardChangesTitle": "Discard changes?",
+  "discardChangesMsg": "You have unsaved changes. Leave anyway?",
+  "continueEdit": "Keep Editing",
+  "discard": "Discard",
+  "cycleLengthLabel": "Cycle Length",
+  "dayUnit": "days",
+  "preset42Day": "Default 42",
+  "preset7Day": "7-day",
+  "preset14Day": "14-day",
+  "clearAllLabel": "Clear All",
+  "addShiftLabel": "Add Shift",
+  "rotationSeqLabel": "Sequence ({count} items)",
+  "previewLabel": "Preview",
+  "startDateLabel": "Start Date",
+  "defaultTeamLabel": "Default Team",
+  "teamGapLabel": "Team gap: {days} days",
+  "yuanPerShift": "CNY/shift",
+  "addAtLeastOne": "Add at least one shift",
+
   "versionInfo": "Shift Mate CP v1.0.0"
 }

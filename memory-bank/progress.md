@@ -1,5 +1,41 @@
 # 倒班助手开发进度记录
 
+## 2026-05-21：CP 版本全项目审查 + 鲁棒性修复 ✅
+
+### P0 修复（数据安全）
+
+| # | 问题 | 修复 |
+|---|------|------|
+| 1 | `alarm_settings_notifier.dart` 保存缺少 `await` | 添加 `await`，确保 Hive 写入完成 |
+| 2 | `salary_config_notifier.dart` 同上 | 同上 |
+| 3 | Hive 反序列化 `ShiftType.values.byName` 异常静默丢弃 | 改为 per-entry try-catch，有效条目保留 |
+| 4 | Hive 加载失败后永不重试日历同步 | 移除 `repoAsync.hasValue` 前置条件，添加 error listener |
+
+### P1 修复（国际化）
+
+- `shift_rule_screen.dart`：全部 15+ 处硬编码中文替换为 l10n
+- `salary_predictor_screen.dart`：月份格式、单位标签替换
+- `calendar_screen.dart`：月份标题替换
+- `.arb` 文件：4 语言新增 22 个翻译键
+
+### 改造文件
+
+| 类型 | 文件 |
+|------|------|
+| P0 | `alarm_settings_notifier.dart`, `salary_config_notifier.dart`, `settings_repository_hive.dart`, `main.dart` |
+| P1 | `shift_rule_screen.dart`, `salary_predictor_screen.dart`, `calendar_screen.dart` |
+| l10n | `app_zh.arb`, `app_en.arb`, `app_ja.arb`, `app_ko.arb` + 生成的 `.dart` 文件 |
+
+### 已知遗留（后续 i18n 专项处理）
+
+- `leave_optimizer_screen.dart` — 策略卡片日期格式
+- `colleague_mode_screen.dart` — 日期格式
+- `share_card_layout.dart` — 整个分享卡布局
+- `home_screen.dart` — 日期格式
+- `notification_scheduler.dart` — 通知标题
+
+---
+
 ## 2026-05-21：CP 版本倒班规则自定义 ✅
 
 ### 功能实现

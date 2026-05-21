@@ -31,8 +31,8 @@ class AlarmSettingsNotifier extends StateNotifier<AlarmSettings> {
   Future<void> updateAlarmTime(ShiftType type, AlarmTime? time) async {
     state = state.copyWithUpdate(type, time);
     final repoAsync = _ref.read(hiveRepoProvider);
-    repoAsync.whenData((repo) {
-      repo.saveAlarmSettings(state);
+    await repoAsync.whenData((repo) async {
+      await repo.saveAlarmSettings(state);
     });
   }
 }

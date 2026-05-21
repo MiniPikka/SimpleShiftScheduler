@@ -33,8 +33,8 @@ class SalaryConfigNotifier extends StateNotifier<SalaryConfig> {
     state = SalaryConfig(shiftPremiums: newPremiums);
 
     final repoAsync = _ref.read(hiveRepoProvider);
-    repoAsync.whenData((repo) {
-      repo.saveSalaryConfig(state);
+    await repoAsync.whenData((repo) async {
+      await repo.saveSalaryConfig(state);
     });
   }
 }
