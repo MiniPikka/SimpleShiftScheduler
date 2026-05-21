@@ -1,5 +1,31 @@
 # 倒班助手开发进度记录
 
+## 2026-05-21：CP 版本倒班规则自定义 ✅
+
+### 功能实现
+
+Profile 页"倒班规则"按钮原为死链接，现已完全实现。
+
+| 功能 | 实现 |
+|------|------|
+| 单页滚动 UI | 周期长度 + 预设 + 添加按钮 + Chip 列表 + 日期 + 班组 + 预览 + 保存 |
+| 快捷预设 | 默认42天 / 7天轮转 / 14天轮转 / 清空 |
+| 编辑方式 | 加载当前周期 → 增删改 Chip → 保存 |
+| 周期长度 | 独立设置 + 不足自动填充 REST + 超出截断 |
+| referenceDate 持久化 fix | Hive save/load 遗漏字段，重启后日期不丢失 |
+| 防误退 | `PopScope` + `isDirty`，未保存时弹确认框 |
+| 保存副作用 | `settingsProvider` → 首页/日历自动刷新 + 日历日程重排 |
+
+### 新增/改造文件
+
+| 新增（2 个） | 改造（3 个） |
+|-------------|-------------|
+| `features/settings/shift_rule_notifier.dart` | `data/repositories/settings_repository_hive.dart` |
+| `features/settings/shift_rule_screen.dart` | `app/routes.dart` |
+| | `features/profile/profile_screen.dart` |
+
+---
+
 ## 2026-05-21：CP 版本倒班津贴功能完善 ✅
 
 ### 功能补齐

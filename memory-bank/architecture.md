@@ -257,6 +257,36 @@ SalaryPredictorScreen
 | 班次统计行 | 5 行彩色圆点 + 次数 + 小计金额 |
 | 假设分析卡片 | 0~5 FilterChip + 班次类型下拉 + 增量结果 |
 
+## A.9 CP 版倒班规则自定义架构
+
+### 数据流
+
+```
+ShiftRuleNotifier (Riverpod StateNotifier)
+  ├── 构造时 loadSettings() 初始化状态
+  ├── addShift/removeShift/setCycleLength → isDirty=true
+  └── save() → 构建 RuntimeShiftSettings
+        → settingsProvider.notifier.update(settings)
+        → Hive 持久化 → 首页/日历/津贴页自动刷新 + 日历日程重排
+
+ShiftRuleScreen
+  ├── 读取 shiftRuleProvider（周期长度/序列/日期/班组）
+  ├── 本地 TextEditingController 同步周期长度
+  └── PopScope + isDirty 防误退
+```
+
+### 组件结构
+
+| 组件 | 功能 |
+|------|------|
+| 周期长度 TextField | 数字键盘，修改后自动 REST 填充/截断 |
+| 预设 ActionChip | 默认42天/7天/14天/清空 |
+| 添加按钮行 | 5 个彩色 FilledTonalButton（早/中/休/夜/学） |
+| Chip 列表 | Wrap 展示，序号+彩色圆点+label，X 删除 |
+| 日期+班组卡片 | showDatePicker + DropdownButton |
+| 预览卡片 | 前 20 项彩色圆点 + 班组间隔信息 |
+| 保存按钮 | isDirty 可点击 → isSaved 绿色确认 → 2秒后消失 |
+
 ---
 
 # Part B：Phase 1 Android 版架构（已完成）

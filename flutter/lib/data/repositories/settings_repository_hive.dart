@@ -47,10 +47,14 @@ class HiveSettingsRepository implements SettingsRepository {
         if (shiftCycle.isEmpty) shiftCycle = ShiftCycleConfigFallback.shiftCycle;
       }
 
+      final refDateStr = raw['referenceDate'] as String?;
+      final referenceDate = refDateStr != null ? DateTime.tryParse(refDateStr) : null;
+
       return RuntimeShiftSettings(
         cycleLength: cycleLength,
         shiftCycle: shiftCycle,
         defaultTeamId: defaultTeamId,
+        referenceDate: referenceDate,
       );
     } catch (_) {
       return RuntimeShiftSettings();
@@ -63,6 +67,7 @@ class HiveSettingsRepository implements SettingsRepository {
       'cycleLength': settings.cycleLength,
       'shiftCycle': serializeShiftCycle(settings.shiftCycle),
       'defaultTeamId': settings.defaultTeamId,
+      'referenceDate': '${settings.referenceDate.year}-${settings.referenceDate.month.toString().padLeft(2, '0')}-${settings.referenceDate.day.toString().padLeft(2, '0')}',
     });
   }
 

@@ -33,7 +33,7 @@ class ProfileScreen extends ConsumerWidget {
               _MenuItem(icon: Icons.payments_outlined, title: l10n.salaryPredictor, subtitle: l10n.salaryPredictorDesc, onTap: () => context.push('/salary-predictor')),
               const SizedBox(height: 8),
               Padding(padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4), child: Text(l10n.settingsTitle, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
-              _MenuItem(icon: Icons.settings_outlined, title: l10n.shiftRule, subtitle: l10n.shiftRuleDesc, onTap: () {}),
+              _MenuItem(icon: Icons.settings_outlined, title: l10n.shiftRule, subtitle: l10n.shiftRuleDesc, onTap: () => context.push('/shift-rule')),
               const SizedBox(height: 8),
               _MenuItem(icon: Icons.notifications_outlined, title: l10n.alarmSettings, subtitle: l10n.alarmSettingsDesc, onTap: () => context.push('/alarm-settings')),
               const SizedBox(height: 24),

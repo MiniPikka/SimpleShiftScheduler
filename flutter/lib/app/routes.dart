@@ -8,6 +8,7 @@ import '../features/leave_optimizer/leave_optimizer_screen.dart';
 import '../features/colleague_mode/colleague_mode_screen.dart';
 import '../features/salary_predictor/salary_predictor_screen.dart';
 import '../features/alarm_settings/alarm_settings_screen.dart';
+import '../features/settings/shift_rule_screen.dart';
 
 /// 自定义页面过渡动画：从右滑入 + 淡入
 Page<dynamic> _buildPageWithTransition({
@@ -88,5 +89,6 @@ final router = GoRouter(
     GoRoute(path: '/colleague-mode', pageBuilder: (context, state) => _buildPageWithTransition(key: state.pageKey, child: const ColleagueModeScreen())),
     GoRoute(path: '/salary-predictor', pageBuilder: (context, state) => _buildPageWithTransition(key: state.pageKey, child: const SalaryPredictorScreen())),
     GoRoute(path: '/alarm-settings', pageBuilder: (context, state) => _buildPageWithTransition(key: state.pageKey, child: const AlarmSettingsScreen())),
+  GoRoute(path: '/shift-rule', pageBuilder: (context, state) => _buildPageWithTransition(key: state.pageKey, child: const ShiftRuleScreen())),
   ],
 );
