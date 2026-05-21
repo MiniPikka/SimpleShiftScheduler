@@ -4,25 +4,27 @@
 
 ### 功能补齐
 
-倒班津贴页原有实现仅显示固定标签+硬编码金额，无编辑能力、无月份切换、无持久化。
+倒班津贴页原有实现仅显示固定标签+硬编码金额，无编辑能力、无月份切换、无持久化。假设分析功能移除（用户反馈不需要）。
 
 | 补齐项 | 内容 |
 |--------|------|
-| 配置持久化 | `HiveSettingsRepository` 新增 `loadSalaryConfig()`/`saveSalaryConfig()`，Hive Box `salary_config`，序列化格式 `"MORNING=50.0,AFTERNOON=30.0,..."` |
-| StateNotifier | 新增 `SalaryConfigNotifier` + `salaryConfigProvider`，修改即自动保存（对齐 alarm_settings 模式） |
-| 可折叠津贴设置 | 展开后 4 行编辑区（早/中/夜/学），彩色圆点+标签+OutlinedTextField+元/班后缀 |
-| 月份切换 | ← → 箭头浏览任意月份，非当月时显示"今天"按钮 |
-| 班组切换 | 页面内 DropdownButton，独立于全局班组选择 |
-| What-if FilterChip | 0~5 天 FilterChip 选择 + 班次类型下拉 + 增量结果展示 |
+| 配置持久化 | `HiveSettingsRepository` + `salary_config` Box，序列化 `"MORNING=50.0,..."` |
+| StateNotifier | `SalaryConfigNotifier` + `salaryConfigProvider`，修改即自动保存 |
+| 内联编辑津贴 | 点击行→原地展开 TextField + ✅❌按钮，支持小数，零 dialog |
+| 月份切换 | ← → 箭头浏览，非当月显示"今天" |
+| 班组切换 | 页面内 DropdownButton |
+
+### 输入方案演进
+
+AlertDialog + TextField → 国产键盘兼容问题。最终采用**原地内联编辑**：`_editingType` 状态控制，setState 切换，回车提交，点击空白取消。
 
 ### 新增/改造文件
 
-| 新增（1 个） | 改造（4 个） |
+| 新增（2 个） | 改造（3 个） |
 |-------------|-------------|
 | `features/salary_predictor/salary_config_notifier.dart` | `data/repositories/settings_repository.dart` |
-| | `data/repositories/settings_repository_hive.dart` |
+| `test/features/salary_predictor/salary_predictor_test.dart`（8 用例） | `data/repositories/settings_repository_hive.dart` |
 | | `features/salary_predictor/salary_predictor_screen.dart` |
-| | `data/providers.dart` |
 
 ### 验证
 
