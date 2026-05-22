@@ -1,0 +1,16 @@
+[package]
+name = "shift-flutter-bridge"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+shift-algorithm = { path = "../../shift-core/crates/shift-algorithm" }
+shift-statistics = { path = "../../shift-core/crates/shift-statistics" }
+leave-optimizer = { path = "../../shift-core/crates/leave-optimizer" }
+holiday-engine = { path = "../../shift-core/crates/holiday-engine" }
+export-engine = { path = "../../shift-core/crates/export-engine" }
+chrono = "0.4"
+serde_json = "1.0"
