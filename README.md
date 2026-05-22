@@ -2,121 +2,117 @@
 
 **倒班人群的生活伴侣** — shift schedule engine written in Rust.
 
-```
+```bash
 banban today          →  🟣 夜班 · 一值 · 第 33/42 天 · 明天休息
-banban leave -m 3     →  🏖️ 请 2 天 → 连休 15 天 (中秋+国庆)
-banban export --ics   →  生成日历文件，导入 Thunderbird
+banban leave -m 3     →  🏖️  请 2 天 → 连休 15 天 (中秋+国庆桥接)
+banban export --ics   →  生成 ICS 日历文件，导入 Thunderbird
+banban tui            →  全屏终端界面，btop/lazygit 风格
 ```
 
----
+## Install
 
-## Project Structure
+```bash
+# From crates.io
+cargo install shift-cli
 
+# From source
+git clone https://github.com/MiniPikka/SimpleShiftScheduler.git
+cd SimpleShiftScheduler/shift-core
+cargo install --path cli
+
+# Ready
+banban today
 ```
-SimpleShiftScheduler/
-├── shift-core/        ← Rust workspace (主力开发, 111 tests)
-│   ├── crates/        ← algorithm, statistics, holidays, leave-opt, ICS export
-│   └── cli/           ← banban CLI (9 commands)
-├── flutter/           ← Flutter 移动端 (110 tests, dart:ffi → Rust)
-├── android/           ← Android 原版 (参考实现, 162 tests)
-└── memory-bank/       ← 详细设计文档
-```
 
-- **shift-core**：所有排班算法、拼假、统计、ICS 导出，Rust 纯函数
-- **banban CLI**：命令行工具，`banban today` / `banban leave` / `banban export --ics`
-- **Flutter**：Android/iOS UI，通过 `dart:ffi` 调用 Rust，纯 Dart fallback
-- **Android**：功能完整的参考原型，算法已迁移到 Rust
-
----
+**Arch Linux**: `yay -S shift-cli` (coming soon)
 
 ## Quick Start
 
-### CLI (Linux)
-
 ```bash
-cd shift-core
-cargo build
-cargo run --bin banban -- today
-cargo run --bin banban -- calendar
-cargo run --bin banban -- leave -m 3
+banban today                    # 看看今天什么班
+banban --team 2 today           # 你是二值？试试这个
+banban calendar                 # 这个月的排班日历
+banban stats                    # 本月统计
+banban leave -m 3               # 今年怎么请假最划算
+banban colleague 1 3            # 一值和三值哪天能一起休
+banban export --ics --open      # 导出日历并打开 Thunderbird
+banban tui                      # 全屏交互界面
+banban install                  # 安装 systemd 每日定时提醒
 ```
-
-### Install
-
-```bash
-cargo install --path cli --root ~/.local
-~/.local/bin/banban today
-```
-
-### Mobile (Flutter)
-
-```bash
-cd flutter
-flutter test                    # 110 tests
-./build_rust_android.sh --run   # Build Rust for ARM64 + deploy to phone
-```
-
-### API Docs
-
-```bash
-cd shift-core
-cargo doc --no-deps --open
-```
-
----
 
 ## Features
 
-| 功能 | CLI | Flutter | ICS |
-|------|-----|---------|-----|
-| 今日班次 + 距休倒计时 | `banban today` | ✅ | — |
-| 月历（彩色 ANSI） | `banban calendar` | ✅ | ✅ |
-| 月度统计 | `banban stats` | ✅ | — |
-| 拼假神器 | `banban leave -m 3` | ✅ | — |
-| 同事模式 | `banban colleague 1 3` | ✅ | — |
-| ICS 日历导出 | `banban export --ics` | — | ✅ |
-| Waybar 状态栏 | `banban waybar` | — | — |
-| 桌面 Widget | — | ✅ | — |
+| 功能 | CLI | TUI | Flutter | ICS |
+|------|-----|-----|---------|-----|
+| 今日班次 + 距休倒计时 | `banban today` | ✅ | ✅ | — |
+| 月历（彩色 ANSI/CJK 对齐） | `banban calendar` | ✅ | ✅ | ✅ |
+| 月度统计 | `banban stats` | ✅ | ✅ | — |
+| 拼假神器 | `banban leave -m 3` | ✅ + - | ✅ | — |
+| 同事模式 | `banban colleague 1 3` | ✅ ←→↑↓ | ✅ | — |
+| ICS 日历导出 | `banban export --ics` | — | — | ✅ |
+| 全屏 TUI | `banban tui` | ✅ | — | — |
+| 桌面通知 | `banban notify` | — | — | — |
+| systemd 定时器 | `banban install` | — | — | — |
+| Waybar 状态栏 | `banban waybar` | — | — | — |
+| 桌面 Widget | — | — | ✅ | — |
 
----
+## Architecture
+
+```
+SimpleShiftScheduler/
+├── shift-core/        ← Rust workspace (111 tests)
+│   ├── crates/        ← algorithm, statistics, holidays, leave-opt, ICS export
+│   └── cli/           ← banban CLI + TUI (12 commands)
+├── flutter/           ← Flutter 移动端 (110 tests, dart:ffi → Rust)
+├── android/           ← Android 参考实现 (162 tests, archived)
+└── memory-bank/       ← 详细设计文档
+```
+
+**Rust is the single source of truth.** All platforms (CLI, TUI, Flutter, ICS export) call the same Rust crates.
 
 ## Algorithm
 
-42-day cycle, 6 teams, reference date 2025-12-15. All platforms share the same Rust implementation.
+42-day cycle, 6 teams (一值 ~ 六值), reference date 2025-12-15.
 
 | Constant | Value |
 |----------|-------|
 | Reference date | 2025-12-15 (day 1) |
 | Cycle length | 42 days |
-| Total teams | 6 (一值～六值) |
+| Total teams | 6 |
 | Team offset | (team_id - 1) × 7 days |
-
----
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Core Domain | Rust (shift-algorithm, shift-statistics, leave-optimizer, holiday-engine, export-engine) |
-| CLI | Rust + clap (binary: `banban`) |
+| Core Domain | Rust (5 crates) |
+| CLI + TUI | Rust + clap + ratatui + crossterm |
+| Calendar Export | ICS RFC 5545 (hand-rolled) |
+| Notifications | notify-rust + DBus + systemd |
 | Mobile UI | Flutter + Riverpod + GoRouter |
-| FFI Bridge | dart:ffi + package:ffi (JSON over C) |
-| Calendar Export | ICS RFC 5545 (hand-rolled, zero deps) |
-| Linux Desktop | KDE Plasma Widget, Waybar, DBus (planned) |
-
----
+| FFI Bridge | dart:ffi (JSON over C) |
 
 ## Test Summary
 
-| Component | Tests | Status |
-|-----------|-------|--------|
-| shift-core (Rust) | 111 (82 unit + 29 doctest) | ✅ |
-| Flutter FFI bridge | 5 | ✅ |
-| Flutter (Dart) | 110 | ✅ |
-| Android (reference) | 162 | ✅ archived |
-| **Total** | **388** | |
+| Component | Tests |
+|-----------|-------|
+| shift-core (Rust) | 111 |
+| Flutter FFI bridge | 5 |
+| Flutter (Dart) | 110 |
+| Android (reference) | 162 |
+| **Total** | **388** |
 
----
+```bash
+cd shift-core && cargo test        # Rust
+cd flutter && flutter test         # Flutter
+```
+
+## API Docs
+
+```bash
+cd shift-core
+cargo doc --no-deps --open
+```
 
 ## License
 
