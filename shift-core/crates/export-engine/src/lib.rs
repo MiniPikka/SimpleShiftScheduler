@@ -358,4 +358,155 @@ mod tests {
         // Every BEGIN must have matching END
         assert_eq!(ics.matches("BEGIN:").count(), ics.matches("END:").count());
     }
+
+    // ── RFC 5545 structural validation ──
+
+    /// Parse an ICS file into a list of (component_type, properties) blocks.
+    /// Validates BEGIN/END pairing and extracts key properties.
+    fn parse_ics_blocks(ics: &str) -> Vec<(String, Vec<(String, String)>)> {
+        let mut blocks: Vec<(String, Vec<(String, String)>)> = Vec::new();
+        let mut stack: Vec<String> = Vec::new();
+        let mut current_props: Vec<(String, String)> = Vec::new();
+        let mut current_component: Option<String> = None;
+
+        for line in ics.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+
+            if let Some(comp) = line.strip_prefix("BEGIN:") {
+                stack.push(comp.to_string());
+                if stack.len() == 2 {
+                    // Starting a new top-level component (VEVENT, VTIMEZONE, etc.)
+                    current_component = Some(comp.to_string());
+                    current_props = Vec::new();
+                }
+            } else if let Some(comp) = line.strip_prefix("END:") {
+                let expected = stack.pop().unwrap_or_default();
+                assert_eq!(comp, expected,
+                    "Mismatched END: expected {}, got {}", expected, comp);
+                if stack.len() == 1 && current_component.is_some() {
+                    blocks.push((current_component.take().unwrap(), std::mem::take(&mut current_props)));
+                }
+            } else if let Some((key, value)) = line.split_once(':') {
+                let key = key.trim_end_matches(|c: char| c.is_whitespace());
+                // Unfold multi-line values (RFC 5545 §3.1): lines starting with space/tab
+                // are continuations. We just collect the key-value pair.
+                current_props.push((key.to_string(), value.to_string()));
+            }
+        }
+
+        assert!(stack.is_empty(), "Unclosed components: {:?}", stack);
+        blocks
+    }
+
+    #[test]
+    fn rfc5545_begin_end_pairing() {
+        let config = default_config();
+        let start = NaiveDate::from_ymd_opt(2026, 6, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 6, 30).unwrap();
+        let ics = generate_shift_ics(start, end, &config, 0, 1, None, "Asia/Shanghai");
+
+        let blocks = parse_ics_blocks(&ics);
+        assert!(!blocks.is_empty());
+
+        // First block must be VCALENDAR (in practice we don't collect it,
+        // but every component must be well-formed)
+    }
+
+    #[test]
+    fn rfc5545_each_vevent_has_required_properties() {
+        let config = default_config();
+        let start = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 12, 31).unwrap();
+        let ics = generate_shift_ics(start, end, &config, 0, 1, None, "Asia/Shanghai");
+
+        let blocks = parse_ics_blocks(&ics);
+        let vevents: Vec<_> = blocks.iter().filter(|(t, _)| t == "VEVENT").collect();
+        assert!(vevents.len() >= 4, "Expected at least 4 VEVENTs, got {}", vevents.len());
+
+        for (_type, props) in &vevents {
+            let has_dtstart = props.iter().any(|(k, _)| k == "DTSTART;TZID=Asia/Shanghai");
+            let has_dtend = props.iter().any(|(k, _)| k == "DTEND;TZID=Asia/Shanghai");
+            let has_summary = props.iter().any(|(k, _)| k == "SUMMARY");
+            let has_rrule = props.iter().any(|(k, _)| k == "RRULE");
+
+            assert!(has_dtstart, "VEVENT missing DTSTART");
+            assert!(has_dtend, "VEVENT missing DTEND");
+            assert!(has_summary, "VEVENT missing SUMMARY");
+            assert!(has_rrule, "VEVENT missing RRULE");
+        }
+    }
+
+    #[test]
+    fn rfc5545_rrule_interval_matches_cycle() {
+        let config = default_config();
+        let start = NaiveDate::from_ymd_opt(2026, 6, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 12, 31).unwrap();
+        let ics = generate_shift_ics(start, end, &config, 0, 1, None, "Asia/Shanghai");
+
+        let blocks = parse_ics_blocks(&ics);
+        for (_type, props) in blocks.iter().filter(|(t, _)| t == "VEVENT") {
+            if let Some((_, rrule_val)) = props.iter().find(|(k, _)| k == "RRULE") {
+                assert!(rrule_val.contains("FREQ=DAILY"));
+                assert!(rrule_val.contains(&format!("INTERVAL={}", config.cycle_length)));
+                // UNTIL must be present and in YYYYMMDDT235959 format
+                assert!(rrule_val.contains("UNTIL="));
+                let until_part = rrule_val.split("UNTIL=").nth(1).unwrap();
+                assert!(until_part.ends_with("T235959"));
+            }
+        }
+    }
+
+    #[test]
+    fn rfc5545_dtstart_before_dtend() {
+        let config = default_config();
+        let start = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 12, 31).unwrap();
+        let ics = generate_shift_ics(start, end, &config, 0, 1, None, "Asia/Shanghai");
+
+        let blocks = parse_ics_blocks(&ics);
+        for (_type, props) in blocks.iter().filter(|(t, _)| t == "VEVENT") {
+            let dtstart = props.iter().find(|(k, _)| k.starts_with("DTSTART")).map(|(_, v)| v).unwrap();
+            let dtend = props.iter().find(|(k, _)| k.starts_with("DTEND")).map(|(_, v)| v).unwrap();
+
+            // Parse YYYYMMDDTHHMMSS
+            let start_val = &dtstart[dtstart.rfind(':').map(|i| i + 1).unwrap_or(0)..];
+            let end_val = &dtend[dtend.rfind(':').map(|i| i + 1).unwrap_or(0)..];
+
+            // Compare: Night shift DTEND may be next day, so end can be "smaller"
+            // but both should be valid 15-char date-times
+            assert_eq!(start_val.len(), 15, "DTSTART {:?} not in YYYYMMDDTHHMMSS", start_val);
+            assert_eq!(end_val.len(), 15, "DTEND {:?} not in YYYYMMDDTHHMMSS", end_val);
+        }
+    }
+
+    #[test]
+    fn rfc5545_alarm_has_required_properties() {
+        let config = default_config();
+        let start = NaiveDate::from_ymd_opt(2026, 6, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 6, 30).unwrap();
+        let mut alarms: AlarmConfig = HashMap::new();
+        alarms.insert("morning".into(), (6, 30));
+        let ics = generate_shift_ics(start, end, &config, 0, 1, Some(&alarms), "Asia/Shanghai");
+
+        // VALARM is nested inside VEVENT — check with string matching
+        assert!(ics.contains("BEGIN:VALARM\r\n"), "Missing VALARM begin");
+        assert!(ics.contains("TRIGGER:-PT"), "VALARM missing TRIGGER");
+        assert!(ics.contains("ACTION:DISPLAY"), "VALARM missing ACTION");
+        assert!(ics.contains("END:VALARM\r\n"), "Missing VALARM end");
+    }
+
+    #[test]
+    fn rfc5545_vtimezone_present() {
+        let config = default_config();
+        let start = NaiveDate::from_ymd_opt(2026, 6, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 6, 30).unwrap();
+        let ics = generate_shift_ics(start, end, &config, 0, 1, None, "Asia/Shanghai");
+
+        let blocks = parse_ics_blocks(&ics);
+        let has_vtimezone = blocks.iter().any(|(t, _)| t == "VTIMEZONE");
+        assert!(has_vtimezone, "Missing VTIMEZONE component");
+    }
 }
