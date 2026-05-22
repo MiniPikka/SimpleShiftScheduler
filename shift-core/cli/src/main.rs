@@ -106,43 +106,50 @@ impl Default for Config {
 
 // ── CLI definition ──
 
-/// 班伴 — 倒班人群的生活伴侣
+/// 倒班工人每天按照固定周期轮换班次：早→早→中→中→休→夜→夜→休→...
+/// 42 天一个循环，6 个班组（一值～六值）各差 7 天。
 ///
-/// Shift schedule CLI for querying today's shift, monthly stats,
-/// leave optimization, colleague mode, and Waybar integration.
+/// 这个工具帮你查今天什么班、什么时候休息、怎么请假最划算、
+/// 和另一个班组的人哪天能一起休息。
 ///
-/// Default output is human-readable with ANSI colors.
-/// Use --json for machine-readable JSON output.
+/// 第一步：如果你不是一值（默认），先告诉工具你的班组：
+///   shift --team 2 today              试试看今天什么班
+///   shift --team 2 calendar           看看这个月的排班日历
 ///
-/// Config file (optional): ~/.config/shift/config.toml
+/// 第二步：觉得班组对了，写进配置文件免得每次敲 --team：
+///   mkdir -p ~/.config/shift
+///   echo '[shift]\ndefault_team = 2' > ~/.config/shift/config.toml
+///
+/// 第三步：每天敲 shift 看一眼，或者加到 Waybar 状态栏上。
 #[derive(Parser)]
 #[command(
     name = "shift",
     version,
-    about = "班伴 — 倒班人群的生活伴侣",
-    long_about = "Shift schedule CLI for querying today's shift, monthly stats, leave optimization, colleague mode, and Waybar integration.",
-    after_help = "EXAMPLES:\n  \
-                  shift today                     Show today's shift info\n  \
-                  shift today --json              Machine-readable JSON output\n  \
-                  shift next-rest                 Countdown to next rest day\n  \
-                  shift calendar                  Current month calendar (ANSI colored)\n  \
-                  shift calendar 2026-10          October 2026 calendar\n  \
-                  shift stats                     Current month statistics\n  \
-                  shift leave --max-days 3        Top leave strategies (max 3 leave days)\n  \
-                  shift colleague 1 3             Common rest days between teams 1 and 3\n  \
-                  shift waybar                    Waybar JSON output (Sway/Hyprland)\n  \
+    about = "班伴 — 倒班助手命令行",
+    long_about = "倒班工人每天按照固定周期轮换班次：早→早→中→中→休→夜→夜→休→...\n42 天一个循环，6 个班组（一值～六值）各差 7 天。\n\n这个工具帮你查今天什么班、什么时候休息、怎么请假最划算、\n和另一个班组的人哪天能一起休息。",
+    after_help = "快速上手：\n  \
+                  shift today              看看今天什么班\n  \
+                  shift --team 2 today     如果你是二值，试试这个\n  \
+                  shift calendar           这个月的排班日历\n  \
+                  shift next-rest          还有几天休息\n  \
+                  shift leave              今年怎么请假最划算\n  \
+                  shift colleague 1 3      一值和三值哪天能一起休\n  \
+                  shift waybar             Waybar 状态栏上显示班次\n  \
                   \n  \
-                  CONFIG:\n  \
-                  ~/.config/shift/config.toml      Optional config file (TOML format)\n  \
-                  \n  \
-                  Project: https://github.com/zxllxk/SimpleShiftScheduler"
+                  默认就是一值（第 1 班组），周期 42 天，起始日 2025-12-15。\n  \
+                  如果你的班组不同，用 --team 或写配置文件：\n  \
+                  ~/.config/shift/config.toml"
 )]
 struct Cli {
-    /// JSON output mode (machine-readable)
+    /// 输出 JSON 格式（给脚本用），默认是给人看的彩色文字
     #[arg(short, long, global = true)]
     json: bool,
 
-    /// Custom config file path
+    /// 你的班组编号（1=一值, 2=二值, ..., 6=六值），不写默认读配置文件或一值
+    #[arg(short = 't', long, global = true, default_value = "0")]
+    team: u32,
+
+    /// 指定配置文件路径（默认 ~/.config/shift/config.toml）
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
 
@@ -152,43 +159,38 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Show today's shift info (shift type, cycle day, days until rest)
+    /// 今天什么班？周期第几天？还有几天休息？
     Today,
-    /// Show tomorrow's shift info
+    /// 明天什么班？
     Tomorrow,
-    /// Countdown to next rest day (e.g. "明天休息" or "距休 3 天")
+    /// 距离下次休息还有几天（"明天休息" 或 "距休 3 天"）
     NextRest,
-    /// Show monthly calendar with ANSI-colored shift labels
+    /// 月历视图，每一天用颜色标出班次（橙早/蓝中/绿休/紫夜/黄学）
     Calendar {
-        /// Month in YYYY-MM format (e.g. 2026-06), defaults to current month
+        /// 哪个月，如 2026-06（不写就是当月）
         month: Option<String>,
     },
-    /// Show monthly shift statistics (count per shift type with bar chart)
+    /// 这个月每种班次各有几天（带 ASCII 进度条）
     Stats {
-        /// Month in YYYY-MM format (e.g. 2026-06), defaults to current month
+        /// 哪个月，如 2026-06（不写就是当月）
         month: Option<String>,
     },
-    /// Find best leave/vacation strategies using gap-merging algorithm.
-    /// Analyzes from today to Dec 31 of current year, combining shift
-    /// schedule with Chinese statutory holidays.
+    /// 拼假神器：分析今天到年底，结合你的排班和法定节假日，
+    /// 算出怎么请假最划算（请最少天，连休最久）。
     Leave {
-        /// Maximum leave days to consider (1-10). Default: 5.
-        /// Strategies with fewer leave days are not ranked higher unless
-        /// they produce longer breaks through better bridge opportunities.
+        /// 最多愿意请几天假（默认 5 天）
         #[arg(short, long, default_value = "5")]
         max_days: u32,
     },
-    /// Find common rest days between two teams within the current year.
-    /// Shows next common rest date, 30/60-day counts, and a list of dates.
+    /// 同事模式：两个班组哪天能一起休息？
+    /// "我是二值，她是五值，我们什么时候能一起休？"
     Colleague {
-        /// Your team ID (1-6)
+        /// 我的班组（1=一值, ... 6=六值）
         team_a: u32,
-        /// Their team ID (1-6)
+        /// 对方的班组（1=一值, ... 6=六值）
         team_b: u32,
     },
-    /// Output shift info as Waybar JSON (for Sway/Hyprland status bar).
-    /// Auto-enables JSON format. Configure in ~/.config/waybar/config.json
-    /// with: "custom/shift": {"exec": "shift waybar", "interval": 3600}
+    /// Waybar 状态栏显示班次（给 Sway/Hyprland 用）
     Waybar,
 }
 
@@ -302,7 +304,16 @@ fn shift_icon(st: ShiftType) -> &'static str {
 }
 
 fn team_name(id: u32) -> String {
-    format!("{}值", id)
+    let prefix = match id {
+        1 => "一",
+        2 => "二",
+        3 => "三",
+        4 => "四",
+        5 => "五",
+        6 => "六",
+        _ => return format!("{}值", id),
+    };
+    format!("{}值", prefix)
 }
 
 // ── Main ──
@@ -311,7 +322,8 @@ fn main() {
     let cli = Cli::parse();
     let config = Config::load();
     let cycle_config = config.to_cycle_config();
-    let team_id = config.shift.default_team;
+    // --team flag overrides config file
+    let team_id = if cli.team > 0 { cli.team } else { config.shift.default_team };
     let offset = cycle_config.team_phase_offset(team_id);
     let today = Local::now().date_naive();
 
