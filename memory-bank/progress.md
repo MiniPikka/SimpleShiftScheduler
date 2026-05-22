@@ -2,6 +2,16 @@
 
 ## 2026-05-22：重大战略决策 — 架构转型（班伴 / ShiftMate）✅
 
+### CLI 命名：`banban`
+
+`shift` 命令与 bash 内置命令冲突，经分析改为产品同名 `banban`：
+- 命令名 `banban` — 零冲突，和产品名一致，好记
+- 配置文件 `~/.config/banban/config.toml`
+- 内部 crate 名仍保留 `shift-cli`（开发者视角）
+- 内部源码标识仍用 `shift-*`（crate names, function names）
+
+## 2026-05-22：重大战略决策 — 架构转型（班伴 / ShiftMate）✅
+
 ### 决策背景
 
 倒班助手已完成 Android 原型验证（162 tests）和 Flutter CP 版核心功能迁移（110 tests）。当前处于关键十字路口：继续做 Flutter App（加功能、上架商店），还是做真正有长期生命力的产品。

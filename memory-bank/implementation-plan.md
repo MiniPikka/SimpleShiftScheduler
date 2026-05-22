@@ -3968,8 +3968,8 @@ NewHomeScreenV3
 | 阶段 | 名称 | 时间估计 | 核心交付 | 验证方式 |
 |------|------|---------|---------|---------|
 | **Phase 1** | Rust Core Domain | 2-3 周 | `shift-core` workspace，5 crates | `cargo test` 全部通过，与 Android 162 tests 等价 |
-| **Phase 2** | ICS/CalDAV Export | 1-2 周 | `shift export --ics` | Thunderbird 导入验证通过 |
-| **Phase 3** | CLI Companion | 1-2 周 | `shift` 命令：today/stats/leave/colleague/export/config | 终端可用的完整 CLI |
+| **Phase 2** | ICS/CalDAV Export | 1-2 周 | `banban export --ics` | Thunderbird 导入验证通过 |
+| **Phase 3** | CLI Companion | 1-2 周 | `banban` 命令：today/stats/leave/colleague/export | 终端可用（✅已完成） |
 | **Phase 4** | Flutter Mobile (Rust FFI) | 2-3 周 | Flutter App 接入 flutter_rust_bridge | `flutter test` + `cargo test` 全通过 |
 | **Phase 5** | Linux Companion | 2-3 周 | Plasma Widget + Waybar + DBus | KDE 桌面可用 |
 | **Phase 6** | Advanced Ecosystem | 持续 | TUI + Local API + 打包分发 | crates.io/AUR/KDE Store |
@@ -4426,11 +4426,11 @@ fn main() {
 
 ---
 
-## C.4 Phase 3：CLI Companion（预计 1-2 周）
+## C.4 Phase 3：CLI Companion（✅ 已完成）
 
-**目标**：完整的 `shift` 命令行工具，Linux 工程师用户可日常使用。
+> 注：以下为原规划文档。实际实现时 CLI 命令名定为 `banban`（产品名），避免与 bash 内置 `shift` 冲突。
 
-**前置条件**：Phase 1 完成，Phase 2 的 export-engine 存在。
+**目标**：完整的 `banban` 命令行工具，Linux 工程师用户可日常使用。
 
 ### Step 3.1：创建 CLI binary crate
 
@@ -4980,52 +4980,31 @@ notify-send "倒班助手" "今日: ${SHIFT} · 距休: ${DAYS}天" --icon=calen
 
 ## C.9 下一步最具体的 TODO（2026-05-22 现在）
 
-### P0（本周开始）
+### ✅ 已完成（2026-05-22）
 
-**1. 创建 `shift-core/` Rust workspace**
+| 步骤 | 状态 | 内容 |
+|------|------|------|
+| P0.1 | ✅ | `shift-core/` Rust workspace + 5 crate 骨架 |
+| P0.2 | ✅ | `shift-algorithm` 完整实现（27 tests） |
+| P0.3 | ✅ | 第一个 Rust 测试跑通 |
+| P1.4 | ✅ | 从 Android test 迁移，全部通过 |
+| P1.5 | ✅ | `shift-statistics` + `holiday-engine` + `leave-optimizer`（45 tests） |
+| P3.8 | ✅ | CLI 全部子命令（`banban`，today/stats/leave/colleague/calendar/next-rest/waybar） |
+| P3.8 | ✅ | `banban` 命名解决 bash 内置 `shift` 冲突 |
 
-```bash
-cd /home/zxl/Documents/myprojects/SimpleShiftScheduler
-mkdir -p shift-core/crates
-# 创建 Cargo.toml workspace + 5 个 crate 骨架
-```
+### P2（下一步）
 
-**2. 实现 `shift-algorithm` crate**
-
-```bash
-# types.rs → cycle.rs → calculator.rs
-# 每写完一个文件就跑 cargo test
-```
-
-**3. 写第一个 Rust 测试并跑通**
+**6. 实现 `export-engine` — ICS 文件导出**
 
 ```bash
-cargo test -p shift-algorithm
-# 看到绿色 PASSED 就算里程碑
-```
-
-### P1（本周/下周）
-
-**4. 从 Android `ShiftCalculatorTest.kt` 逐个迁移测试用例到 Rust**
-- 目标：16+ 用例，覆盖所有核心算法路径
-
-**5. 实现 `shift-statistics` + `holiday-engine` + `leave-optimizer`**
-- 每个 crate 独立测试，独立发布
-
-### P2（下周）
-
-**6. 实现 `export-engine` — 第一个可用功能**
-
-```bash
-cargo run -p shift-cli -- export --ics
+banban export --ics
 # 生成的 .ics 文件导入 Thunderbird 验证
 ```
 
-**7. Thunderbird 导入测试** — 第一个真实里程碑 🎯
+**7. Thunderbird 导入测试** — 第一个 Linux 集成里程碑 🎯
 
 ### P3（后续）
 
-**8. 完善 CLI（所有子命令）**
 **9. `flutter_rust_bridge` 集成验证**
 **10. Plasma Widget 原型**
 

@@ -1,6 +1,7 @@
-//! # shift — 班伴 CLI
+//! # banban — 班伴 CLI
 //!
-//! Command-line interface for querying shift schedules.
+//! Command-line tool for querying shift schedules.
+//! Named after the product 班伴 (ShiftMate).
 //! Default: human-readable ANSI-colored output.
 //! With --json: machine-readable JSON.
 
@@ -59,7 +60,7 @@ impl Config {
     fn load() -> Self {
         let path = dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("shift")
+            .join("banban")
             .join("config.toml");
 
         if path.exists() {
@@ -113,32 +114,32 @@ impl Default for Config {
 /// 和另一个班组的人哪天能一起休息。
 ///
 /// 第一步：如果你不是一值（默认），先告诉工具你的班组：
-///   shift --team 2 today              试试看今天什么班
-///   shift --team 2 calendar           看看这个月的排班日历
+///   banban --team 2 today              试试看今天什么班
+///   banban --team 2 calendar           看看这个月的排班日历
 ///
 /// 第二步：觉得班组对了，写进配置文件免得每次敲 --team：
-///   mkdir -p ~/.config/shift
-///   echo '[shift]\ndefault_team = 2' > ~/.config/shift/config.toml
+///   mkdir -p ~/.config/banban
+///   echo '[shift]\ndefault_team = 2' > ~/.config/banban/config.toml
 ///
-/// 第三步：每天敲 shift 看一眼，或者加到 Waybar 状态栏上。
+/// 第三步：每天敲 banban 看一眼，或者加到 Waybar 状态栏上。
 #[derive(Parser)]
 #[command(
-    name = "shift",
+    name = "banban",
     version,
     about = "班伴 — 倒班助手命令行",
     long_about = "倒班工人每天按照固定周期轮换班次：早→早→中→中→休→夜→夜→休→...\n42 天一个循环，6 个班组（一值～六值）各差 7 天。\n\n这个工具帮你查今天什么班、什么时候休息、怎么请假最划算、\n和另一个班组的人哪天能一起休息。",
     after_help = "快速上手：\n  \
-                  shift today              看看今天什么班\n  \
-                  shift --team 2 today     如果你是二值，试试这个\n  \
-                  shift calendar           这个月的排班日历\n  \
-                  shift next-rest          还有几天休息\n  \
-                  shift leave              今年怎么请假最划算\n  \
-                  shift colleague 1 3      一值和三值哪天能一起休\n  \
-                  shift waybar             Waybar 状态栏上显示班次\n  \
+                  banban today              看看今天什么班\n  \
+                  banban --team 2 today     如果你是二值，试试这个\n  \
+                  banban calendar           这个月的排班日历\n  \
+                  banban next-rest          还有几天休息\n  \
+                  banban leave              今年怎么请假最划算\n  \
+                  banban colleague 1 3      一值和三值哪天能一起休\n  \
+                  banban waybar             Waybar 状态栏上显示班次\n  \
                   \n  \
                   默认就是一值（第 1 班组），周期 42 天，起始日 2025-12-15。\n  \
                   如果你的班组不同，用 --team 或写配置文件：\n  \
-                  ~/.config/shift/config.toml"
+                  ~/.config/banban/config.toml"
 )]
 struct Cli {
     /// 输出 JSON 格式（给脚本用），默认是给人看的彩色文字
@@ -190,7 +191,9 @@ enum Commands {
         /// 对方的班组（1=一值, ... 6=六值）
         team_b: u32,
     },
-    /// Waybar 状态栏显示班次（给 Sway/Hyprland 用）
+    /// Waybar 状态栏显示班次（给 Sway/Hyprland 用）。
+    /// 配置：~/.config/waybar/config.json 中加
+    ///   "custom/banban": {"exec": "banban waybar", "interval": 3600}
     Waybar,
 }
 
