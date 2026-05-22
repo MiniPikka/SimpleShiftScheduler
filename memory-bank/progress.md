@@ -1,5 +1,62 @@
 # 倒班助手开发进度记录
 
+## 2026-05-22：CP 版本 App 命名与图标统一 + Widget 暗亮适配 ✅
+
+### 变更动机
+
+Flutter CP 项目使用默认 Flutter PNG 图标和 `scheduler_cp` 启动器标签，与 Android 参考版不一致。桌面 Widget 颜色硬编码为深色值，浅色系统模式下显示不协调。
+
+### App 命名
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 修改 | `android/.../AndroidManifest.xml` | `android:label` 从 `"scheduler_cp"` 改为 `"倒班助手"` |
+
+### App 自适应图标（暗/亮模式适配）
+
+沿用 Android 参考版三 S 三曲臂（triskelion）矢量图标，通过 `drawable-night/` 资源限定符实现暗色模式下背景色自适应。
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 新建 | `drawable/ic_launcher_background.xml` | 深海军蓝背景（浅色模式） |
+| 新建 | `drawable-night/ic_launcher_background.xml` | 略浅海军蓝背景（深色模式） |
+| 新建 | `drawable/ic_launcher_foreground.xml` | triskelion 前景（双模式共用） |
+| 新建 | `mipmap-anydpi-v26/ic_launcher.xml` | API 26+ adaptive-icon |
+| 新建 | `mipmap-anydpi-v26/ic_launcher_round.xml` | API 26+ 圆形 adaptive-icon |
+| 新建 | `mipmap-hdpi/ic_launcher.xml` | pre-API 26 合并兜底 |
+| 新建 | `mipmap-hdpi/ic_launcher_round.xml` | pre-API 26 圆形兜底 |
+| 删除 | `mipmap-*/ic_launcher.png`（5 个） | 移除默认 Flutter PNG 图标 |
+
+### Widget 暗/亮模式适配
+
+通过 `values/values-night` 颜色资源限定符，Widget 背景和文字色随系统主题自动切换。
+
+| 颜色资源 | 浅色模式 | 深色模式 |
+|---------|---------|---------|
+| `widget_background` | `#F8F9FA` | `#1B1F26` |
+| `widget_text_primary` | `#1A1D23` | `#F5F7FA` |
+| `widget_text_secondary` | `#6B7280` | `#9CA3AF` |
+| `widget_text_dim` | `#9CA3AF` | `#6B7280` |
+| `widget_rest_green` | `#16A34A` | `#35D07F` |
+
+| 操作 | 文件 | 说明 |
+|------|------|------|
+| 新建 | `values/colors.xml` | 浅色模式 Widget 颜色 |
+| 新建 | `values-night/colors.xml` | 深色模式 Widget 颜色 |
+| 修改 | `layout/shift_widget_layout.xml` | 硬编码颜色 → `@color/widget_*` 引用 |
+
+### 验证
+
+```bash
+flutter analyze    # 零新增问题
+flutter test       # 110/110 全部通过
+flutter build apk  # 构建成功
+```
+
+APK label 确认为"倒班助手"，自适应图标 + Widget 颜色资源正确打包。
+
+---
+
 ## 2026-05-21：CP 版本全项目审查 + 鲁棒性修复 ✅
 
 ### P0 修复（数据安全）

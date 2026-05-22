@@ -228,6 +228,29 @@ Flutter Dart (home_screen.dart)
 | 根布局可点击 | 未配置状态下点击任何位置可打开 App |
 | try-catch 包裹反射调用 | 所有 `setInt("setBackgroundColor")` 防崩溃 |
 
+### Widget 暗/亮模式适配（2026-05-22）
+
+通过 Android `values` / `values-night` 资源限定符实现 Widget 自动跟随系统主题：
+
+| 颜色资源 | 浅色模式 | 深色模式 |
+|---------|---------|---------|
+| `widget_background` | `#F8F9FA` | `#1B1F26` |
+| `widget_text_primary` | `#1A1D23` | `#F5F7FA` |
+| `widget_text_secondary` | `#6B7280` | `#9CA3AF` |
+| `widget_text_dim` | `#9CA3AF` | `#6B7280` |
+| `widget_rest_green` | `#16A34A` | `#35D07F` |
+
+布局 XML 中所有硬编码颜色已替换为 `@color/widget_*` 引用。系统切换深色模式时 Widget 自动加载 `values-night/colors.xml` 中的值，无需 Flutter 端干预。ShiftWidgetProvider 中代码设置的班次强调色（badge/dot）在两种模式下保持一致，因为它们是与主题无关的语义色。
+
+### App 自适应图标（2026-05-22）
+
+沿用 Android 参考版三 S 三曲臂（triskelion）矢量图标设计。通过 Android adaptive-icon（`mipmap-anydpi-v26`）+ `drawable-night/` 限定符实现暗/亮模式背景色适配：
+
+- `drawable/ic_launcher_background.xml` — 深海军蓝 `#0D2137`（浅色模式）
+- `drawable-night/ic_launcher_background.xml` — 略浅海军蓝 `#1A3550`（深色模式，与暗色启动器背景有区分）
+- `drawable/ic_launcher_foreground.xml` — triskelion 前景（两种模式共用）
+- `mipmap-hdpi/ic_launcher.xml` — pre-API 26 合并兜底
+
 ## A.8 CP 版倒班津贴架构
 
 ### 数据流

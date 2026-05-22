@@ -3,7 +3,7 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1B1F26"
+    android:background="@color/widget_background"
     android:padding="10dp">
 
     <LinearLayout
@@ -48,7 +48,7 @@
                     android:id="@+id/widget_team_name"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#F5F7FA"
+                    android:textColor="@color/widget_text_primary"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:maxLines="1" />
@@ -57,7 +57,7 @@
                     android:id="@+id/widget_progress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#9CA3AF"
+                    android:textColor="@color/widget_text_secondary"
                     android:textSize="11sp"
                     android:layout_marginTop="2dp"
                     android:maxLines="1" />
@@ -68,7 +68,7 @@
                 android:id="@+id/widget_rest"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#35D07F"
+                android:textColor="@color/widget_rest_green"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:maxLines="1" />
@@ -87,7 +87,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="#6B7280"
+                android:textColor="@color/widget_text_dim"
                 android:textSize="11sp"
                 android:maxLines="1" />
 
@@ -99,7 +99,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <!-- Colored dot: TextView with fixed color background (no reflection needed) -->
+                <!-- Colored dot: background color set in code -->
                 <TextView
                     android:id="@+id/widget_tomorrow_dot"
                     android:layout_width="6dp"
@@ -111,7 +111,7 @@
                     android:id="@+id/widget_tomorrow_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#9CA3AF"
+                    android:textColor="@color/widget_text_secondary"
                     android:textSize="11sp"
                     android:maxLines="1" />
             </LinearLayout>
