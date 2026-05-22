@@ -42,10 +42,10 @@ ShiftInfo getShiftInfo(
     final refDate = referenceDate ?? ShiftCycleConfig.referenceDate;
     final teamId = (teamPhaseOffset ~/ teamPhaseStepFor()) + 1;
     final result = ffiGetShiftInfo(
-      dateIso: _fmt(date),
+      date: date,
       teamId: teamId,
       cycleLength: customCycle?.length ?? 0,
-      referenceDateIso: _fmt(refDate),
+      referenceDate: refDate,
     );
     if (result != null) {
       return ShiftInfo(

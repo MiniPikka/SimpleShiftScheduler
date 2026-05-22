@@ -1,6 +1,7 @@
 import '../models/leave_strategy.dart';
 import '../models/shift_cycle_config.dart';
 import '../models/shift_type.dart';
+import '../bridge/ffi_bridge.dart';
 import 'shift_calculator.dart';
 import 'holiday_data.dart';
 
@@ -79,8 +80,42 @@ List<LeaveStrategy> findBestLeavePlans({
 }) {
   if (daysToAnalyze < 1 || maxLeaveDays < 1) return [];
 
+  // Try Rust FFI
+  if (customCycle == null || customCycle.length == ShiftCycleConfig.cycleLength) {
+    final teamId = (teamPhaseOffset ~/ teamPhaseStepFor()) + 1;
+    final result = ffiGetBestLeavePlans(
+      today: today ?? DateTime.now(),
+      daysToAnalyze: daysToAnalyze,
+      teamId: teamId,
+      maxLeaveDays: maxLeaveDays,
+      referenceDate: referenceDate,
+    );
+    if (result != null) {
+      final strategies = (result['strategies'] as List?)
+          ?.map((s) => LeaveStrategy(
+                leaveDays: s['leave_days'] as int,
+                totalBreakDays: s['total_break_days'] as int,
+                leaveDates: (s['leave_dates'] as List?)
+                        ?.map((d) => DateTime.parse(d as String))
+                        .toList() ??
+                    [],
+                breakStart: DateTime.parse(s['break_start'] as String),
+                breakEnd: DateTime.parse(s['break_end'] as String),
+                holidayOverlap: s['holiday_overlap'] as int? ?? 0,
+                weekendOverlap: s['weekend_overlap'] as int? ?? 0,
+                overlappingHolidayNames: (s['holiday_names'] as List?)
+                        ?.map((n) => n as String)
+                        .toList() ??
+                    [],
+                efficiency: (s['efficiency'] as num).toDouble(),
+                score: (s['score'] as num).toDouble(),
+              ))
+          .toList();
+      if (strategies != null && strategies.isNotEmpty) return strategies;
+    }
+  }
+
   final raw = today ?? DateTime.now();
-  // Normalize to midnight: DateTime(2026, 6, 19, 0, 0, 0) matches holiday map keys
   final t = DateTime(raw.year, raw.month, raw.day);
   final ref = referenceDate ?? ShiftCycleConfig.referenceDate;
   final hols = holidays ?? getChinaHolidays();

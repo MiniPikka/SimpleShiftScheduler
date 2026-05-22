@@ -1,102 +1,179 @@
 /// FFI bindings to the Rust shift-core library.
 ///
-/// Loads `libshift_flutter_bridge.so` and exposes C-compatible functions
-/// via `dart:ffi`. All functions return JSON strings allocated by Rust;
-/// callers must free them with [shiftFreeString].
+/// Every function returns a decoded JSON map, or null if FFI is unavailable.
+/// Callers must fall back to pure Dart when null is returned.
 library;
 
 import 'dart:ffi';
-import 'dart:io';
 import 'dart:convert';
 import 'package:ffi/ffi.dart';
 
-// ── Native function signatures ──
+// ── Native types ──
 
-typedef ShiftGetShiftInfoNative = Pointer<Utf8> Function(
-  Pointer<Utf8> dateIso,
-  Uint32 teamId,
-  Uint32 cycleLength,
-  Pointer<Utf8> referenceDateIso,
-);
+typedef _CFunc1 = Pointer<Utf8> Function(Pointer<Utf8>, Uint32, Uint32, Pointer<Utf8>);
+typedef _DFunc1 = Pointer<Utf8> Function(Pointer<Utf8>, int, int, Pointer<Utf8>);
 
-typedef ShiftGetShiftInfoDart = Pointer<Utf8> Function(
-  Pointer<Utf8> dateIso,
-  int teamId,
-  int cycleLength,
-  Pointer<Utf8> referenceDateIso,
-);
+typedef _CFunc2 = Pointer<Utf8> Function(Int32, Uint32, Uint32, Uint32, Pointer<Utf8>);
+typedef _DFunc2 = Pointer<Utf8> Function(int, int, int, int, Pointer<Utf8>);
 
-typedef ShiftFreeStringNative = Void Function(Pointer<Utf8> ptr);
-typedef ShiftFreeStringDart = void Function(Pointer<Utf8> ptr);
+typedef _CFunc3 = Pointer<Utf8> Function(Uint32, Uint32, Pointer<Utf8>, Uint32, Uint32, Pointer<Utf8>);
+typedef _DFunc3 = Pointer<Utf8> Function(int, int, Pointer<Utf8>, int, int, Pointer<Utf8>);
+
+typedef _CFunc4 = Pointer<Utf8> Function(Pointer<Utf8>, Uint32, Uint32, Uint32, Uint32, Pointer<Utf8>);
+typedef _DFunc4 = Pointer<Utf8> Function(Pointer<Utf8>, int, int, int, int, Pointer<Utf8>);
+
+typedef _CFree = Void Function(Pointer<Utf8>);
+typedef _DFree = void Function(Pointer<Utf8>);
 
 // ── Library loading ──
 
 DynamicLibrary? _lib;
+bool _tried = false;
 
-DynamicLibrary _loadLib() {
-  if (_lib != null) return _lib!;
-
-  // Try multiple paths for the shared library
-  final candidates = [
-    // Flutter test on Linux: relative to project root
-    'rust/target/debug/libshift_flutter_bridge.so',
-    // Installed system-wide
-    'libshift_flutter_bridge.so',
-    // Flutter Android/iOS: handled by platform-specific loading
-  ];
-
-  for (final path in candidates) {
+DynamicLibrary? _loadLib() {
+  if (_tried) return _lib;
+  _tried = true;
+  try {
+    _lib = DynamicLibrary.open('rust/target/debug/libshift_flutter_bridge.so');
+    return _lib;
+  } catch (_) {
     try {
-      final lib = DynamicLibrary.open(path);
-      _lib = lib;
-      return lib;
+      _lib = DynamicLibrary.open('libshift_flutter_bridge.so');
+      return _lib;
     } catch (_) {}
   }
-
-  throw UnsupportedError(
-    'Cannot load libshift_flutter_bridge.so. '
-    'Build it first: cd flutter/rust && cargo build'
-  );
+  return null;
 }
 
-// ── Public API ──
+String _fmt(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-/// Get shift info for a given date.
-///
-/// Returns a decoded JSON map, or null on error.
-Map<String, dynamic>? ffiGetShiftInfo({
-  required String dateIso,
-  required int teamId,
-  int cycleLength = 0,
-  String referenceDateIso = '',
-}) {
+dynamic _call(String name, List<Object?> args, dynamic Function(DynamicLibrary lib) callFn) {
+  final lib = _loadLib();
+  if (lib == null) return null;
   try {
-    final lib = _loadLib();
-    final getShiftInfo = lib.lookupFunction<
-      ShiftGetShiftInfoNative,
-      ShiftGetShiftInfoDart
-    >('shift_get_shift_info');
-    final freeString = lib.lookupFunction<
-      ShiftFreeStringNative,
-      ShiftFreeStringDart
-    >('shift_free_string');
-
-    final datePtr = dateIso.toNativeUtf8();
-    final refPtr = referenceDateIso.toNativeUtf8();
-
-    final resultPtr = getShiftInfo(datePtr, teamId, cycleLength, refPtr);
-
-    calloc.free(datePtr);
-    calloc.free(refPtr);
-
-    if (resultPtr == nullptr) return null;
-
-    final jsonStr = resultPtr.toDartString();
-    freeString(resultPtr);
-
-    return jsonDecode(jsonStr) as Map<String, dynamic>;
-  } catch (e) {
-    // FFI not available (e.g. web platform) — caller should fall back to Dart impl
+    return callFn(lib);
+  } catch (_) {
     return null;
   }
+}
+
+// ── Public FFI API ──
+
+Map<String, dynamic>? ffiGetShiftInfo({
+  required DateTime date,
+  required int teamId,
+  int cycleLength = 0,
+  DateTime? referenceDate,
+}) {
+  return _call('shift_get_shift_info', [], (lib) {
+    final fn = lib.lookupFunction<_CFunc1, _DFunc1>('shift_get_shift_info');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final dp = _fmt(date).toNativeUtf8();
+    final rp = _fmt(referenceDate ?? DateTime(2025, 12, 15)).toNativeUtf8();
+    final ptr = fn(dp, teamId, cycleLength, rp);
+    final json = ptr.toDartString();
+    free(ptr);
+    calloc.free(dp); calloc.free(rp);
+    return jsonDecode(json);
+  });
+}
+
+Map<String, dynamic>? ffiGetDaysUntilRest({
+  required DateTime date,
+  required int teamId,
+  int cycleLength = 0,
+  DateTime? referenceDate,
+}) {
+  return _call('shift_get_days_until_rest', [], (lib) {
+    final fn = lib.lookupFunction<_CFunc1, _DFunc1>('shift_get_days_until_rest');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final dp = _fmt(date).toNativeUtf8();
+    final rp = _fmt(referenceDate ?? DateTime(2025, 12, 15)).toNativeUtf8();
+    final ptr = fn(dp, teamId, cycleLength, rp);
+    final json = ptr.toDartString();
+    free(ptr);
+    calloc.free(dp); calloc.free(rp);
+    return jsonDecode(json);
+  });
+}
+
+Map<String, dynamic>? ffiGetConsecutiveWorkDays({
+  required DateTime date,
+  required int teamId,
+  int cycleLength = 0,
+  DateTime? referenceDate,
+}) {
+  return _call('shift_get_consecutive_work_days', [], (lib) {
+    final fn = lib.lookupFunction<_CFunc1, _DFunc1>('shift_get_consecutive_work_days');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final dp = _fmt(date).toNativeUtf8();
+    final rp = _fmt(referenceDate ?? DateTime(2025, 12, 15)).toNativeUtf8();
+    final ptr = fn(dp, teamId, cycleLength, rp);
+    final json = ptr.toDartString();
+    free(ptr);
+    calloc.free(dp); calloc.free(rp);
+    return jsonDecode(json);
+  });
+}
+
+Map<String, dynamic>? ffiGetMonthlyStats({
+  required int year,
+  required int month,
+  required int teamId,
+  int cycleLength = 0,
+  DateTime? referenceDate,
+}) {
+  return _call('shift_get_monthly_stats', [], (lib) {
+    final fn = lib.lookupFunction<_CFunc2, _DFunc2>('shift_get_monthly_stats');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final rp = _fmt(referenceDate ?? DateTime(2025, 12, 15)).toNativeUtf8();
+    final ptr = fn(year, month, teamId, cycleLength, rp);
+    final json = ptr.toDartString();
+    free(ptr);
+    calloc.free(rp);
+    return jsonDecode(json);
+  });
+}
+
+Map<String, dynamic>? ffiGetCommonRestDays({
+  required int teamA,
+  required int teamB,
+  required DateTime today,
+  required int daysToAnalyze,
+  int cycleLength = 0,
+  DateTime? referenceDate,
+}) {
+  return _call('shift_get_common_rest_days', [], (lib) {
+    final fn = lib.lookupFunction<_CFunc3, _DFunc3>('shift_get_common_rest_days');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final dp = _fmt(today).toNativeUtf8();
+    final rp = _fmt(referenceDate ?? DateTime(2025, 12, 15)).toNativeUtf8();
+    final ptr = fn(teamA, teamB, dp, daysToAnalyze, cycleLength, rp);
+    final json = ptr.toDartString();
+    free(ptr);
+    calloc.free(dp); calloc.free(rp);
+    return jsonDecode(json);
+  });
+}
+
+Map<String, dynamic>? ffiGetBestLeavePlans({
+  required DateTime today,
+  required int daysToAnalyze,
+  required int teamId,
+  required int maxLeaveDays,
+  int cycleLength = 0,
+  DateTime? referenceDate,
+}) {
+  return _call('shift_get_best_leave_plans', [], (lib) {
+    final fn = lib.lookupFunction<_CFunc4, _DFunc4>('shift_get_best_leave_plans');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final dp = _fmt(today).toNativeUtf8();
+    final rp = _fmt(referenceDate ?? DateTime(2025, 12, 15)).toNativeUtf8();
+    final ptr = fn(dp, daysToAnalyze, teamId, maxLeaveDays, cycleLength, rp);
+    final json = ptr.toDartString();
+    free(ptr);
+    calloc.free(dp); calloc.free(rp);
+    return jsonDecode(json);
+  });
 }

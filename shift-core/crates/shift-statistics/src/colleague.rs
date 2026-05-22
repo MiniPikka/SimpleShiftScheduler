@@ -75,8 +75,8 @@ pub fn find_common_rest_days(
     let offset_b = config.team_phase_offset(team_b_id);
 
     let mut common_dates: Vec<NaiveDate> = Vec::new();
-    let today_plus_30 = today + chrono::Duration::days(30);
-    let today_plus_60 = today + chrono::Duration::days(60);
+    let today_plus_30 = today + chrono::Duration::days(29); // match Dart: diff < 30
+    let today_plus_60 = today + chrono::Duration::days(59); // match Dart: diff < 60
 
     for d in 0..days_to_analyze {
         let date = today + chrono::Duration::days(d as i64);
