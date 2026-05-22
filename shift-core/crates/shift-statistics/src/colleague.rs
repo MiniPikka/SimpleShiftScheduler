@@ -125,7 +125,7 @@ mod tests {
         let config = default_config();
         let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let result = find_common_rest_days(1, 1, today, 42, &config);
-        assert!(result.common_rest_dates.len() >= 1);
+        assert!(!result.common_rest_dates.is_empty());
         assert_eq!(result.team_a_id, result.team_b_id);
     }
 

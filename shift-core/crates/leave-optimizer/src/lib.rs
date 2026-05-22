@@ -101,8 +101,8 @@ fn build_daily_status(
             let shift_type = get_shift_type_for_date(date, config, team_phase_offset);
             let is_rest = matches!(shift_type, ShiftType::Rest | ShiftType::Study);
             let holiday_info = holidays.get(&date);
-            let is_holiday = holiday_info.map_or(false, |h| h.is_holiday);
-            let is_adjusted_work_day = holiday_info.map_or(false, |h| !h.is_holiday);
+            let is_holiday = holiday_info.is_some_and(|h| h.is_holiday);
+            let is_adjusted_work_day = holiday_info.is_some_and(|h| !h.is_holiday);
             let holiday_name = if is_holiday {
                 holiday_info.map(|h| h.name.to_string())
             } else {

@@ -7,116 +7,139 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 ```
 SimpleShiftScheduler/          ← git repo root
 ├── CLAUDE.md                  ← this file
-├── memory-bank/               ← shared documentation (both projects)
-├── android/                   ← Android 原版 (Kotlin + Compose, Phase 1 完成)
-└── flutter/                   ← CP 跨平台版 (Flutter + Riverpod, 迁移进行中)
+├── README.md                  ← project overview
+├── memory-bank/               ← detailed docs (architecture, design, progress, plans)
+├── shift-core/                ← Rust workspace — the single source of truth for all algorithms
+├── android/                   ← Android 原版 (Kotlin + Compose, 参考实现, 不再活跃开发)
+└── flutter/                   ← Flutter 移动端 (通过 dart:ffi 调用 Rust)
 ```
 
-- **Android 版**：功能完整的参考实现，162 tests，不再活跃开发。作为算法参考和产品验证基础。
-- **Flutter CP 版**：主力开发目标，72 tests，正在从 Android 版逐步迁移功能。跨 Android / iOS / Web / Desktop。
+- **shift-core (Rust)**：主力开发目标。5 个 crate：algorithm, statistics, holiday-engine, leave-optimizer, export-engine。CLI 工具 `banban`。
+- **Flutter 移动端**：Android/iOS UI。Domain 层已通过 dart:ffi 接入 Rust，纯 Dart 保留为 fallback。
+- **Android 原版**：参考实现，162 tests，不再活跃开发。算法已验证。
 
 ---
 
-## Android 项目 (`android/`)
+## shift-core (Rust 工作区)
 
 ### Build & Test
 
 ```bash
-cd android
-./gradlew assembleDebug                    # Build debug APK
-./gradlew testDebugUnitTest                # Run all unit tests
-./gradlew testDebugUnitTest --tests "com.simpleshift.scheduler.domain.ShiftCalculatorTest"
-./gradlew cleanTestDebugUnitTest testDebugUnitTest
+cd shift-core
+cargo build                    # 编译所有 crate + CLI
+cargo test                     # 全部测试 (111 tests)
+cargo test --doc               # 文档示例测试
+cargo doc --no-deps --open     # 生成并打开 API 文档
+cargo clippy --all-targets     # Lint 检查
+cargo run --bin banban -- today  # 运行 CLI
 ```
-
-Tests use JUnit 4 + Robolectric. `testOptions.unitTests.isIncludeAndroidResources = true` is required.
 
 ### Architecture
 
-**Stack**: Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore Preferences
+**Workspace crates** (`shift-core/crates/`):
 
-**Layers** (`android/app/src/main/java/com/simpleshift/scheduler/`):
-- `domain/model/` — Pure Kotlin data classes, no Android deps
-- `domain/` — Pure functions: shift_calculator, calendar_generator, shift_metrics, colleague_mode, leave_optimizer, salary_calculator, holiday_data
-- `viewmodel/` — HomeViewModel, CalendarViewModel, etc. StateFlow<UiState>
-- `ui/` — Compose screens, pure display + callbacks
-- `calendar/` — CalendarEventManager (Calendar Provider CRUD), CalendarSyncManager
-- `data/repository/` — SettingsRepository (DataStore persistence)
+| Crate | 职责 | Tests |
+|-------|------|-------|
+| `shift-algorithm` | 核心排班算法：date → offset → index → shift type | 27 |
+| `shift-statistics` | 月度统计、连续上班、距休、同事模式 | 18 |
+| `holiday-engine` | 2026-2027 中国法定节假日 + 调休数据 | 12 |
+| `leave-optimizer` | 间隙桥接法拼假算法 | 14 |
+| `export-engine` | ICS (RFC 5545) 日历导出 | 11 |
 
-**Core algorithm**: `shift_calculator.kt` — date offset → cycle index → shift type. Default cycle: 42 days, 6 teams, REFERENCE_DATE = 2025-12-15.
+**CLI** (`shift-core/cli/`)：二进制名为 `banban`（产品同名，避免与 bash `shift` 冲突）。
 
-### i18n
+**算法常量**（与 Android/Flutter 一致）：
+- REFERENCE_DATE = 2025-12-15（第 1 天）
+- CYCLE_LENGTH = 42 天
+- TOTAL_TEAMS = 6（一值～六值）
+- Team offset = (team_id - 1) × 7 天
 
-4 languages (zh/ja/ko/en) via Android resource qualifiers. Always use `stringResource(R.string.xxx)` in Compose, never hardcode user-facing strings.
+### 关键规则
+
+- **所有 domain 算法只在 Rust 中维护**。Android/Flutter 调用 Rust，不存在多语言同步问题。
+- `cargo test --doc` 编译运行文档示例——修改函数签名时必须更新对应的 doc example。
+- 公开 API 变更后运行 `cargo doc --no-deps` 确认文档无 broken links。
+- CLI 二进制名是 `banban`，不是 `shift`（bash 内置命令冲突）。
 
 ---
 
-## Flutter CP 项目 (`flutter/`)
+## Flutter 移动端 (`flutter/`)
 
 ### Build & Test
 
 ```bash
 cd flutter
-flutter analyze                # Static analysis
-flutter test                   # Run all tests
-flutter test --name "produces correct offset"
-dart run build_runner build --delete-conflicting-outputs  # After model changes
+flutter pub get
+flutter analyze
+flutter test                   # 110 tests
+flutter build apk --debug
 ```
 
-Tests use `flutter_test` + manual assertions, no mocking framework.
+### 部署到 Android 真机
+
+```bash
+cd flutter
+./build_rust_android.sh        # Rust → ARM64 .so
+flutter run -d <device_id>     # 或者 ./build_rust_android.sh --run
+```
 
 ### Architecture
 
-**Stack**: Dart/Flutter + Riverpod + GoRouter + Hive + Freezed
+```
+Flutter (Dart)                          Rust
+─────────────                           ────
+lib/domain/algorithms/
+  shift_calculator.dart ──dart:ffi──►   flutter/rust/ (cdylib)
+  shift_metrics.dart    ──dart:ffi──►     └── shift-core crates
+  colleague_mode.dart   ──dart:ffi──►
+  leave_optimizer.dart  ──dart:ffi──►
 
-**Layers** (`flutter/lib/`):
-- `domain/models/` — Pure Dart data classes (same models as Android, Freezed-free)
-- `domain/algorithms/` — Pure Dart functions (1:1 migrated from Android domain/)
-- `data/repositories/` — SettingsRepository abstract interface + HiveSettingsRepository
-- `data/providers.dart` — Riverpod FutureProvider for async Hive init
-- `features/` — StateNotifier + ConsumerWidget per feature
-- `core/theme/` — Design Token system (colors, typography, spacing, shapes, theme)
-- `core/utils/l10n.dart` — Centralized localization helpers
-- `app/routes.dart` — GoRouter with StatefulShellRoute (3-tab bottom nav)
-- `l10n/` — flutter gen-l10n output (zh/en/ja/ko)
+lib/domain/bridge/
+  ffi_bridge.dart       ← Dart FFI 绑定层 (JSON over C)
+```
 
-**Key data flow**: HiveSettingsRepository → SettingsNotifier (Riverpod) → homeProvider → domain functions. `selectedTeamProvider` bridges team selection.
+**FFI 策略**：每个 migrated 函数优先走 Rust FFI，失败时自动回退纯 Dart（Web 平台或库未编译）。
 
-### i18n
+### 关键规则
 
-4 languages via `flutter gen-l10n` + `.arb` files. Never hardcode strings — use `context.l10n` extension or `AppLocalizations.of(context)`.
-
----
-
-## Domain Algorithm Sync
-
-Both projects share the **same algorithm logic**. When changing one, update the other:
-
-| Android (`android/app/.../domain/`) | Flutter (`flutter/lib/domain/algorithms/`) |
-|---|---|
-| `shift_calculator.kt` | `shift_calculator.dart` |
-| `calendar_generator.kt` | `calendar_generator.dart` |
-| `shift_metrics.kt` | `shift_metrics.dart` |
-| `leave_optimizer.kt` | `leave_optimizer.dart` |
-| `colleague_mode.kt` | `colleague_mode.dart` |
-| `salary_calculator.kt` | `salary_calculator.dart` |
-| `holiday_data.kt` | `holiday_data.dart` |
-
-Core constants (REFERENCE_DATE=2025-12-15, CYCLE_LENGTH=42, 6 teams) must stay identical.
+- FFI 返回 null 时调用方必须 fallback 到纯 Dart 实现。
+- 修改 Rust 函数签名后需同步更新 `flutter/rust/src/lib.rs` 和 `ffi_bridge.dart`。
+- 新增 FFI 函数后在 `flutter/rust/` 中加测试，然后 `cargo test`。
 
 ---
 
-## Project Memory
+## Android 原版 (`android/`)
 
-Before writing code, read:
-- `memory-bank/architecture.md` — complete file-by-file architecture
-- `memory-bank/app-design-document.md` — full design spec
-- `memory-bank/progress.md` — current progress and recent changes
+### Build & Test
 
-After completing a major feature, update `memory-bank/architecture.md` and `memory-bank/progress.md`.
+```bash
+cd android
+./gradlew assembleDebug
+./gradlew testDebugUnitTest    # 162 tests
+```
 
-# 重要提示：
-# 写任何代码前必须完整阅读 memory-bank/architecture.md
-# 写任何代码前必须完整阅读 memory-bank/app-design-document.md
-# 每完成一个重大功能或里程碑后，必须更新 memory-bank/architecture.md 和 progress.md
-# 两个项目的 domain 算法必须保持同步
+**状态**：参考实现。算法已验证正确，不再活跃开发。domain 层代码已全部迁移到 Rust。
+
+---
+
+## 文档体系
+
+| 文件 | 用途 |
+|------|------|
+| `CLAUDE.md` | Claude Code 工作指导（本文件） |
+| `README.md` | 项目概览（给人看） |
+| `shift-core/README.md` | Rust workspace 说明 |
+| `memory-bank/architecture.md` | 完整架构文档 |
+| `memory-bank/app-design-document.md` | 产品设计文档 |
+| `memory-bank/progress.md` | 开发进度记录 |
+| `memory-bank/implementation-plan.md` | 实施计划 |
+| `memory-bank/tech-stack.md` | 技术栈详情 |
+| `cargo doc --no-deps` | Rust API 文档（自动生成） |
+
+### AI 工作流程
+
+1. 写代码前：读 `memory-bank/architecture.md` + `memory-bank/progress.md`
+2. 改算法：只改 `shift-core/`，然后同步更新 Flutter FFI bridge
+3. 完成后：更新 `memory-bank/progress.md`，如有架构变化更新 `memory-bank/architecture.md`
+4. Rust 代码改动后必跑：`cargo test && cargo clippy --all-targets && cargo doc --no-deps`
+5. Flutter 代码改动后必跑：`flutter test && flutter analyze`

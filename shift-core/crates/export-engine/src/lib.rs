@@ -48,7 +48,7 @@ pub fn generate_shift_ics(
     buf.push_str(crlf);
     buf.push_str("METHOD:PUBLISH");
     buf.push_str(crlf);
-    buf.push_str(&format!("X-WR-CALNAME:班伴 · {}排班", team_name(team_id)));
+    buf.push_str(&format!("X-WR-CALNAME:班伴 · {}排班", shift_algorithm::team_name(team_id)));
     buf.push_str(crlf);
     buf.push_str("X-WR-CALDESC:Auto-generated shift schedule by 班伴 (ShiftMate)");
     buf.push_str(crlf);
@@ -90,7 +90,7 @@ pub fn generate_shift_ics(
         let dtstart = format!("{}T{}", cursor.format("%Y%m%d"), start_hhmm);
         let dtend = format!("{}T{}", end_date.format("%Y%m%d"), end_hhmm);
 
-        let summary = format!("{} · {}", shift_type.full_label(), team_name(team_id));
+        let summary = format!("{} · {}", shift_type.full_label(), shift_algorithm::team_name(team_id));
 
         let day_info = shift_algorithm::get_shift_info(cursor, config, team_phase_offset);
 
@@ -162,14 +162,6 @@ fn ics_escape(s: &str) -> String {
         .replace('\n', "\\n")
 }
 
-fn team_name(id: u32) -> String {
-    let prefix = match id {
-        1 => "一", 2 => "二", 3 => "三",
-        4 => "四", 5 => "五", 6 => "六",
-        _ => return format!("{}值", id),
-    };
-    format!("{}值", prefix)
-}
 
 fn shift_alarm_key(st: &ShiftType) -> String {
     match st {

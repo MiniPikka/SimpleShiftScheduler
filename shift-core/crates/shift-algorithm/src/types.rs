@@ -157,7 +157,35 @@ pub struct ShiftCycleConfig {
     pub total_teams: u32,
 }
 
+/// Chinese team name for a team ID.
+///
+/// ```rust
+/// use shift_algorithm::team_name;
+/// assert_eq!(team_name(1), "一值");
+/// assert_eq!(team_name(3), "三值");
+/// assert_eq!(team_name(6), "六值");
+/// ```
+pub fn team_name(id: u32) -> String {
+    let prefix = match id {
+        1 => "一", 2 => "二", 3 => "三",
+        4 => "四", 5 => "五", 6 => "六",
+        _ => return format!("{}值", id),
+    };
+    format!("{}值", prefix)
+}
+
 impl ShiftCycleConfig {
+    /// Create a new config, validating that `cycle.len() == cycle_length`.
+    ///
+    /// # Panics
+    /// Panics if `cycle.len() != cycle_length as usize`.
+    pub fn new(cycle: Vec<ShiftType>, reference_date: chrono::NaiveDate, total_teams: u32) -> Self {
+        let cycle_length = cycle.len() as u32;
+        assert!(cycle_length >= 1, "cycle must be non-empty");
+        assert!(total_teams >= 1, "total_teams must be >= 1");
+        Self { cycle, cycle_length, reference_date, total_teams }
+    }
+
     /// Team phase offset in days.
     ///
     /// Formula: `(team_id - 1) * (cycle_length / total_teams)`.

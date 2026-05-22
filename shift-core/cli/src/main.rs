@@ -325,18 +325,6 @@ fn shift_icon(st: ShiftType) -> &'static str {
     }
 }
 
-fn team_name(id: u32) -> String {
-    let prefix = match id {
-        1 => "一",
-        2 => "二",
-        3 => "三",
-        4 => "四",
-        5 => "五",
-        6 => "六",
-        _ => return format!("{}值", id),
-    };
-    format!("{}值", prefix)
-}
 
 // ── Main ──
 
@@ -374,7 +362,7 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
             date: today.format("%Y-%m-%d").to_string(),
             shift_type: format!("{:?}", info.shift_type).to_lowercase(),
             shift_label: info.shift_type.full_label().to_string(),
-            team: team_name(team),
+            team: shift_algorithm::team_name(team),
             day_of_cycle: info.day_of_cycle,
             total_days: config.cycle_length,
             days_until_rest: rest,
@@ -394,7 +382,7 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
             "{} {} · {} · 第 {}/{} 天 · {}",
             shift_icon(info.shift_type),
             info.shift_type.full_label().color(color).bold(),
-            team_name(team).dimmed(),
+            shift_algorithm::team_name(team).dimmed(),
             info.day_of_cycle,
             config.cycle_length,
             rest_msg,
@@ -420,7 +408,7 @@ fn cmd_tomorrow(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: 
                 "date": tomorrow.format("%Y-%m-%d").to_string(),
                 "shift_type": format!("{:?}", info.shift_type).to_lowercase(),
                 "shift_label": info.shift_type.full_label(),
-                "team": team_name(team),
+                "team": shift_algorithm::team_name(team),
                 "day_of_cycle": info.day_of_cycle,
                 "total_days": config.cycle_length,
             })
@@ -529,7 +517,7 @@ fn cmd_calendar(
         let stats = build_stats(year, month_num, config, offset, total_days);
         let out = CalendarOutput {
             month: format!("{}-{:02}", year, month_num),
-            team: team_name(team),
+            team: shift_algorithm::team_name(team),
             weeks,
             stats,
         };
@@ -539,7 +527,7 @@ fn cmd_calendar(
             "{} {} · {}",
             "📅".bold(),
             format!("{}年{}月", year, month_num).bold(),
-            team_name(team).dimmed(),
+            shift_algorithm::team_name(team).dimmed(),
         );
         println!("{}", "日  一  二  三  四  五  六".dimmed());
 
@@ -611,7 +599,7 @@ fn cmd_stats(
             "{} {} · {}",
             "📊".bold(),
             format!("{}年{}月 统计", year, month_num).bold(),
-            team_name(team).dimmed(),
+            shift_algorithm::team_name(team).dimmed(),
         );
         println!();
         println!(
@@ -755,8 +743,8 @@ fn cmd_colleague(
         println!(
             "{} {} × {}",
             "👥".bold(),
-            team_name(team_a).bold(),
-            team_name(team_b).bold(),
+            shift_algorithm::team_name(team_a).bold(),
+            shift_algorithm::team_name(team_b).bold(),
         );
         println!();
 
@@ -825,7 +813,7 @@ fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
     let tooltip = format!(
         "{} · {} · 第 {}/{} 天 · {}",
         info.shift_type.full_label(),
-        team_name(team),
+        shift_algorithm::team_name(team),
         info.day_of_cycle,
         config.cycle_length,
         rest_text,
