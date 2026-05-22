@@ -10,6 +10,7 @@ mod tui;
 use chrono::{Datelike, Local, NaiveDate, Timelike};
 use clap::{Parser, Subcommand};
 use colored::*;
+use unicode_width::UnicodeWidthStr;
 use export_engine::generate_shift_ics;
 use holiday_engine::get_china_holidays;
 use leave_optimizer::find_best_leave_plans;
@@ -339,6 +340,15 @@ fn shift_icon(st: ShiftType) -> &'static str {
     }
 }
 
+/// Pad a string to exactly `width` terminal columns, accounting for CJK double-width.
+fn pad_cjk(s: &str, width: usize) -> String {
+    let vis = UnicodeWidthStr::width(s);
+    if vis >= width {
+        s.to_string()
+    } else {
+        format!("{}{}", s, " ".repeat(width - vis))
+    }
+}
 
 // ── Main ──
 
@@ -549,7 +559,14 @@ fn cmd_calendar(
             format!("{}年{}月", year, month_num).bold(),
             shift_algorithm::team_name(team).dimmed(),
         );
-        println!("{}", "日  一  二  三  四  五  六".dimmed());
+
+        // Unicode-width-aware header
+        let header_width = 5; // 2-digit day + 1 CJK label + 2 padding
+        let dow = ["日", "一", "二", "三", "四", "五", "六"];
+        for d in dow {
+            print!("{}", pad_cjk(d, header_width).dimmed());
+        }
+        println!();
 
         for w in 0..6 {
             for d in 0..7 {
@@ -559,20 +576,15 @@ fn cmd_calendar(
                 let is_tdy = date == today;
 
                 let label = info.shift_type.label();
+                let content = format!("{:2}{}", date.day(), label);
+                let cell = pad_cjk(&content, header_width);
 
                 if !is_cur {
-                    print!("{} ", format!("{:2} {}", date.day(), label).dimmed());
+                    print!("{}", cell.dimmed());
                 } else if is_tdy {
-                    print!(
-                        "{} ",
-                        format!("{:2}{}", date.day(), label)
-                            .color(shift_color(info.shift_type))
-                            .bold()
-                            .on_bright_black()
-                    );
+                    print!("{}", cell.color(shift_color(info.shift_type)).bold().on_bright_black());
                 } else {
-                    let s = format!("{:2}{}", date.day(), label);
-                    print!("{} ", s.color(shift_color(info.shift_type)));
+                    print!("{}", cell.color(shift_color(info.shift_type)));
                 }
             }
             println!();
