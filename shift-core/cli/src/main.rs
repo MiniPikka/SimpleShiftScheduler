@@ -119,7 +119,7 @@ impl Default for Config {
 ///
 /// 第二步：觉得班组对了，写进配置文件免得每次敲 --team：
 ///   mkdir -p ~/.config/banban
-///   echo '[shift]\ndefault_team = 2' > ~/.config/banban/config.toml
+///   printf '\[shift]\ndefault_team = 2\n' > ~/.config/banban/config.toml
 ///
 /// 第三步：每天敲 banban 看一眼，或者加到 Waybar 状态栏上。
 #[derive(Parser)]

@@ -1,11 +1,29 @@
-//! Monthly shift statistics.
+//! Monthly shift counts and work/rest tracking.
+//!
+//! All functions iterate day-by-day through the target range and call
+//! [`get_shift_type_for_date`] for each day.
 //!
 //! Ported from Flutter `shift_metrics.dart` and Android `shift_metrics.kt`.
 
 use chrono::NaiveDate;
 use shift_algorithm::{get_shift_type_for_date, ShiftCycleConfig, ShiftType};
 
-/// Count how many days of a given shift type occur in a given month.
+/// Count how many days of a given shift type occur in a month.
+///
+/// Works correctly for all month lengths (28, 29, 30, 31 days) and
+/// handles December→January transition.
+///
+/// ```rust
+/// use shift_algorithm::cycle::default_config;
+/// use shift_statistics::metrics::count_shift_type_in_month;
+/// use shift_algorithm::ShiftType;
+///
+/// let config = default_config();
+/// let morning_count = count_shift_type_in_month(2026, 5, ShiftType::Morning, &config, 0);
+/// // May 2026 has several morning shifts for team 1
+/// assert!(morning_count > 0);
+/// assert!(morning_count <= 31);
+/// ```
 pub fn count_shift_type_in_month(
     year: i32,
     month: u32,
@@ -31,7 +49,17 @@ pub fn count_shift_type_in_month(
     count
 }
 
-/// Count working days (non-rest, non-study) in a given month.
+/// Count total working days (Morning + Afternoon + Night) in a month.
+///
+/// ```rust
+/// use shift_algorithm::cycle::default_config;
+/// use shift_statistics::metrics::count_work_days_in_month;
+///
+/// let config = default_config();
+/// let work = count_work_days_in_month(2026, 5, &config, 0);
+/// // Sum of Morning, Afternoon, Night counts for the month
+/// assert!(work <= 31);
+/// ```
 pub fn count_work_days_in_month(
     year: i32,
     month: u32,
@@ -59,8 +87,20 @@ pub fn count_work_days_in_month(
 
 /// Count consecutive work days looking backward from `today` (inclusive).
 ///
-/// Bounded to 10,000 iterations to prevent infinite loop on all-work cycles.
-/// Returns 0 if `today` itself is a rest day.
+/// Stops at the first non-work day. Returns 0 if today is a rest day.
+///
+/// Bounded to 10,000 iterations to prevent infinite loops on all-work cycles.
+///
+/// ```rust
+/// use shift_algorithm::cycle::default_config;
+/// use shift_statistics::metrics::consecutive_work_days;
+/// use chrono::NaiveDate;
+///
+/// let config = default_config();
+/// let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
+/// let consec = consecutive_work_days(today, &config, 0);
+/// println!("连续上班 {} 天", consec);
+/// ```
 pub fn consecutive_work_days(
     today: NaiveDate,
     config: &ShiftCycleConfig,
@@ -84,7 +124,26 @@ pub fn consecutive_work_days(
 /// Days until the next rest day, starting from tomorrow (excludes today).
 ///
 /// Returns 0 if tomorrow is already a rest day.
-/// Bounded to 10,000 iterations to prevent infinite loop on all-work cycles.
+/// Does not consider whether today itself is rest — use
+/// [`get_shift_info`](shift_algorithm::get_shift_info) to check that.
+///
+/// Bounded to 10,000 iterations.
+///
+/// ```rust
+/// use shift_algorithm::cycle::default_config;
+/// use shift_statistics::metrics::days_until_next_rest;
+/// use chrono::NaiveDate;
+///
+/// let config = default_config();
+/// let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
+/// let days = days_until_next_rest(today, &config, 0);
+///
+/// if days == 0 {
+///     println!("明天休息！");
+/// } else {
+///     println!("距休 {} 天", days);
+/// }
+/// ```
 pub fn days_until_next_rest(
     today: NaiveDate,
     config: &ShiftCycleConfig,
@@ -113,7 +172,6 @@ mod tests {
     fn count_morning_in_may_2026() {
         let config = default_config();
         let count = count_shift_type_in_month(2026, 5, ShiftType::Morning, &config, 0);
-        // May 2026 has ~8 morning shifts for team 1 (offset 0)
         assert!(count > 0);
         assert!(count <= 31);
     }
@@ -133,7 +191,6 @@ mod tests {
         let config = default_config();
         let date = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let c = consecutive_work_days(date, &config, 0);
-        // Could be 0 or more, but never panics
         assert!(c < 365);
     }
 
@@ -142,7 +199,6 @@ mod tests {
         let config = default_config();
         let date = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let d = days_until_next_rest(date, &config, 0);
-        // Must find a rest within 42 days max
         assert!(d < 42);
     }
 
@@ -150,7 +206,6 @@ mod tests {
 
     #[test]
     fn all_work_cycle_consecutive_is_bounded() {
-        // Cycle with no rest days → consecutive_work_days caps at MAX_ITERATIONS
         use ShiftType::*;
         let config = ShiftCycleConfig {
             cycle: vec![Morning; 3],
@@ -160,13 +215,11 @@ mod tests {
         };
         let date = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let c = consecutive_work_days(date, &config, 0);
-        // With all-work cycle, the loop will hit MAX_ITERATIONS (10000)
         assert_eq!(c, 10000);
     }
 
     #[test]
     fn all_work_cycle_days_until_rest_bounded() {
-        // Cycle with no rest days at all → caps at MAX_ITERATIONS
         use ShiftType::*;
         let config = ShiftCycleConfig {
             cycle: vec![Morning; 3],
@@ -219,7 +272,6 @@ mod tests {
     #[test]
     fn december_2026_transition() {
         let config = default_config();
-        // December 2026 has 31 days, next month is January 2027
         let total = count_shift_type_in_month(2026, 12, ShiftType::Morning, &config, 0)
             + count_shift_type_in_month(2026, 12, ShiftType::Afternoon, &config, 0)
             + count_shift_type_in_month(2026, 12, ShiftType::Rest, &config, 0)

@@ -1,4 +1,7 @@
-//! Colleague mode: find common rest days between two teams.
+//! **Colleague mode**: find common rest days between two teams.
+//!
+//! The scenario: "I'm on team A, my friend/partner is on team B.
+//! When can we both rest on the same day?"
 //!
 //! Ported from Flutter `colleague_mode.dart` and Android `colleague_mode.kt`.
 
@@ -6,19 +9,61 @@ use chrono::NaiveDate;
 use serde::Serialize;
 use shift_algorithm::{get_shift_type_for_date, ShiftCycleConfig};
 
+/// Result of a colleague-mode query.
+///
+/// ```rust
+/// use shift_algorithm::cycle::default_config;
+/// use shift_statistics::colleague::find_common_rest_days;
+/// use chrono::NaiveDate;
+///
+/// let config = default_config();
+/// let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
+/// let result = find_common_rest_days(1, 3, today, 90, &config);
+///
+/// if let Some(date) = result.next_common_rest_date {
+///     println!("下次共同休息: {}", date);
+/// }
+/// println!("未来30天: {} 次", result.count_in_30_days);
+/// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct CommonRestResult {
+    /// First team ID (1-6).
     pub team_a_id: u32,
+    /// Second team ID (1-6).
     pub team_b_id: u32,
+    /// The next date when both teams rest.
     pub next_common_rest_date: Option<NaiveDate>,
+    /// Days until the next common rest.
     pub days_until_next: Option<u32>,
+    /// All common rest dates within the analysis window.
     pub common_rest_dates: Vec<NaiveDate>,
+    /// Total common rest days found.
     pub total_count: u32,
+    /// Common rests within the first 30 days.
     pub count_in_30_days: u32,
+    /// Common rests within the first 60 days.
     pub count_in_60_days: u32,
 }
 
-/// Find common rest days between two teams over a given analysis window.
+/// Find common rest days between two teams.
+///
+/// For each day from `today` to `today + days_to_analyze`, computes the shift
+/// for both teams. A day counts as "common rest" if both teams are on
+/// [`Rest`](shift_algorithm::ShiftType::Rest) or [`Study`](shift_algorithm::ShiftType::Study).
+///
+/// ```rust
+/// use shift_algorithm::cycle::default_config;
+/// use shift_statistics::colleague::find_common_rest_days;
+/// use chrono::NaiveDate;
+///
+/// let config = default_config();
+/// let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
+/// let result = find_common_rest_days(1, 3, today, 60, &config);
+///
+/// assert_eq!(result.team_a_id, 1);
+/// assert_eq!(result.team_b_id, 3);
+/// assert!(result.count_in_30_days <= result.count_in_60_days);
+/// ```
 pub fn find_common_rest_days(
     team_a_id: u32,
     team_b_id: u32,
@@ -80,7 +125,6 @@ mod tests {
         let config = default_config();
         let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let result = find_common_rest_days(1, 1, today, 42, &config);
-        // Same team → common rests = all its own rests
         assert!(result.common_rest_dates.len() >= 1);
         assert_eq!(result.team_a_id, result.team_b_id);
     }
@@ -90,7 +134,6 @@ mod tests {
         let config = default_config();
         let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let result = find_common_rest_days(1, 3, today, 90, &config);
-        // Teams 1 and 3 have their offset difference → some common rests
         assert!(result.total_count <= 90);
         assert!(result.count_in_30_days <= result.count_in_60_days);
     }
@@ -118,8 +161,6 @@ mod tests {
         }
         assert_eq!(result.total_count, result.common_rest_dates.len() as u32);
     }
-
-    // ── Edge cases ──
 
     #[test]
     fn zero_day_window_returns_empty() {

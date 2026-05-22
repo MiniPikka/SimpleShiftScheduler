@@ -1,18 +1,52 @@
+//! Core data types for the shift scheduling system.
+
 use serde::{Deserialize, Serialize};
 
-/// Shift type enum — matches Android `ShiftType.kt` and Flutter `shift_type.dart`.
+/// The five shift types in a standard Chinese rotating shift system.
+///
+/// # Variants
+///
+/// | Variant | Label | Full Label | Category |
+/// |---------|-------|-----------|----------|
+/// | [`Morning`](ShiftType::Morning) | 早 | 早班 | Work |
+/// | [`Afternoon`](ShiftType::Afternoon) | 中 | 中班 | Work |
+/// | [`Rest`](ShiftType::Rest) | 休 | 休班 | Rest |
+/// | [`Night`](ShiftType::Night) | 夜 | 夜班 | Work |
+/// | [`Study`](ShiftType::Study) | 学 | 学习班 | Rest |
+///
+/// # Example
+///
+/// ```rust
+/// use shift_algorithm::ShiftType;
+///
+/// assert!(ShiftType::Morning.is_work());
+/// assert!(!ShiftType::Rest.is_work());
+/// assert!(ShiftType::Rest.is_rest());
+/// assert!(ShiftType::Study.is_rest());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ShiftType {
+    /// 早班 — morning shift
     Morning,
+    /// 中班 — afternoon shift
     Afternoon,
+    /// 休班 — rest day
     Rest,
+    /// 夜班 — night shift
     Night,
+    /// 学习班 — study/training day (counts as rest for scheduling purposes)
     Study,
 }
 
 impl ShiftType {
-    /// Human-readable Chinese label for this shift type.
+    /// Short Chinese label (single character).
+    ///
+    /// ```rust
+    /// use shift_algorithm::ShiftType;
+    /// assert_eq!(ShiftType::Morning.label(), "早");
+    /// assert_eq!(ShiftType::Night.label(), "夜");
+    /// ```
     pub fn label(&self) -> &'static str {
         match self {
             ShiftType::Morning => "早",
@@ -24,6 +58,11 @@ impl ShiftType {
     }
 
     /// Full Chinese label.
+    ///
+    /// ```rust
+    /// use shift_algorithm::ShiftType;
+    /// assert_eq!(ShiftType::Afternoon.full_label(), "中班");
+    /// ```
     pub fn full_label(&self) -> &'static str {
         match self {
             ShiftType::Morning => "早班",
@@ -34,18 +73,44 @@ impl ShiftType {
         }
     }
 
-    /// Returns true if this shift type counts as a working day.
+    /// Returns `true` if this is a working shift (Morning, Afternoon, or Night).
+    ///
+    /// Used for counting work days, consecutive work stats, etc.
     pub fn is_work(&self) -> bool {
         matches!(self, ShiftType::Morning | ShiftType::Afternoon | ShiftType::Night)
     }
 
-    /// Returns true if this shift type counts as a rest day.
+    /// Returns `true` if this counts as rest (Rest or Study).
+    ///
+    /// Study days are treated as rest because the worker is not on duty.
     pub fn is_rest(&self) -> bool {
         matches!(self, ShiftType::Rest | ShiftType::Study)
     }
 }
 
-/// Result of querying shift info for a given date.
+/// Result of querying what shift falls on a given date.
+///
+/// Returned by [`get_shift_info`](crate::get_shift_info).
+///
+/// # Fields
+///
+/// | Field | Type | Range | Description |
+/// |-------|------|-------|-------------|
+/// | `date` | `NaiveDate` | — | The queried date |
+/// | `day_of_cycle` | `u32` | `1..=cycle_length` | Which day in the cycle (1-based) |
+/// | `cycle_index` | `u32` | `0..=cycle_length-1` | Zero-based index into the cycle array |
+/// | `shift_type` | [`ShiftType`] | — | The shift type for this date |
+///
+/// ```rust
+/// use shift_algorithm::cycle::default_config;
+/// use shift_algorithm::get_shift_info;
+///
+/// let config = default_config();
+/// let info = get_shift_info(config.reference_date, &config, 0);
+///
+/// assert_eq!(info.day_of_cycle, 1);
+/// assert_eq!(info.cycle_index, 0);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShiftInfo {
     /// The queried date.
@@ -59,20 +124,59 @@ pub struct ShiftInfo {
 }
 
 /// Runtime shift cycle configuration.
+///
+/// The default 42-day, 6-team configuration is available via
+/// [`default_config()`](crate::cycle::default_config).
+///
+/// # Custom cycles
+///
+/// ```rust
+/// use shift_algorithm::{ShiftCycleConfig, ShiftType};
+/// use chrono::NaiveDate;
+///
+/// let config = ShiftCycleConfig {
+///     cycle: vec![ShiftType::Morning, ShiftType::Afternoon, ShiftType::Rest],
+///     cycle_length: 3,
+///     reference_date: NaiveDate::from_ymd_opt(2025, 12, 15).unwrap(),
+///     total_teams: 1,
+/// };
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShiftCycleConfig {
     /// The ordered list of shift types defining one full cycle.
+    /// Must have length == `cycle_length`.
     pub cycle: Vec<ShiftType>,
-    /// Length of the cycle (= cycle.len()).
+    /// Number of days in one full cycle (= `cycle.len()`).
     pub cycle_length: u32,
-    /// The anchor reference date (day 1 of the cycle).
+    /// The anchor reference date. Day 1 of the cycle falls on this date.
+    /// Default: 2025-12-15.
     pub reference_date: chrono::NaiveDate,
     /// Total number of teams sharing this cycle.
+    /// Each team is offset by `cycle_length / total_teams` days.
+    /// Default: 6.
     pub total_teams: u32,
 }
 
 impl ShiftCycleConfig {
-    /// Team phase offset in days: (team_id - 1) * (cycle_length / total_teams).
+    /// Team phase offset in days.
+    ///
+    /// Formula: `(team_id - 1) * (cycle_length / total_teams)`.
+    ///
+    /// For a 42-day, 6-team cycle:
+    /// - Team 1 (一值): offset 0
+    /// - Team 2 (二值): offset 7
+    /// - Team 3 (三值): offset 14
+    /// - ...
+    /// - Team 6 (六值): offset 35
+    ///
+    /// ```rust
+    /// use shift_algorithm::cycle::default_config;
+    ///
+    /// let config = default_config();
+    /// assert_eq!(config.team_phase_offset(1), 0);
+    /// assert_eq!(config.team_phase_offset(2), 7);
+    /// assert_eq!(config.team_phase_offset(6), 35);
+    /// ```
     pub fn team_phase_offset(&self, team_id: u32) -> u32 {
         (team_id - 1) * (self.cycle_length / self.total_teams)
     }

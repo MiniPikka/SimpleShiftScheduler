@@ -1,15 +1,57 @@
+//! Core shift calculation functions.
+//!
+//! All functions are **pure**: given the same inputs, always produce the same outputs.
+//! No platform dependencies, no I/O, no state.
+//!
+//! ## The algorithm
+//!
+//! ```text
+//! date → calculate_day_offset(date, reference_date)
+//!      → normalize_cycle_index(offset, cycle_length)
+//!      → cycle[index]  →  ShiftType
+//! ```
+//!
+//! Team phase offset is added to the day offset before normalization:
+//!
+//! ```text
+//! offset = (date - reference_date) + team_phase_offset
+//! ```
+
 use crate::types::{ShiftCycleConfig, ShiftInfo, ShiftType};
 use chrono::NaiveDate;
 
-/// Calculate the number of days between `date` and `reference_date`.
-/// Positive = date is after reference, negative = date is before.
+/// Number of days between `date` and `reference_date`.
+///
+/// Positive means `date` is after the reference. Negative means before.
+///
+/// ```rust
+/// use shift_algorithm::calculate_day_offset;
+/// use chrono::NaiveDate;
+///
+/// let ref_date = NaiveDate::from_ymd_opt(2025, 12, 15).unwrap();
+/// let target = NaiveDate::from_ymd_opt(2025, 12, 20).unwrap();
+/// assert_eq!(calculate_day_offset(target, ref_date), 5);
+/// assert_eq!(calculate_day_offset(ref_date, target), -5);
+/// ```
 pub fn calculate_day_offset(date: NaiveDate, reference_date: NaiveDate) -> i64 {
     (date - reference_date).num_days()
 }
 
-/// Normalize an offset (potentially negative or out of range) into `0..cycle_length`.
+/// Normalize any offset into the range `0..cycle_length`.
+///
+/// Handles negative values correctly (wraps around).
+///
+/// ```rust
+/// use shift_algorithm::normalize_cycle_index;
+///
+/// assert_eq!(normalize_cycle_index(0, 42), 0);
+/// assert_eq!(normalize_cycle_index(42, 42), 0);
+/// assert_eq!(normalize_cycle_index(-1, 42), 41);
+/// assert_eq!(normalize_cycle_index(100, 42), 16);
+/// ```
 ///
 /// # Panics
+///
 /// Panics if `cycle_length == 0`.
 pub fn normalize_cycle_index(offset_days: i64, cycle_length: u32) -> u32 {
     assert!(cycle_length >= 1, "cycle_length must be >= 1, got 0");
@@ -23,10 +65,19 @@ pub fn normalize_cycle_index(offset_days: i64, cycle_length: u32) -> u32 {
 }
 
 /// Team phase offset in days.
-/// Six teams share one 42-day cycle → each team offset by 7 days.
-/// For custom cycles: (team_id - 1) * (cycle_length / total_teams).
+///
+/// For a 42-day, 6-team cycle, each team is offset by 7 days:
+///
+/// ```rust
+/// use shift_algorithm::team_phase_offset_for;
+///
+/// assert_eq!(team_phase_offset_for(1, 42, 6), 0);
+/// assert_eq!(team_phase_offset_for(2, 42, 6), 7);
+/// assert_eq!(team_phase_offset_for(6, 42, 6), 35);
+/// ```
 ///
 /// # Panics
+///
 /// Panics if `total_teams == 0` or `team_id == 0`.
 pub fn team_phase_offset_for(team_id: u32, cycle_length: u32, total_teams: u32) -> u32 {
     assert!(total_teams >= 1, "total_teams must be >= 1, got 0");
@@ -34,7 +85,22 @@ pub fn team_phase_offset_for(team_id: u32, cycle_length: u32, total_teams: u32) 
     (team_id - 1) * (cycle_length / total_teams)
 }
 
-/// Get the shift type for a given date, considering team phase offset.
+/// Get the shift type for a given date.
+///
+/// This is the core function. Everything else — monthly stats, calendar generation,
+/// leave optimization, colleague mode — ultimately calls this.
+///
+/// ```rust
+/// use shift_algorithm::cycle::default_config;
+/// use shift_algorithm::get_shift_type_for_date;
+///
+/// let config = default_config();
+/// // 2025-12-15 is day 1 = Morning
+/// assert_eq!(
+///     get_shift_type_for_date(config.reference_date, &config, 0),
+///     shift_algorithm::ShiftType::Morning,
+/// );
+/// ```
 pub fn get_shift_type_for_date(
     date: NaiveDate,
     config: &ShiftCycleConfig,
@@ -45,7 +111,30 @@ pub fn get_shift_type_for_date(
     config.cycle[index as usize]
 }
 
-/// Get full shift info for a given date.
+/// Get full shift info (date, day of cycle, cycle index, shift type) in one call.
+///
+/// Returns [`ShiftInfo`] which includes everything you typically need:
+///
+/// ```rust
+/// use shift_algorithm::cycle::default_config;
+/// use shift_algorithm::get_shift_info;
+/// use chrono::NaiveDate;
+///
+/// let config = default_config();
+/// let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
+/// let info = get_shift_info(today, &config, 0);
+///
+/// println!("{} · 第 {}/{} 天",
+///     info.shift_type.full_label(),
+///     info.day_of_cycle,
+///     config.cycle_length,
+/// );
+///
+/// assert_eq!(info.date, today);
+/// assert!(info.day_of_cycle >= 1);
+/// assert!(info.day_of_cycle <= 42);
+/// assert_eq!(info.cycle_index + 1, info.day_of_cycle);
+/// ```
 pub fn get_shift_info(
     date: NaiveDate,
     config: &ShiftCycleConfig,
@@ -149,7 +238,6 @@ mod tests {
     #[test]
     fn reference_date_plus_4_is_day_5_rest() {
         let config = default_config();
-        // cycle: [M,M,A,A,R,N,N,...], day 5 = Rest
         let date = config.reference_date + chrono::Duration::days(4);
         let info = get_shift_info(date, &config, 0);
         assert_eq!(info.day_of_cycle, 5);
@@ -159,14 +247,10 @@ mod tests {
     #[test]
     fn team_phase_offset_changes_shift() {
         let config = default_config();
-        // Default team (offset=0) on reference_date = Morning
         assert_eq!(
             get_shift_type_for_date(config.reference_date, &config, 0),
             ShiftType::Morning
         );
-        // Team 2 (offset=7): reference_date + 7 days total offset
-        // reference_date offset=0 → index 0 = Morning
-        // +7 days total offset → index 7 = Rest (cycle[7] = Rest)
         assert_eq!(
             get_shift_type_for_date(config.reference_date, &config, 7),
             ShiftType::Rest
@@ -199,14 +283,10 @@ mod tests {
 
     #[test]
     fn known_date_cross_check_with_android() {
-        // Android: 2026-05-22 shift info should match
-        // Calculated manually: offset = (2026-05-22 - 2025-12-15) = 158 days
-        // index = 158 % 42 = 32, day_of_cycle = 33
         let config = default_config();
         let date = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let info = get_shift_info(date, &config, 0);
         assert_eq!(info.day_of_cycle, 33);
-        // cycle index 32: check default cycle array
         assert_eq!(info.shift_type, config.cycle[32]);
     }
 
@@ -214,7 +294,6 @@ mod tests {
 
     #[test]
     fn normalize_cycle_length_1() {
-        // Single-day cycle: every day maps to index 0
         assert_eq!(normalize_cycle_index(0, 1), 0);
         assert_eq!(normalize_cycle_index(1, 1), 0);
         assert_eq!(normalize_cycle_index(100, 1), 0);
@@ -229,7 +308,6 @@ mod tests {
 
     #[test]
     fn team_phase_offset_large_values() {
-        // Very large offsets should still produce valid indices
         let config = default_config();
         let idx = normalize_cycle_index(i64::MAX, config.cycle_length);
         assert!(idx < 42);
@@ -244,7 +322,6 @@ mod tests {
     #[test]
     fn shift_info_day_of_cycle_range() {
         let config = default_config();
-        // Check 1000 consecutive days all produce valid day_of_cycle (1..=42)
         let mut date = config.reference_date;
         for _ in 0..1000 {
             let info = get_shift_info(date, &config, 0);
