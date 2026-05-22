@@ -838,3 +838,275 @@ O(n)，n ≤ 365。纯函数，可独立单元测试。复用 `getShiftTypeForDa
 * 首页架构简化（2026-05-18 已完成）：
   - 移除多轨并行策略，V1-V4 合并为单一 HomeScreen.kt
   - 删除 16 个旧组件文件及 SettingsScreen/SettingsViewModel
+
+---
+
+# Part C：产品愿景 — 班伴 / ShiftMate（2026-05-22 起）
+
+## C.1 产品定位升级
+
+倒班助手不再是单纯的"跨平台 App"。从 2026-05-22 起，产品品牌升级为：
+
+> **班伴（英文名 ShiftMate）—— 倒班人群的生活伴侣**
+
+产品名"班伴"：自然、有陪伴感、好记、不装。英文名 ShiftMate 用于国际化场景（应用商店、GitHub org、crates.io）。
+
+核心理念变化：
+
+| 以前 | 现在 |
+|------|------|
+| 做一个 App | 做一个生态系统 |
+| 跨平台 UI 一致 | 协议标准一致 |
+| 功能越多越好 | 融入操作系统越深越好 |
+| 用户打开 App 使用 | 用户抬眼就能看到信息 |
+| 自建通知系统 | 借力系统日历生态 |
+| 移动端为主 | Linux 重度用户 + 移动端并存 |
+
+## C.2 设计原则
+
+### C.2.1 倒班信息是 Glanceable Info
+
+用户不需要"打开软件"来看今天什么班。倒班信息应该像时间、天气一样，抬头就能看到：
+- 状态栏/桌面 Widget 显示今日班次
+- 系统日历自动标记每个日期班次
+- 通知在提醒时间弹出
+
+### C.2.2 协议 > App
+
+ICS (RFC 5545) 是日历数据交换的世界语。生成一个标准的 `.ics` 文件，胜过在 10 个平台上写 10 个 UI。自动兼容 Thunderbird、KDE Calendar、GNOME Calendar、Evolution、Nextcloud、Apple Calendar、Google Calendar、Outlook。
+
+### C.2.3 CLI 是工程师的入口
+
+Linux 用户天然喜欢命令行。`shift today` 比打开 App 查看快得多。CLI 也是自动化（cron/systemd timer）和脚本集成的基础。
+
+### C.2.4 本地优先，云可叠加
+
+数据所有权在用户手中。ICS 文件在本地，配置文件在 ~/.config，CalDAV 同步到自己的 Nextcloud。后期可选 Supabase 云同步，但绝不强制。
+
+## C.3 产品矩阵
+
+```
+                      ┌────────────────────┐
+                      │  shift-core (Rust) │
+                      │  算法、统计、导出   │
+                      └────────┬───────────┘
+                               │
+        ┌──────────────────────┼──────────────────────┐
+        │                      │                      │
+        ▼                      ▼                      ▼
+  ┌───────────┐        ┌─────────────┐        ┌─────────────┐
+  │ 移动用户   │        │ Linux 用户   │        │ 所有日历用户  │
+  └───────────┘        └─────────────┘        └─────────────┘
+        │                      │                      │
+        ▼                      ▼                      ▼
+  Flutter App           shift CLI              ICS/CalDAV
+  (Android/iOS)         shift waybar           自动兼容：
+  Widget + 通知          Plasma Widget          Thunderbird
+  flutter_rust_bridge   DBus service           GNOME Calendar
+  移动端最佳体验         Local API             Nextcloud
+                        TUI (btop风格)         Apple Calendar
+                        Linux 重度集成         Google Calendar
+```
+
+### 产品分层
+
+| 层 | 用户群体 | 核心需求 | 交付形态 |
+|------|---------|---------|---------|
+| **协议层** | 所有用户 | 日历自动显示排班 | ICS 文件 / CalDAV |
+| **CLI 层** | Linux 工程师 | 快速查询、自动化 | `shift` 命令 |
+| **桌面层** | Linux Desktop 用户 | 抬眼看到班次 | Plasma Widget / Waybar |
+| **移动层** | 普通用户 | 完整 App 体验 | Flutter App |
+| **API 层** | 脚本/第三方 | 数据消费 | DBus / localhost HTTP |
+
+## C.4 新增产品功能设计
+
+### C.4.1 ICS/CalDAV 日历导出
+
+**功能**：生成标准 `.ics` 文件，包含完整排班表、RRULE 周期规则、VALARM 提醒设置。
+
+**使用方式**：
+```bash
+shift export --ics --output ~/my_shift_schedule.ics
+# 然后在 Thunderbird/KDE Calendar/Nextcloud 中导入此文件
+```
+
+**设计要点**：
+- RRULE 压缩：42 天周期 → 6 个 VEVENT（每种不同班次+班组组合一个）
+- 时区：明确标注 Asia/Shanghai（UTC+8）
+- VALARM：使用用户配置的提醒时间，提前 N 分钟触发
+- 夜班跨日：夜班 DTSTART 为当晚，DTEND 为次日早上
+- 节假日覆盖：法定节假日用 EXDATE 排除，调休工作日覆盖为实际班次
+
+### C.4.2 CLI 工具
+
+**功能**：命令行查询倒班信息，面向 Linux 工程师用户。
+
+**命令矩阵**：
+
+```bash
+shift today              # 今日班次
+shift tomorrow           # 明日班次
+shift next-rest          # 距下次休息倒计时
+shift calendar           # 当月日历（ANSI 颜色）
+shift calendar -m 2026-06  # 指定月份
+shift stats              # 本月统计（早/中/休/夜/学）
+shift leave              # 拼假推荐 Top 5
+shift leave --max-days 3 # 限制最多请假天数
+shift colleague 1 3      # 班组1和3共同休息日
+shift export --ics       # 导出 ICS
+shift config              # 管理配置
+```
+
+**设计要点**：
+- 默认人类可读输出（ANSI 颜色：早=橙、中=蓝、休=绿、夜=紫、学=黄）
+- `--json` 全局 flag 输出机器可读 JSON
+- 配置文件：`~/.config/shift/config.toml`（XDG 规范）
+- 数据输出：`~/.local/share/shift/`（XDG 规范）
+- Shell 自动补全：bash/zsh/fish/nushell
+
+### C.4.3 KDE Plasma Widget
+
+**功能**：在 KDE 桌面/状态栏显示今日班次信息，用户抬眼即见。
+
+**设计**：
+```
+┌────────────────────────┐
+│  🟠 早班 · 一值         │
+│  第 12/42 天 · 距休 3天  │
+└────────────────────────┘
+```
+
+- 小尺寸（2×1 或 1×1 面板控件）
+- 点击展开详情（距休倒计时、周期进度、班组切换）
+- 跨天自动刷新（DBus ShiftChanged 信号）
+- 颜色跟随 KDE 系统配色
+
+### C.4.4 Waybar 模块
+
+**功能**：在 Waybar（Sway/Hyprland 状态栏）显示倒班信息。
+
+**输出格式**：
+```json
+{"text": "🌙 夜", "class": "night", "tooltip": "距休2天 · 一值 · 第12/42天"}
+```
+
+- CSS class 根据班次类型变化（morning/afternoon/rest/night/study），支持自定义颜色
+- 简洁模式仅显示班次图标/文字
+- tooltip 显示完整信息
+
+### C.4.5 DBus 服务
+
+**功能**：系统级倒班数据服务，供 Plasma Widget、通知守护进程、脚本等消费。
+
+**接口设计**：
+```
+com.simpleshift.ShiftDaemon
+  /com/simpleshift/Shift
+    methods:
+      GetTodayShift() → (s shift_type, u day, u total, i days_until_rest)
+      GetShiftForDate(x date) → (s shift_type, u day, u total)
+      GetUpcomingRest() → (x date, i days_until)
+      GetConfig() → (u cycle_length, u default_team)
+    signals:
+      ShiftChanged(s new_shift_type)
+      DayChanged(x new_date)
+```
+
+### C.4.6 Local HTTP API
+
+**功能**：localhost HTTP 端点，供脚本、自动化、第三方工具消费。
+
+**端点设计**：
+```
+GET  /shift              → {"today": {...}, "tomorrow": {...}}
+GET  /shift/2026-06-01   → {"date": "...", "shift_type": "...", ...}
+GET  /calendar/2026/05    → {"days": [...], "stats": {...}}
+GET  /leave?max_days=5    → {"strategies": [...]}
+GET  /colleague/1/3        → {"common_rests": [...], ...}
+GET  /health               → {"status": "ok", "version": "1.0.0"}
+```
+
+- 非特权端口 11451
+- 仅监听 localhost（不暴露到网络）
+- JSON 响应
+- CORS 允许 localhost（供浏览器扩展/TUI 使用）
+
+### C.4.7 TUI（Phase 6）
+
+**功能**：终端全屏交互式界面，btop/lazygit 风格。
+
+**界面**：
+```
+┌──────────────────────────────────────┐
+│  倒班助手 · 一值             2026-05-22 │
+├──────────────────────────────────────┤
+│                                      │
+│  ┌──────────────────────────────┐    │
+│  │         🟠 早班               │    │
+│  │      距休还有 3 天             │    │
+│  └──────────────────────────────┘    │
+│                                      │
+│  本月统计：早8 中7 休8 夜7 学1        │
+│  连续上班：3天                        │
+│                                      │
+│  [1] 今日  [2] 日历  [3] 统计         │
+│  [4] 拼假  [5] 同事  [6] 导出         │
+│  [q] 退出                            │
+└──────────────────────────────────────┘
+```
+
+- 键盘导航（vim 风格 hjkl + 数字快捷键）
+- 鼠标支持
+- 颜色主题跟随终端
+
+## C.5 产品战略升级
+
+### 从 App 到生态
+
+| 维度 | 旧战略（Flutter App） | 新战略 |
+|------|----------------------|-------------------|
+| **目标用户** | 手机用户 | 手机用户 + Linux 工程师 + 所有日历用户 |
+| **核心竞争力** | App UI 体验 | Rust 算法 + 协议标准 |
+| **分发方式** | 应用商店 | 应用商店 + crates.io + AUR/PPA + ics 文件 |
+| **用户增长** | ASO 优化 | 协议兼容性增长（每个日历软件都是新渠道） |
+| **维护成本** | 多端 UI 同步维护 | 一个 Rust 核心 + 多个轻量前端 |
+| **长期生命力** | 依赖应用商店政策 | 依赖标准协议（永远存在） |
+
+### 关键增长渠道
+
+1. **ICS 文件分发**：任何人都可以下载一个 `.ics` 文件导入自己的日历——这本身就是获取用户的方式
+2. **crates.io**：Rust 社区发现 `shift` CLI → 安装试用
+3. **AUR（Arch User Repository）**：Arch Linux 用户 `yay -S shift-cli`
+4. **KDE Store**：Plasma Widget 分发
+5. **应用商店**（保留）：Google Play + App Store（移动端）
+
+## C.6 长期愿景
+
+### 第一阶段（当前）：Rust Domain + ICS + CLI
+
+- 核心算法提取到 Rust
+- ICS 导出可用
+- CLI 基本命令可用（today / stats / export）
+
+### 第二阶段：Linux 生态融合
+
+- Plasma Widget + Waybar 模块
+- DBus 服务
+- CalDAV 同步到 Nextcloud
+
+### 第三阶段：移动端 Rust 驱动
+
+- Flutter App 通过 flutter_rust_bridge 调用 Rust
+- 全平台使用同一个 Rust Domain
+
+### 第四阶段：社区与生态
+
+- crates.io 发布
+- AUR/PPA 包
+- KDE Store Widget
+- TUI 应用
+- 第三方脚本/自动化生态
+
+### 终极愿景
+
+> 倒班人群打开任何设备（手机、电脑、日历 App、终端），都能看到自己的排班信息。倒班助手不再是一个"App"，而是他们时间管理的基础设施。

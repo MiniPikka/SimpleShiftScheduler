@@ -1,5 +1,82 @@
 # 倒班助手开发进度记录
 
+## 2026-05-22：重大战略决策 — 架构转型（班伴 / ShiftMate）✅
+
+### 决策背景
+
+倒班助手已完成 Android 原型验证（162 tests）和 Flutter CP 版核心功能迁移（110 tests）。当前处于关键十字路口：继续做 Flutter App（加功能、上架商店），还是做真正有长期生命力的产品。
+
+### 决策结论：不做"Linux 版 App"，做"以 Rust 为核心、协议优先的架构"
+
+核心理念：**协议 > GUI，本地优先，先做倒班数据如何融入操作系统，而不是做一个 Linux 窗口。**
+
+```
+                ┌─────────────────┐
+                │  Shift Domain   │
+                │   核心算法层     │
+                │    (Rust)       │
+                └────────┬────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+        ▼                ▼                ▼
+ ┌────────────┐   ┌────────────┐   ┌────────────┐
+ │ Flutter App│   │ Linux CLI  │   │ ICS/CalDAV │
+ │ Android/iOS│   │ Companion  │   │ Calendar   │
+ └────────────┘   └────────────┘   └────────────┘
+        │                │                │
+        ▼                ▼                ▼
+   Widget/通知      KDE/Waybar      Thunderbird
+                                      Nextcloud
+                                      GNOME
+                                      Apple Cal
+```
+
+### 核心原则
+
+1. **协议优先于 GUI**：ICS/CalDAV 自动兼容 Thunderbird、KDE Calendar、GNOME Calendar、Nextcloud、Apple/Google Calendar，零 UI 成本实现跨平台同步
+2. **Rust 作为核心 Domain 语言**：真跨平台、Flutter 可调用（flutter_rust_bridge）、CLI/TUI/Web 都能复用、AI 支持极好
+3. **先做 CLI，后做 GUI**：CLI 易测试、易自动化、Linux 用户天然喜欢、稳定性高
+4. **Linux GUI 选 Plasma Widget 而非桌面 App**：倒班信息是 glanceable info，用户只想抬眼看到状态栏/桌面信息
+5. **本地优先，不过早云同步**
+
+### 六阶段路线图
+
+| 阶段 | 名称 | 目标 | 关键交付 |
+|------|------|------|---------|
+| **Phase 1** | Rust Core Domain | 提取核心算法到 Rust workspace | `shift-core` workspace (algorithm/leave/statistics/holiday/export) |
+| **Phase 2** | Linux Integration | ICS + CalDAV 日历集成 | `shift export --ics` → Thunderbird/Nextcloud 导入 |
+| **Phase 3** | CLI Companion | Rust + clap 命令行工具 | `shift today` / `shift next-rest` / `shift stats` |
+| **Phase 4** | Flutter Mobile | Android/iOS 移动端 | flutter_rust_bridge + 现有 Flutter UI 重构为 Rust 驱动 |
+| **Phase 5** | Linux Companion | KDE Plasma Widget + Waybar | 状态栏/桌面 glanceable 倒班信息 |
+| **Phase 6** | Advanced Ecosystem | DBus + Local API + TUI | 系统广播班次变化、localhost API、btop 风格 TUI |
+
+### 现在开始：Phase 1 — Rust Core Domain
+
+第一步建立 `shift-core/` Rust workspace，包含 5 个 crate：
+- `shift-algorithm` — 排班计算（date offset → cycle index → shift type）
+- `leave-optimizer` — 拼假算法（间隙桥接法）
+- `shift-statistics` — 统计逻辑（月度统计、连续上班、距休等）
+- `holiday-engine` — 中国法定节假日引擎
+- `export-engine` — ICS/RRULE 导出引擎
+
+### Android 版状态
+
+Phase 1 Android 版（阶段 1-27）功能完整、162 tests 全部通过。作为算法参考和产品验证基础保留，不再活跃开发。
+
+### Flutter CP 版状态
+
+Flutter CP 版（110 tests）作为移动端 UI 参考保留。Phase 4 将以 Rust FFI 驱动替代当前纯 Dart domain 层。
+
+### 相关文档更新
+
+- `architecture.md` — 新增 Part C：新架构（Rust 核心 + 协议优先）
+- `tech-stack.md` — 新增 Part C：新技术栈（Rust 中心）
+- `implementation-plan.md` — 新增 Part C：六阶段实施计划
+- `app-design-document.md` — 新增 Part C：产品愿景（班伴 / ShiftMate）
+
+---
+
 ## 2026-05-22：CP 版本 App 命名与图标统一 + Widget 暗亮适配 ✅
 
 ### 变更动机

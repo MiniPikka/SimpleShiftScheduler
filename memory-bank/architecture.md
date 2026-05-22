@@ -2045,3 +2045,347 @@ Glance 编译为 RemoteViews，不支持 `androidx.compose.ui.graphics.Color` �
 ### 洞察 AAA：快照比较是零成本去重机制
 
 `RuntimeShiftSettings` 是 data class，Kotlin 编译器自动生成 `equals()`。`current == lastWidgetSettings` 一次对象比较即可避免整个 DataStore 读取 + Glance 更新流程。相比每次 onResume 都无条件更新，这是投入产出比最高的单行优化。
+
+---
+
+# Part C：新架构 — Rust 核心 + 协议优先（2026-05-22 起）
+
+## C.1 架构总览
+
+项目从"跨平台 App"升级为以 Rust 为核心、协议优先的架构。核心变化：**Rust 作为唯一 Domain 语言，协议（ICS/CalDAV）优先于 GUI，CLI 优先于桌面 App。**
+
+```
+                              ┌──────────────────────┐
+                              │    Shift Domain       │
+                              │    (Rust Workspace)   │
+                              │                       │
+                              │  shift-algorithm      │
+                              │  leave-optimizer      │
+                              │  shift-statistics     │
+                              │  holiday-engine       │
+                              │  export-engine        │
+                              └──────────┬────────────┘
+                                         │
+                 ┌───────────────────────┼───────────────────────┐
+                 │                       │                       │
+                 ▼                       ▼                       ▼
+        ┌──────────────┐       ┌──────────────┐       ┌──────────────┐
+        │ Flutter App  │       │  Linux CLI   │       │ ICS/CalDAV   │
+        │ (Mobile UI)  │       │  (Rust+clap) │       │  Calendar    │
+        │              │       │              │       │              │
+        │ flutter_rust │       │ shift today  │       │ .ics export  │
+        │ _bridge FFI  │       │ shift stats  │       │ CalDAV sync  │
+        └──────┬───────┘       └──────┬───────┘       └──────┬───────┘
+               │                      │                      │
+               ▼                      ▼                      ▼
+        ┌──────────────┐       ┌──────────────┐       ┌──────────────┐
+        │ Android/iOS  │       │ KDE/Waybar   │       │ Thunderbird  │
+        │ Widget/通知   │       │ DBus/Plasma  │       │ Nextcloud    │
+        └──────────────┘       └──────────────┘       │ GNOME/Apple  │
+                                                       └──────────────┘
+```
+
+## C.2 架构原则
+
+### C.2.1 协议 > GUI
+
+ICS (RFC 5545) 是日历数据交换的通用标准。一个 `.ics` 文件可被 Thunderbird、KDE Calendar、GNOME Calendar、Evolution、Nextcloud、Apple Calendar、Google Calendar、Outlook 全部识别。优先做好 ICS 导出，胜过做任何平台的专用 UI。
+
+### C.2.2 Rust 是唯一 Domain 语言
+
+排班算法、拼假逻辑、统计、节假日引擎、ICS 导出——全部实现在 Rust workspace。Rust 提供：真正的跨平台编译（Linux/macOS/Windows/Android/iOS/WASM）、零成本 FFI（通过 flutter_rust_bridge 供 Flutter 调用）、优秀的 CLI 生态（clap）、AI 支持极好。
+
+### C.2.3 CLI 优先于 GUI
+
+CLI 工具（`shift today`、`shift stats`、`shift export --ics`）易测试、易自动化、零 UI 维护成本、Linux 用户天然喜欢。GUI（Flutter App / Plasma Widget）在核心 Domain 稳定后再做。
+
+### C.2.4 本地优先
+
+所有数据本地存储，ICS 文件本地生成。CalDAV 同步到 Nextcloud 是可选的增强，不是必选。不过早引入 Supabase/云同步。
+
+## C.3 Shift Core Rust Workspace 结构
+
+```
+shift-core/                    ← Cargo workspace root
+├── Cargo.toml                ← workspace manifest
+├── shift-algorithm/          ← 排班计算核心
+│   ├── Cargo.toml
+│   └── src/
+│       ├── lib.rs            ← pub mod cycle, calculator, types
+│       ├── cycle.rs          ← ShiftCycle: 42天周期数组 + REFERENCE_DATE
+│       ├── calculator.rs     ← calculate_day_offset / normalize_cycle_index
+│       │                        / get_shift_type_for_date / get_shift_info
+│       └── types.rs          ← ShiftType enum + ShiftInfo struct
+│
+├── shift-statistics/         ← 统计与指标
+│   ├── Cargo.toml
+│   └── src/
+│       ├── lib.rs
+│       ├── metrics.rs        ← count_shift_type_in_month / count_work_days
+│       │                        / consecutive_work_days / days_until_next_rest
+│       └── colleague.rs      ← find_common_rest_days（双班组交叉对比）
+│
+├── leave-optimizer/          ← 拼假算法
+│   ├── Cargo.toml
+│   └── src/
+│       ├── lib.rs
+│       ├── optimizer.rs      ← find_best_leave_plans（间隙桥接法）
+│       └── scoring.rs        ← 综合评分（效率+长度+家庭）
+│
+├── holiday-engine/           ← 中国法定节假日
+│   ├── Cargo.toml
+│   └── src/
+│       ├── lib.rs
+│       └── data.rs           ← 2026-2027 节假日 + 调休数据
+│
+└── export-engine/            ← ICS/RRULE 导出
+    ├── Cargo.toml
+    └── src/
+        ├── lib.rs
+        ├── ics.rs            ← ICS 文件生成（VALARM + RRULE + 时区）
+        └── caldav.rs         ← CalDAV 同步（后期）
+```
+
+## C.4 与现有代码的关系
+
+### Android 版（`android/`）
+
+**状态**：保留，不再活跃开发。作为算法参考和产品验证基础。162 tests 验证了核心算法的正确性。
+
+### Flutter CP 版（`flutter/`）
+
+**状态**：保留，作为移动端 UI 参考。Phase 4 重构为 Rust FFI 驱动：
+- 当前 `lib/domain/algorithms/` 中的纯 Dart 算法 → 替换为 `flutter_rust_bridge` 调用 Rust
+- `lib/features/` UI 层 → 保留，Flutter Widget 仍然是最佳移动 UI 方案
+- `lib/data/` 持久化 → 保留 Hive，或迁移到 Rust 侧的 SQLite
+
+### 算法同步策略
+
+从"Android ↔ Flutter 双向同步"变为"Rust 是唯一真理源"：
+- Android 版 domain 算法 → Rust（一次性迁移，需验证）
+- Flutter Dart 算法 → 废弃，改为 FFI 调用 Rust
+- 未来所有平台（CLI/Flutter/WebAssembly/TUI）都调用同一个 Rust 库
+
+## C.5 数据流（Phase 4 完成后）
+
+```
+用户操作（Flutter UI / CLI / 日历 App）
+        │
+        ▼
+┌────────────────────┐
+│  flutter_rust_bridge │  ← FFI 边界（仅 Flutter 路径）
+│  / CLI arg parsing   │
+└────────┬───────────┘
+         │
+         ▼
+┌────────────────────┐
+│  shift-core (Rust)  │  ← 唯一 Domain 层
+│  所有业务逻辑在此    │
+└────────┬───────────┘
+         │
+    ┌────┼────────────┐
+    │    │            │
+    ▼    ▼            ▼
+  CLI   ICS     flutter_rust_bridge
+  输出  文件    返回数据给 Flutter
+```
+
+## C.6 Rust ↔ Flutter FFI 架构（Phase 4）
+
+```
+Flutter (Dart)                      Rust
+───────────────                     ────
+features/home/
+  home_notifier.dart ──FFI──► shift_algorithm::get_shift_info()
+  home_screen.dart    ◄──FFI── ShiftInfo { date, day_of_cycle, shift_type }
+
+features/leave_optimizer/
+  leave_opt_notifier  ──FFI──► leave_optimizer::find_best_leave_plans()
+  leave_opt_screen    ◄──FFI── Vec<LeaveStrategy>
+
+features/calendar/
+  calendar_notifier   ──FFI──► shift_algorithm + shift_statistics
+  calendar_screen     ◄──FFI── CalendarData
+
+features/colleague_mode/
+  colleague_notifier  ──FFI──► shift_statistics::find_common_rest_days()
+  colleague_screen    ◄──FFI── CommonRestResult
+
+core/services/
+  calendar_service    ──FFI──► export_engine::ics::generate_ics()
+                       ◄──FFI── String (ICS content)
+```
+
+**FFI 技术选型**：`flutter_rust_bridge` v2 — 自动生成 Dart/Rust 绑定代码，类型安全，零手写 FFI 胶水。
+
+## C.7 ICS/CalDAV 导出架构（Phase 2）
+
+### ICS 文件生成
+
+```
+shift-core/export-engine/src/ics.rs
+
+输入：ShiftCycleConfig + AlarmSettings + 日期范围
+      │
+      ▼
+generate_shift_ics(start, end, cycle, alarms, timezone) → String
+      │
+      ├── VCALENDAR header（VERSION:2.0, PRODID, CALSCALE:GREGORIAN）
+      ├── VTIMEZONE（Asia/Shanghai TZOFFSETFROM/TO +8）
+      ├── For each day in range:
+      │     ├── VEVENT
+      │     ├── DTSTART/DTEND（含时区）
+      │     ├── SUMMARY（"{班次标签}班 - {班组名}"）
+      │     ├── DESCRIPTION（"倒班助手 · 排班自动生成"）
+      │     ├── RRULE（周期重复规则，FREQ=DAILY;INTERVAL=cycle_length）
+      │     ├── VALARM（TRIGGER:-PT{minutes}M, ACTION:DISPLAY）
+      │     └── CATEGORIES（SHIFT_{TYPE}, TEAM_{ID}）
+      └── VCALENDAR footer
+```
+
+### RRULE 策略
+
+倒班是严格周期性的（如 42 天一循环），因此可用 RRULE 压缩 ICS 文件：
+- 每个不同班次+班组组合生成 1 个 VEVENT + RRULE
+- 文件大小从 365 个 VEVENT 压缩到 ~6 个 VEVENT
+- Thunderbird/GNOME Calendar 完整支持 RRULE 展开
+
+### CalDAV 同步（Phase 2 后期）
+
+- 使用 `reqwest` + XML 解析与 Nextcloud/Radicale CalDAV 服务器通信
+- PUT 新日历、DELETE 旧日历、REPORT 查询现有日程
+- 支持双向同步（本地 Rust → 远程 CalDAV）
+
+## C.8 CLI 架构（Phase 3）
+
+```
+shift-core/cli/                  ← CLI binary crate
+├── Cargo.toml
+└── src/
+    └── main.rs                  ← clap derive parsing
+
+Commands:
+  shift today          → 输出今日班次、周期进度、距休天数
+  shift next-rest      → 输出距下次休息的详细倒计时
+  shift calendar       → 输出当月日历（ANSI 颜色、类 btop 风格）
+  shift stats          → 输出月度统计（早/中/休/夜/学次数）
+  shift leave          → 输出最佳拼假方案 Top 5
+  shift colleague A B  → 输出班组 A 与 B 的共同休息日
+  shift export --ics   → 导出 .ics 文件到 ~/.local/share/shift/
+  shift export --caldav→ 同步到 CalDAV 服务器（需配置文件）
+  shift config          → 管理配置文件（~/.config/shift/config.toml）
+```
+
+### 配置文件格式
+
+```toml
+# ~/.config/shift/config.toml
+[shift]
+cycle_length = 42
+reference_date = "2025-12-15"
+default_team = 1
+timezone = "Asia/Shanghai"
+
+[alarms]
+morning = "06:30"
+afternoon = "14:00"
+night = "22:00"
+
+[caldav]
+url = "https://nextcloud.example.com/remote.php/dav/calendars/user/shift"
+username = "user"
+password_cmd = "pass show nextcloud"  # 不存明文密码
+```
+
+## C.9 Linux Desktop 集成架构（Phase 5-6）
+
+### KDE Plasma Widget
+
+```
+Plasma Plasmoid（QML + Rust backend via DBus）
+  ├── 显示：今日班次 + 距休倒计时 + 周期进度
+  ├── 数据来源：DBus 服务或直接读取 shift-core 配置
+  └── 自动刷新：系统启动 + 跨天时
+```
+
+### Waybar 模块
+
+```
+Waybar custom module（JSON output from `shift waybar`）
+  显示："夜 · 距休2天"
+  shift waybar → {"text": "🌙 夜 · 距休2天", "class": "night", "tooltip": "..."}
+```
+
+### DBus 服务
+
+```
+com.simpleshift.ShiftDaemon（Rust + zbus）
+  ├── GetTodayShift() → (shift_type, day_of_cycle, days_until_rest)
+  ├── GetUpcomingRest() → (date, days_until)
+  ├── ShiftChanged signal → 跨天时广播
+  └── 消费者：Plasma Widget, Waybar, notification daemon
+```
+
+### Local API（Phase 6）
+
+```
+localhost:11451/shift        → JSON: today's shift info
+localhost:11451/calendar     → JSON: this month's calendar
+localhost:11451/statistics   → JSON: monthly stats
+localhost:11451/leave        → JSON: best leave plans
+```
+
+一个小型 HTTP 服务（Rust `axum`），供脚本、自动化、第三方工具消费。
+
+## C.10 关键技术决策
+
+| 决策 | 选择 | 原因 |
+|------|------|------|
+| Domain 语言 | Rust | 真跨平台、零成本 FFI、CLI/WASM/嵌入均可、AI 支持好 |
+| FFI 方案 | flutter_rust_bridge v2 | 自动生成绑定、类型安全、社区最活跃 |
+| ICS 库 | icalendar crate | 纯 Rust、RFC 5545 完整实现、活跃维护 |
+| CLI 框架 | clap derive | Rust 生态标准、自动补全生成 |
+| DBus 库 | zbus | 纯 Rust、异步、文档好 |
+| HTTP 服务 | axum | 轻量、高性能、Tokio 生态 |
+| 日历同步协议 | ICS + CalDAV | 无需自建服务器、兼容所有主流日历软件 |
+
+## C.11 明确不做的方向
+
+| 方向 | 原因 |
+|------|------|
+| Flutter Desktop 优先 | 维护爆炸、收益极低、倒班信息是 glanceable 不是窗口式 |
+| KDE/GTK 完整桌面 App | 倒班信息显示在状态栏/Widget 远重要于独立窗口 |
+| 过早云同步（Supabase） | 本地优先、ICS 已覆盖同步场景、云同步留到后期 |
+| Electron/Tauri 桌面版 | 太重、Rust + CLI 已足够、Plasma Widget 更轻 |
+| 多模块 CI/CD | 单人项目、在本地 `cargo test` + `flutter test` 足够 |
+| 自建 Web 服务 | 维护成本高、ICS 是标准协议无需自建 |
+
+## C.12 从现有代码到新架构的迁移路径
+
+### 第一阶段：提取 Rust Domain（当前）
+
+```
+Android domain/ (Kotlin)  ──参考──►  Rust shift-core/
+Flutter domain/ (Dart)    ──参考──►  (重写，非自动翻译)
+```
+
+### 第二阶段：验证等价性
+
+```
+Rust shift-core 单元测试 ←→ Android 162 tests 预期输出
+确保同一输入产生同一输出
+```
+
+### 第三阶段：Flutter 接 Rust
+
+```
+flutter pub add flutter_rust_bridge
+Flutter domain/algorithms/ 逐步替换为 FFI 调用
+```
+
+### 第四阶段：Linux 集成
+
+```
+Rust CLI + ICS export + Plasma Widget
+与 Flutter App 并行独立开发
+```

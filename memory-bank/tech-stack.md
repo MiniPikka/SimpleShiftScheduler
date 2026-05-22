@@ -715,3 +715,271 @@ startActivity(Intent.createChooser(intent, "分享到"))
 * ✅ 同事模式分享（传播价值最高，一次渲染无分页）
 * ❌ 拼假神器分享（暂缓：需分页渲染多条策略卡片）
 * ❌ 倒班津贴分享（暂缓：收入隐私敏感）
+
+---
+
+# Part C：新技术栈 — Rust 中心（2026-05-22 起）
+
+## C.1 总体方向
+
+从"Flutter 跨平台 App"升级为以 Rust 为核心、协议优先的架构。最终技术栈是一个以 Rust 为中心、多前端（CLI/Flutter/Plasma Widget/WebAssembly）的架构。
+
+## C.2 最终推荐技术栈
+
+| 层 | 技术 | 说明 |
+|------|------|------|
+| **Core Domain** | **Rust** | 真跨平台、零成本 FFI、CLI/TUI/WASM 全支持 |
+| **Mobile UI** | **Flutter** | 最佳移动端 UI 框架，通过 flutter_rust_bridge 调用 Rust |
+| **Linux Integration** | **ICS / CalDAV** | 标准日历协议，零 UI 成本兼容全部日历软件 |
+| **Linux Automation** | **CLI (Rust + clap)** | 工程师用户、易测试、易自动化、稳定性高 |
+| **Linux GUI** | **Plasma Widget (QML)** | Glanceable info，不是窗口式 App |
+| **Desktop IPC** | **DBus (zbus)** | 系统级广播班次变化 |
+| **Local API** | **axum HTTP** | localhost HTTP API 供脚本/自动化消费 |
+| **Cloud（后期）** | **Supabase** | 可选云同步，非必选 |
+
+## C.3 Rust Workspace 技术选型
+
+### C.3.1 Core Domain crates
+
+```toml
+[workspace]
+members = [
+    "shift-algorithm",
+    "shift-statistics",
+    "leave-optimizer",
+    "holiday-engine",
+    "export-engine",
+]
+```
+
+| Crate | 依赖 | 功能 |
+|-------|------|------|
+| `shift-algorithm` | `chrono` | 日期偏移计算、周期索引归一化、get_shift_type_for_date |
+| `shift-statistics` | `chrono`, `shift-algorithm` | 月度统计、连续上班、距休、同事模式 |
+| `leave-optimizer` | `chrono`, `shift-algorithm`, `holiday-engine` | 间隙桥接法拼假算法、综合评分 |
+| `holiday-engine` | `chrono` | 2026-2027 中国法定节假日 + 调休数据 |
+| `export-engine` | `icalendar`, `chrono`, `rrule`, `shift-algorithm` | ICS 文件生成、RRULE 压缩、CalDAV 同步 |
+
+### C.3.2 关键 Rust 依赖
+
+```toml
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }  # 日期时间（java.time 等价）
+icalendar = "0.15"         # ICS RFC 5545 生成
+rrule = "0.14"             # 周期重复规则（RRULE 生成/展开）
+serde = { version = "1.0", features = ["derive"] }  # 序列化
+serde_json = "1.0"         # JSON 输出（CLI/API）
+clap = { version = "4.5", features = ["derive"] }   # CLI 参数解析
+zbus = { version = "5.0", default-features = false } # DBus 服务
+axum = "0.8"               # HTTP 服务（Local API）
+tokio = { version = "1.0", features = ["full"] }     # 异步运行时
+toml = "0.8"               # 配置文件解析
+dirs = "5.0"               # XDG 目录规范
+
+[dev-dependencies]
+tempfile = "3.0"           # 临时文件（测试用）
+```
+
+## C.4 Flutter ↔ Rust FFI 技术选型
+
+### flutter_rust_bridge v2
+
+| 特性 | 说明 |
+|------|------|
+| 自动代码生成 | Dart ↔ Rust 类型映射、FFI 胶水代码自动生成 |
+| 类型安全 | 编译期保证 Dart/Rust 类型一致 |
+| 异步支持 | Rust async fn → Dart Future |
+| 零拷贝 | 复杂类型通过指针传递，无需序列化/反序列化 |
+| 错误传递 | Rust Result<T,E> → Dart try/catch |
+| Stream 支持 | Rust Stream → Dart Stream |
+
+### 替代方案对比
+
+| 方案 | 评价 |
+|------|------|
+| `flutter_rust_bridge` | **推荐** — 最成熟、社区最活跃、类型安全 |
+| 手动 FFI (dart:ffi) | 灵活但工作量大、易出错、类型不安全 |
+| JSON over MethodChannel | 每步都要序列化/反序列化、性能差 |
+| Protobuf over FFI | 需要 proto 定义、增加构建复杂度 |
+
+## C.5 CLI 技术选型
+
+### clap derive
+
+```rust
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(name = "shift", about = "倒班助手 CLI")]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Today,              // shift today
+    NextRest,           // shift next-rest
+    Calendar { month: Option<String> },  // shift calendar [month]
+    Stats { month: Option<String> },     // shift stats [month]
+    Leave { max_days: Option<u32> },     // shift leave [--max-days 5]
+    Colleague { team_a: u8, team_b: u8 }, // shift colleague 1 3
+    Export {
+        #[arg(long)]
+        ics: bool,      // shift export --ics
+        #[arg(long)]
+        caldav: bool,   // shift export --caldav
+    },
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+}
+```
+
+### 输出格式
+
+CLI 默认输出人类可读文本（ANSI 颜色），支持 `--json` 全局 flag 输出机器可读 JSON：
+
+```bash
+shift today
+# 🟠 早班 · 一值 · 第 12/42 天 · 距休 3 天
+
+shift today --json
+# {"date":"2026-05-22","shift_type":"MORNING","shift_label":"早班","team":"一值","day_of_cycle":12,"total_days":42,"days_until_rest":3}
+```
+
+## C.6 ICS/CalDAV 技术选型
+
+### ICS 标准 (RFC 5545)
+
+为什么选择 ICS 而非自建协议：
+- **零 UI 成本**：生成 `.ics` 文件即可被所有主流日历软件导入
+- **自动兼容**：Thunderbird、KDE Calendar、GNOME Calendar、Evolution、Nextcloud、Apple Calendar、Google Calendar、Outlook
+- **RRULE 支持**：倒班是严格周期性的，RRULE 可将 365 个 VEVENT 压缩为 ~6 个
+- **VALARM 支持**：日历提醒自动由系统日历 App 管理，无需自建通知系统
+
+### ICS 生成方案
+
+```rust
+use icalendar::{Calendar, CalendarComponent, Component, Alarm, Event};
+use chrono::{NaiveDate, NaiveDateTime, FixedOffset};
+
+fn generate_shift_ics(
+    start: NaiveDate,
+    end: NaiveDate,
+    config: &ShiftConfig,
+) -> Calendar {
+    let mut cal = Calendar::new();
+    cal.name("倒班助手 - 排班表");
+    cal.timezone("Asia/Shanghai");
+
+    for (shift_type, days) in group_by_shift_type(start, end, config) {
+        let mut event = Event::new();
+        event.summary(&format!("{}班", shift_label(shift_type)));
+        event.description("倒班助手 · 自动生成排班");
+        // RRULE: FREQ=DAILY;INTERVAL=42（42天循环）
+        // DTSTART 为第一个该班次的日期
+        event.starts(start_datetime);
+        event.ends(end_datetime);
+        event.add_property("RRULE", "FREQ=DAILY;INTERVAL=42");
+
+        // VALARM
+        if let Some(alarm_time) = config.alarms.get(&shift_type) {
+            let mut alarm = Alarm::display(
+                &format!("{}班提醒", shift_label(shift_type)),
+                &format!("-PT{}H{}M", alarm_time.hour, alarm_time.minute),
+            );
+            event.alarms.push(alarm);
+        }
+
+        cal.push(event);
+    }
+    cal
+}
+```
+
+### CalDAV 同步（Phase 2 后期）
+
+- 协议：CalDAV (RFC 4791) over HTTPS
+- 客户端库：`reqwest` + 手写 XML body（CalDAV XML 较简单）
+- 目标：Nextcloud Calendar / Radicale / Baikal
+- 操作：PROPFIND 查询、PUT 上传、DELETE 删除
+
+## C.7 Linux Desktop 技术选型
+
+### KDE Plasma Widget
+
+- 语言：QML (Qt Modeling Language)
+- 数据源：DBus 服务 (`com.simpleshift.ShiftDaemon`) 或文件监控 (~/.local/share/shift/current.json)
+- 显示内容：今日班次标签（彩色大字）、班组名、距休倒计时
+- 刷新：系统启动 + 跨天 DBus 信号
+
+### Waybar 模块
+
+- Waybar 通过执行命令并读取 stdout JSON 来渲染模块
+- `shift waybar` 输出 JSON：`{"text": "🌙 夜", "class": "night", "tooltip": "距休2天 · 一值 · 第12/42天"}`
+- 配置：Waybar config.json 中添加 `"custom/shift": {"exec": "shift waybar", "interval": 3600}`
+
+### DBus 服务
+
+- 框架：`zbus`（纯 Rust、异步、Tokio 集成）
+- 服务名：`com.simpleshift.ShiftDaemon`
+- 接口：`/com/simpleshift/Shift` — GetTodayShift / GetUpcomingRest / ShiftChanged signal
+- 启动：systemd user service 或 KDE autostart
+
+### Local HTTP API
+
+- 框架：`axum`（轻量、高性能、Tokio 生态）
+- 端口：`11451`（非特权端口）
+- 格式：JSON
+- 用途：脚本消费、自动化、curl 调试
+
+## C.8 不推荐的技术
+
+| 技术 | 原因 |
+|------|------|
+| GTK | 太复杂、与 KDE Plasma 风格不一致、Rust 绑定不够成熟 |
+| Slint | 小众、AI 支持弱、生态不完整 |
+| Electron | 太重、内存占用高、倒班信息不值得一个完整浏览器 |
+| Flutter Desktop | 维护爆炸、桌面端体验不如原生 Widget |
+| Kotlin Multiplatform | AI 支持弱、iOS 调试复杂、与 Linux 生态不兼容 |
+| Go | Rust 更适合 FFI + WASM + 嵌入场景 |
+
+## C.9 开发工具链
+
+```
+shift-core/          ← Rust workspace（主要工作区）
+  ├── Cargo.toml
+  └── crates/
+
+flutter/             ← Flutter 移动端（保留，Phase 4 接入 Rust FFI）
+  └── lib/
+
+~/.config/shift/     ← CLI 配置文件
+  └── config.toml
+
+~/.local/share/shift/ ← 数据目录（ICS 输出、缓存等）
+  └── my_shift_schedule.ics
+```
+
+### 常用命令
+
+```bash
+# Rust
+cargo test                        # 运行全部 Rust 测试
+cargo build --release             # Release 构建
+cargo run -- today                # CLI 测试
+cargo run -- export --ics         # ICS 导出测试
+
+# Flutter（Phase 4 接入 Rust 后）
+flutter pub run build_runner build  # FFI 绑定重新生成
+flutter test                        # Flutter 测试
+flutter build apk                   # Android 构建
+```
+
+## C.10 一句话总结
+
+👉 **Rust Domain + ICS/CalDAV 协议 + CLI 自动化 + Flutter 移动 UI + Plasma Widget 桌面**
+
+这是目前倒班助手作为"个人时间操作系统"的最优技术组合：核心稳定、协议标准、平台覆盖广、维护成本低、AI 支持极好。

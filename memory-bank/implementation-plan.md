@@ -3944,3 +3944,1093 @@ NewHomeScreenV3
 ## 测试
 
 160 测试零回归。
+
+---
+
+# Part C：新架构实施计划（2026-05-22 起）
+
+## C.0 总体战略
+
+从"Flutter CP 版迁移"切换为以 Rust 为核心、协议优先的架构：按协议→CLI→移动端→桌面端的顺序推进。每个阶段独立可交付、可验证、有价值。
+
+### 执行原则
+
+1. **每阶段有可运行产出**：不是"搭架子"，每个阶段结束都有可用的东西
+2. **Domain 一次性从 Kotlin/Dart 迁移到 Rust**：不再三语言同步
+3. **Android 162 tests 作为验收标准**：Rust 实现必须通过相同用例
+4. **先做对 Linux 用户价值最高的**：ICS → CLI → Widget
+5. **Flutter App 保留但不再扩展**：等 Rust Domain 稳定后再接入
+
+---
+
+## C.1 阶段总览
+
+| 阶段 | 名称 | 时间估计 | 核心交付 | 验证方式 |
+|------|------|---------|---------|---------|
+| **Phase 1** | Rust Core Domain | 2-3 周 | `shift-core` workspace，5 crates | `cargo test` 全部通过，与 Android 162 tests 等价 |
+| **Phase 2** | ICS/CalDAV Export | 1-2 周 | `shift export --ics` | Thunderbird 导入验证通过 |
+| **Phase 3** | CLI Companion | 1-2 周 | `shift` 命令：today/stats/leave/colleague/export/config | 终端可用的完整 CLI |
+| **Phase 4** | Flutter Mobile (Rust FFI) | 2-3 周 | Flutter App 接入 flutter_rust_bridge | `flutter test` + `cargo test` 全通过 |
+| **Phase 5** | Linux Companion | 2-3 周 | Plasma Widget + Waybar + DBus | KDE 桌面可用 |
+| **Phase 6** | Advanced Ecosystem | 持续 | TUI + Local API + 打包分发 | crates.io/AUR/KDE Store |
+
+---
+
+## C.2 Phase 1：Rust Core Domain（当前阶段）⚡
+
+**目标**：将 Android/Kotlin 和 Flutter/Dart 中的所有 Domain 算法提取到 Rust workspace，成为项目唯一算法源。
+
+**前置条件**：
+- Rust 工具链已安装（`rustc` + `cargo`）
+- Android 版 162 tests 作为验收参考
+
+### Step 1.1：创建 Cargo workspace
+
+```bash
+cd SimpleShiftScheduler
+cargo new --lib shift-core
+cd shift-core
+# 编辑 Cargo.toml 为 workspace
+
+cargo new --lib crates/shift-algorithm
+cargo new --lib crates/shift-statistics
+cargo new --lib crates/leave-optimizer
+cargo new --lib crates/holiday-engine
+cargo new --lib crates/export-engine
+```
+
+**workspace Cargo.toml**：
+```toml
+[workspace]
+resolver = "2"
+members = [
+    "crates/shift-algorithm",
+    "crates/shift-statistics",
+    "crates/leave-optimizer",
+    "crates/holiday-engine",
+    "crates/export-engine",
+]
+
+[workspace.dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+```
+
+**验证**：`cargo build` 成功，所有 crate 可编译。
+
+### Step 1.2：实现 shift-algorithm crate
+
+**从 Kotlin/Android `shift_calculator.kt` + Dart/Flutter `shift_calculator.dart` 迁移。**
+
+**文件**：`crates/shift-algorithm/src/`
+
+```rust
+// types.rs — 数据模型
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ShiftType {
+    Morning,
+    Afternoon,
+    Rest,
+    Night,
+    Study,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftInfo {
+    pub date: NaiveDate,
+    pub day_of_cycle: u32,    // 1..=cycle_length
+    pub shift_type: ShiftType,
+    pub cycle_index: u32,     // 0..=cycle_length-1
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftCycleConfig {
+    pub cycle: Vec<ShiftType>,      // 周期数组
+    pub cycle_length: u32,          // 周期长度
+    pub reference_date: NaiveDate,  // 参考起始日期
+    pub total_teams: u32,           // 班组总数
+}
+```
+
+```rust
+// cycle.rs — 默认配置
+pub const DEFAULT_CYCLE_LENGTH: u32 = 42;
+pub const DEFAULT_TOTAL_TEAMS: u32 = 6;
+
+pub fn default_reference_date() -> NaiveDate {
+    NaiveDate::from_ymd_opt(2025, 12, 15).unwrap()
+}
+
+pub fn default_shift_cycle() -> Vec<ShiftType> {
+    // 42天固定周期数组，与 Android ShiftCycleConfig.SHIFT_CYCLE 完全一致
+    use ShiftType::*;
+    vec![
+        Morning, Morning, Afternoon, Afternoon, Rest, Night, Night,
+        Rest, Rest, Morning, Morning, Afternoon, Afternoon, Rest,
+        Night, Rest, Rest, Rest, Morning, Morning, Afternoon, Rest,
+        Night, Night, Rest, Rest, Rest, Morning, Afternoon, Afternoon,
+        Rest, Night, Night, Rest, Rest, Study, Study, Study, Study,
+        Study, Rest, Rest,
+    ]
+}
+```
+
+```rust
+// calculator.rs — 核心算法
+pub fn calculate_day_offset(date: NaiveDate, reference_date: NaiveDate) -> i64 {
+    (date - reference_date).num_days()
+}
+
+pub fn normalize_cycle_index(offset_days: i64, cycle_length: u32) -> u32 {
+    let len = cycle_length as i64;
+    let normalized = offset_days % len;
+    if normalized < 0 {
+        (normalized + len) as u32
+    } else {
+        normalized as u32
+    }
+}
+
+pub fn team_phase_offset_for(team_id: u32, cycle_length: u32, total_teams: u32) -> u32 {
+    (team_id - 1) * (cycle_length / total_teams)
+}
+
+pub fn get_shift_type_for_date(
+    date: NaiveDate,
+    config: &ShiftCycleConfig,
+    team_phase_offset: u32,
+) -> ShiftType {
+    let offset = calculate_day_offset(date, config.reference_date) + team_phase_offset as i64;
+    let index = normalize_cycle_index(offset, config.cycle_length);
+    config.cycle[index as usize]
+}
+
+pub fn get_shift_info(
+    date: NaiveDate,
+    config: &ShiftCycleConfig,
+    team_phase_offset: u32,
+) -> ShiftInfo {
+    let offset = calculate_day_offset(date, config.reference_date) + team_phase_offset as i64;
+    let index = normalize_cycle_index(offset, config.cycle_length);
+    ShiftInfo {
+        date,
+        day_of_cycle: index + 1,
+        shift_type: config.cycle[index as usize],
+        cycle_index: index,
+    }
+}
+```
+
+**单元测试**（迁移自 Android `ShiftCalculatorTest.kt` 16 用例）：
+
+```rust
+// tests/ shift_calculator_test.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_offset_zero_for_reference_date() {
+        let ref_date = default_reference_date();
+        assert_eq!(calculate_day_offset(ref_date, ref_date), 0);
+    }
+
+    #[test]
+    fn test_offset_positive() {
+        let ref_date = default_reference_date();
+        let target = ref_date + chrono::Duration::days(5);
+        assert_eq!(calculate_day_offset(target, ref_date), 5);
+    }
+
+    #[test]
+    fn test_normalize_index_zero() {
+        assert_eq!(normalize_cycle_index(0, 42), 0);
+    }
+
+    #[test]
+    fn test_normalize_index_42_wraps_to_0() {
+        assert_eq!(normalize_cycle_index(42, 42), 0);
+    }
+
+    #[test]
+    fn test_normalize_index_negative() {
+        assert_eq!(normalize_cycle_index(-1, 42), 41);
+    }
+
+    #[test]
+    fn test_ref_date_day1_is_morning() {
+        let config = default_config();
+        let info = get_shift_info(config.reference_date, &config, 0);
+        assert_eq!(info.day_of_cycle, 1);
+        assert_eq!(info.shift_type, ShiftType::Morning);
+    }
+
+    #[test]
+    fn test_ref_date_day42_is_rest() {
+        let config = default_config();
+        let date = config.reference_date + chrono::Duration::days(41);
+        let info = get_shift_info(date, &config, 0);
+        assert_eq!(info.day_of_cycle, 42);
+        assert_eq!(info.shift_type, ShiftType::Rest);
+    }
+
+    #[test]
+    fn test_team_phase_offset_formula() {
+        // teamId=1 → offset=0, teamId=2 → offset=7, teamId=6 → offset=35
+        assert_eq!(team_phase_offset_for(1, 42, 6), 0);
+        assert_eq!(team_phase_offset_for(2, 42, 6), 7);
+        assert_eq!(team_phase_offset_for(6, 42, 6), 35);
+    }
+
+    #[test]
+    fn test_custom_cycle_7_days() {
+        let config = ShiftCycleConfig {
+            cycle: vec![Morning, Afternoon, Rest, Night, Rest, Morning, Afternoon],
+            cycle_length: 7,
+            reference_date: default_reference_date(),
+            total_teams: 2,
+        };
+        let info = get_shift_info(config.reference_date, &config, 0);
+        assert_eq!(info.day_of_cycle, 1);
+        assert_eq!(info.shift_type, ShiftType::Morning);
+    }
+}
+```
+
+**验证**：`cargo test -p shift-algorithm` 全部通过（目标 ≥16 用例）。
+
+### Step 1.3：实现 shift-statistics crate
+
+**从 `shift_metrics.dart` + `colleague_mode.dart` 迁移。**
+
+**文件**：`crates/shift-statistics/src/`
+
+```rust
+// metrics.rs
+use shift_algorithm::*;
+
+pub fn count_shift_type_in_month(
+    year: i32, month: u32,
+    shift_type: ShiftType,
+    config: &ShiftCycleConfig,
+    team_phase_offset: u32,
+) -> u32 { /* 遍历当月每天，计数指定班次 */ }
+
+pub fn count_work_days_in_month(
+    year: i32, month: u32,
+    config: &ShiftCycleConfig,
+    team_phase_offset: u32,
+) -> u32 { /* 非休且非学 = 上班 */ }
+
+pub fn consecutive_work_days(
+    today: NaiveDate,
+    config: &ShiftCycleConfig,
+    team_phase_offset: u32,
+) -> u32 { /* 从今天往前数，连续上班天数 */ }
+
+pub fn days_until_next_rest(
+    today: NaiveDate,
+    config: &ShiftCycleConfig,
+    team_phase_offset: u32,
+) -> u32 { /* 从明天往后数（不含今天），距下次休息天数 */ }
+```
+
+```rust
+// colleague.rs
+pub struct CommonRestResult {
+    pub team_a_id: u32,
+    pub team_b_id: u32,
+    pub next_common_rest_date: Option<NaiveDate>,
+    pub days_until_next: Option<u32>,
+    pub common_rest_dates: Vec<NaiveDate>,
+    pub total_count: u32,
+    pub count_in_30_days: u32,
+    pub count_in_60_days: u32,
+}
+
+pub fn find_common_rest_days(
+    team_a_id: u32,
+    team_b_id: u32,
+    today: NaiveDate,
+    days_to_analyze: u32,
+    config: &ShiftCycleConfig,
+) -> CommonRestResult { /* 双班组逐日交叉对比 */ }
+```
+
+**单元测试**（迁移自 `shift_metrics_test.dart` 8 用例 + `colleague_mode_test.dart` 7 用例）。
+
+**验证**：`cargo test -p shift-statistics` 全部通过（目标 ≥15 用例）。
+
+### Step 1.4：实现 holiday-engine crate
+
+**从 `holiday_data.dart` 迁移。**
+
+**文件**：`crates/holiday-engine/src/`
+
+```rust
+pub struct HolidayInfo {
+    pub date: NaiveDate,
+    pub name: &'static str,
+    pub is_holiday: bool,  // true=放假, false=调休上班
+    pub is_confirmed: bool, // true=官方已确认, false=推算待确认
+}
+
+pub fn get_china_holidays() -> HashMap<NaiveDate, HolidayInfo> {
+    // 2026 年法定节假日（官方已发布）
+    // 2027 年节假日（基于农历推算，标记 is_confirmed=false）
+}
+```
+
+**验证**：`cargo test -p holiday-engine` 全部通过（节假日数据完整性 + 调休逻辑正确）。
+
+### Step 1.5：实现 leave-optimizer crate
+
+**从 `leave_optimizer.dart` 迁移。**
+
+```rust
+pub struct LeaveStrategy {
+    pub leave_days: u32,
+    pub total_break_days: u32,
+    pub leave_dates: Vec<NaiveDate>,
+    pub break_start: NaiveDate,
+    pub break_end: NaiveDate,
+    pub holiday_overlap: u32,
+    pub weekend_overlap: u32,
+    pub overlapping_holiday_names: Vec<String>,
+    pub efficiency: f64,
+    pub score: f64,
+}
+
+pub fn find_best_leave_plans(
+    today: NaiveDate,
+    days_to_analyze: u32,
+    config: &ShiftCycleConfig,
+    team_phase_offset: u32,
+    holidays: &HashMap<NaiveDate, HolidayInfo>,
+    max_leave_days: u32,
+) -> Vec<LeaveStrategy> { /* 间隙桥接法 + 综合评分 */ }
+```
+
+**验证**：`cargo test -p leave-optimizer` 全部通过（目标 ≥15 用例，覆盖间隙桥接、评分排序、去重、跨周末拼假）。
+
+### Step 1.6：跨 crate 集成测试
+
+**新增**：workspace-level integration tests
+
+```bash
+shift-core/
+└── tests/
+    └── integration_test.rs  # 端到端测试：从日期到统计到拼假
+```
+
+**验证**：`cargo test` 全部通过。与 Android 162 tests 的已知输出做交叉验证——同一输入必须产生同一输出。
+
+### Phase 1 完成标准
+
+- [ ] `cargo test` 全部通过（目标 ≥60 用例）
+- [ ] `cargo build --release` 成功
+- [ ] 5 个 crate 全部有单元测试
+- [ ] 与 Android 版相同输入的输出完全一致（手工抽查 20+ 日期）
+- [ ] Git 提交：`shift-core/` workspace 初始版本
+
+---
+
+## C.3 Phase 2：ICS/CalDAV Export（预计 1-2 周）
+
+**目标**：第一个真正的 Linux 集成——生成标准 ICS 文件，可被 Thunderbird/Nextcloud 导入。
+
+**前置条件**：Phase 1 完成（shift-algorithm + export-engine crate 骨架存在）。
+
+### Step 2.1：实现 export-engine crate 核心
+
+```rust
+// ics.rs
+pub struct IcsExportConfig {
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+    pub timezone: String,           // "Asia/Shanghai"
+    pub cycle_config: ShiftCycleConfig,
+    pub team_id: u32,
+    pub alarms: HashMap<ShiftType, AlarmTime>,
+}
+
+pub fn generate_shift_ics(config: &IcsExportConfig) -> String {
+    // 生成完整 ICS 文件内容（VCALENDAR + VEVENT × N + VALARM + RRULE）
+}
+
+pub fn write_ics_to_file(config: &IcsExportConfig, path: &Path) -> std::io::Result<()> {
+    let ics_content = generate_shift_ics(config);
+    std::fs::write(path, ics_content)
+}
+```
+
+**ICS 特性**：
+- VTIMEZONE（Asia/Shanghai UTC+8）
+- RRULE（FREQ=DAILY;INTERVAL=cycle_length，压缩到 ~6 个 VEVENT）
+- VALARM（每个班次独立提醒时间）
+- 夜班跨日处理（DTSTART 当晚，DTEND 次日早上）
+- 节假日用 EXDATE 排除
+
+### Step 2.2：实现 CLI export 子命令
+
+在 `shift` CLI（Phase 3 将完善）中先实现 export：
+
+```rust
+// 临时 CLI binary（Phase 2 验证用）
+fn main() {
+    let config = load_config_or_default();
+    let today = Local::now().date_naive();
+    let end = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
+
+    let ics_config = IcsExportConfig {
+        start_date: today,
+        end_date: end,
+        timezone: "Asia/Shanghai".into(),
+        cycle_config: config.cycle,
+        team_id: config.default_team,
+        alarms: config.alarms,
+    };
+
+    let path = dirs::data_local_dir()
+        .unwrap()
+        .join("shift")
+        .join("my_shift_schedule.ics");
+
+    write_ics_to_file(&ics_config, &path).unwrap();
+    println!("ICS 文件已导出到: {}", path.display());
+    println!("请在日历软件中导入此文件。");
+}
+```
+
+### Step 2.3：Thunderbird 导入测试
+
+**手动验证**：
+1. `cargo run -- export --ics`
+2. 打开 Thunderbird → 日历 → 导入 → 选择 `.ics` 文件
+3. 验证：所有班次正确显示、提醒时间正确、RRULE 展开正确
+
+### Step 2.4：Nextcloud Calendar 导入测试
+
+**手动验证**：
+1. Nextcloud → Calendar → Import Calendar
+2. 选择 `.ics` 文件
+3. 验证：Web 界面 + 手机同步正确
+
+### Phase 2 完成标准
+
+- [ ] `shift export --ics` 生成有效的 `.ics` 文件
+- [ ] Thunderbird 导入成功，日程+提醒+RRULE 正确
+- [ ] Nextcloud Calendar 导入成功
+- [ ] 夜班跨日显示正确
+- [ ] 时区 Asia/Shanghai 正确标注
+
+---
+
+## C.4 Phase 3：CLI Companion（预计 1-2 周）
+
+**目标**：完整的 `shift` 命令行工具，Linux 工程师用户可日常使用。
+
+**前置条件**：Phase 1 完成，Phase 2 的 export-engine 存在。
+
+### Step 3.1：创建 CLI binary crate
+
+```bash
+cargo new --bin cli
+# 目录：shift-core/cli/
+```
+
+**依赖**：
+```toml
+[dependencies]
+shift-algorithm = { path = "../crates/shift-algorithm" }
+shift-statistics = { path = "../crates/shift-statistics" }
+leave-optimizer = { path = "../crates/leave-optimizer" }
+holiday-engine = { path = "../crates/holiday-engine" }
+export-engine = { path = "../crates/export-engine" }
+clap = { version = "4.5", features = ["derive"] }
+chrono = "0.4"
+serde_json = "1.0"
+toml = "0.8"
+dirs = "5.0"
+colored = "2.0"  # ANSI 颜色输出
+```
+
+### Step 3.2：实现所有子命令
+
+```rust
+#[derive(Parser)]
+#[command(name = "shift", version, about = "倒班助手 CLI")]
+struct Cli {
+    #[arg(short, long, global = true)]
+    json: bool,  // 全局 JSON 输出模式
+    #[arg(short, long, global = true)]
+    config: Option<PathBuf>,  // 自定义配置文件路径
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// 显示今日班次
+    Today,
+    /// 显示明日班次
+    Tomorrow,
+    /// 距下次休息倒计时
+    NextRest,
+    /// 显示月历（ANSI 颜色）
+    Calendar {
+        month: Option<String>,  // YYYY-MM
+    },
+    /// 月度统计
+    Stats {
+        month: Option<String>,
+    },
+    /// 拼假推荐
+    Leave {
+        #[arg(short, long, default_value = "5")]
+        max_days: u32,
+    },
+    /// 同事模式：共同休息日
+    Colleague {
+        team_a: u32,
+        team_b: u32,
+    },
+    /// 导出 ICS 文件
+    Export {
+        #[arg(long)]
+        ics: bool,
+        #[arg(long)]
+        caldav: bool,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+    /// 管理配置
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+    /// Waybar 输出（JSON）
+    Waybar,
+}
+
+#[derive(Subcommand)]
+enum ConfigAction {
+    /// 显示当前配置
+    Show,
+    /// 设置配置项
+    Set {
+        key: String,
+        value: String,
+    },
+    /// 初始化默认配置
+    Init,
+}
+```
+
+### Step 3.3：配置文件管理
+
+```toml
+# ~/.config/shift/config.toml
+[shift]
+cycle_length = 42
+reference_date = "2025-12-15"
+default_team = 1
+timezone = "Asia/Shanghai"
+
+[alarms]
+morning = "06:30"
+afternoon = "14:00"
+night = "22:00"
+
+[caldav]
+url = ""
+username = ""
+password_cmd = ""
+```
+
+**实现**：
+- `shift config init` → 创建 `~/.config/shift/config.toml`
+- `shift config show` → 打印当前配置
+- `shift config set default_team 3` → 修改单个配置项
+- 配置缺失时使用硬编码默认值（42天、日期2025-12-15、班组1）
+
+### Step 3.4：输出格式化
+
+**人类可读模式（默认）**：
+```
+$ shift today
+🟠 早班 · 一值 · 第 12/42 天 · 距休 3 天
+
+$ shift stats
+        2026年5月 · 一值
+┌────────┬──┬──┬──┬──┬──┐
+│ 班次   │早│中│休│夜│学│
+├────────┼──┼──┼──┼──┼──┤
+│ 次数   │ 8│ 7│ 8│ 7│ 1│
+└────────┴──┴──┴──┴──┴──┘
+本月上班：23 天
+
+$ shift leave
+🏖️  最佳拼假方案 Top 5（2026-05-22 ~ 12-31）
+┌────┬────────┬────────┬──────────────────┬────────┐
+│ #  │请假天数│连休天数│ 日期范围          │ 效率   │
+├────┼────────┼────────┼──────────────────┼────────┤
+│ 1🏆│   2    │   6    │ 6/18 - 6/23      │ 3.0x   │
+│    │        │        │ 含端午节 🎋       │        │
+│ 2  │   1    │   4    │ 5/16 - 5/19      │ 4.0x   │
+│    │        │        │ 含周末            │        │
+│ 3  │   3    │   9    │ 9/30 - 10/8      │ 3.0x   │
+│    │        │        │ 含国庆节 🏛       │        │
+└────┴────────┴────────┴──────────────────┴────────┘
+```
+
+**JSON 模式**：
+```
+$ shift today --json
+{"date":"2026-05-22","shift_type":"morning","team":"一值","day_of_cycle":12,"total_days":42,"days_until_rest":3}
+```
+
+### Step 3.5：Shell 自动补全
+
+```bash
+# bash
+shift completions bash > /usr/share/bash-completion/completions/shift
+
+# zsh
+shift completions zsh > /usr/share/zsh/site-functions/_shift
+
+# fish
+shift completions fish > ~/.config/fish/completions/shift.fish
+```
+
+使用 `clap_complete` crate 自动生成。
+
+### Phase 3 完成标准
+
+- [ ] `shift today` / `shift stats` / `shift leave` / `shift colleague` / `shift export --ics` 全部可用
+- [ ] `--json` 输出可被 `jq` 解析
+- [ ] `shift config` 管理配置文件
+- [ ] Shell 自动补全可用（bash/zsh/fish）
+- [ ] `cargo build --release` 生成单二进制文件
+- [ ] Waybar 模块可用（`shift waybar` 输出正确 JSON）
+
+---
+
+## C.5 Phase 4：Flutter Mobile (Rust FFI)（预计 2-3 周）
+
+**目标**：现有 Flutter App 接入 Rust Domain，flutter_rust_bridge 驱动所有核心逻辑。
+
+**前置条件**：Phase 1-2 完成。现有 Flutter App (110 tests) 功能正常。
+
+### Step 4.1：flutter_rust_bridge 集成
+
+```bash
+cd flutter
+flutter pub add flutter_rust_bridge
+flutter pub add ffi
+# 创建 Rust 桥接层
+flutter_rust_bridge_codegen create
+```
+
+**桥接层结构**：
+```
+flutter/rust/                    ← Flutter 侧的 Rust 代码
+├── Cargo.toml                  ← 依赖 shift-core crates
+└── src/
+    ├── lib.rs
+    └── api/
+        ├── shift.rs            ← 排班查询 API
+        ├── statistics.rs       ← 统计 API
+        ├── leave.rs            ← 拼假 API
+        ├── colleague.rs        ← 同事模式 API
+        └── export.rs           ← ICS 导出 API
+```
+
+**Rust 侧桥接函数示例**：
+```rust
+// flutter/rust/src/api/shift.rs
+use shift_algorithm::*;
+use flutter_rust_bridge::frb;
+
+#[frb]
+pub fn api_get_shift_info(
+    date_iso: String,
+    cycle_length: u32,
+    reference_date_iso: String,
+    team_id: u32,
+) -> ShiftInfoDto {
+    let config = build_config(cycle_length, reference_date_iso);
+    let offset = team_phase_offset_for(team_id, config.cycle_length, config.total_teams);
+    let info = get_shift_info(parse_date(&date_iso), &config, offset);
+    ShiftInfoDto::from(info)
+}
+```
+
+### Step 4.2：替换 Flutter domain 层
+
+**改造文件**（逐个替换）：
+
+| Flutter 文件 | 改造方式 |
+|-------------|---------|
+| `lib/domain/algorithms/shift_calculator.dart` | 删除 Dart 实现，改为 FFI 调用 |
+| `lib/domain/algorithms/shift_metrics.dart` | 同上 |
+| `lib/domain/algorithms/calendar_generator.dart` | 同上 |
+| `lib/domain/algorithms/leave_optimizer.dart` | 同上 |
+| `lib/domain/algorithms/colleague_mode.dart` | 同上 |
+| `lib/domain/algorithms/salary_calculator.dart` | 同上 |
+| `lib/domain/algorithms/holiday_data.dart` | 同上（或保留 Dart 版本） |
+
+**策略**：先用 facade 模式包一层——Dart 封装 FFI 调用的接口，保持 Flutter UI 层零改动。
+
+```dart
+// lib/domain/algorithms/shift_calculator.dart (重构后)
+import '../bridge/shift_bridge.dart';  // flutter_rust_bridge 生成的 Dart 绑定
+
+ShiftInfo getShiftInfo(DateTime date, {int teamPhaseOffset = 0, ...}) {
+    // 原来是纯 Dart 实现，现在通过 FFI 调 Rust
+    return ShiftBridge.getShiftInfo(
+        date: date.toIso8601String(),
+        teamPhaseOffset: teamPhaseOffset,
+        config: settingsProvider.currentConfig,
+    );
+}
+```
+
+### Step 4.3：集成测试
+
+- `flutter test` 全部通过（原 110 tests 零回归）
+- `cargo test` 全部通过
+- Flutter 集成测试：打开 App → 首页/日历/拼假/同事模式/津贴 全部功能正常
+
+### Phase 4 完成标准
+
+- [ ] `flutter_rust_bridge` 编译通过，Android/iOS 均可运行
+- [ ] `flutter test` 全部通过（110+ tests）
+- [ ] `cargo test` 全部通过（60+ tests）
+- [ ] App 功能零回归（手动验收所有页面）
+- [ ] 移除 `lib/domain/algorithms/` 下的 Dart 实现（或改为 facade）
+- [ ] 算法修改只需改 Rust，Flutter 侧自动生效
+
+---
+
+## C.6 Phase 5：Linux Companion（预计 2-3 周）
+
+**目标**：KDE Plasma Widget + Waybar 模块 + DBus 服务，Linux Desktop 用户抬眼可见倒班信息。
+
+**前置条件**：Phase 1-3 完成。CLI 可用。
+
+### Step 5.1：DBus 服务
+
+**Rust crate**：`shift-core/crates/shift-daemon/`
+
+```rust
+use zbus::connection;
+use shift_algorithm::*;
+
+struct ShiftDaemon {
+    config: ShiftConfig,
+}
+
+#[zbus::interface(name = "com.simpleshift.Shift")]
+impl ShiftDaemon {
+    async fn get_today_shift(&self) -> String {
+        // 返回 JSON: {"shift_type":"morning","team":"一值",...}
+    }
+
+    async fn get_upcoming_rest(&self) -> String {
+        // 返回 JSON: {"date":"2026-05-25","days_until":3}
+    }
+
+    #[zbus(signal)]
+    async fn shift_changed(&self, new_shift: &str) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    async fn day_changed(&self, new_date: &str) -> zbus::Result<()>;
+}
+
+#[tokio::main]
+async fn main() -> zbus::Result<()> {
+    let daemon = ShiftDaemon { config: load_config() };
+    let _conn = connection::Builder::session()?
+        .name("com.simpleshift.ShiftDaemon")?
+        .serve_at("/com/simpleshift/Shift", daemon)?
+        .build()
+        .await?;
+
+    // 定时检查跨天，发射 day_changed / shift_changed 信号
+    // ...
+    Ok(())
+}
+```
+
+### Step 5.2：KDE Plasma Widget
+
+**技术**：QML + DataEngine（消费 DBus 服务或文件监控）
+
+**文件**：
+```
+plasma-widget/
+├── metadata.desktop              ← Plasmoid 元数据
+├── contents/
+│   ├── ui/
+│   │   └── main.qml             ← Widget UI
+│   └── main.qml                 ← 入口
+```
+
+**main.qml**：
+```qml
+import QtQuick 2.15
+import org.kde.plasma.plasmoid 2.0
+import org.kde.plasma.components 3.0 as PlasmaComponents
+
+Item {
+    Plasmoid.preferredRepresentation: Plasmoid.compactRepresentation
+
+    Plasmoid.compactRepresentation: Item {
+        // 面板模式：简洁一行
+        Row {
+            Rectangle {
+                width: 12; height: 12; radius: 6
+                color: shiftBadgeColor  // 来自数据源
+            }
+            PlasmaComponents.Label {
+                text: shiftLabel + " · " + teamName
+            }
+        }
+    }
+
+    Plasmoid.fullRepresentation: Item {
+        // 弹出模式：完整信息
+        Column {
+            PlasmaComponents.Label {
+                text: shiftLabel
+                font.pointSize: 24; font.bold: true
+                color: shiftColor
+            }
+            PlasmaComponents.Label {
+                text: "距休 " + daysUntilRest + " 天"
+            }
+            PlasmaComponents.Label {
+                text: "第 " + dayOfCycle + "/" + totalDays + " 天"
+            }
+        }
+    }
+}
+```
+
+数据源通过执行 `shift waybar` 或 DBus 调用来获取。
+
+### Step 5.3：Waybar 模块
+
+已集成在 CLI 中（Phase 3 Step 3.4）：
+```bash
+shift waybar  →  {"text": "🌙 夜", "class": "night", "tooltip": "距休2天 · 一值"}
+```
+
+Waybar 配置：
+```json
+// ~/.config/waybar/config.json
+{
+    "custom/shift": {
+        "exec": "shift waybar",
+        "interval": 3600,
+        "return-type": "json",
+        "format": "{}"
+    }
+}
+```
+
+CSS 样式：
+```css
+/* ~/.config/waybar/style.css */
+#custom-shift.morning { color: #FFB347; }
+#custom-shift.afternoon { color: #4DA3FF; }
+#custom-shift.rest { color: #35D07F; }
+#custom-shift.night { color: #7C5CFF; }
+#custom-shift.study { color: #F2D94E; }
+```
+
+### Step 5.4：systemd user service
+
+```
+# ~/.config/systemd/user/shift-daemon.service
+[Unit]
+Description=Shift Daemon - 倒班助手后台服务
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/shift-daemon
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+### Phase 5 完成标准
+
+- [ ] DBus 服务运行正常（`busctl --user introspect com.simpleshift.ShiftDaemon /com/simpleshift/Shift`）
+- [ ] Plasma Widget 在面板显示正确
+- [ ] Waybar 模块颜色随班次变化
+- [ ] 跨天自动刷新正常
+
+---
+
+## C.7 Phase 6：Advanced Ecosystem（持续）
+
+**目标**：TUI、Local API、打包分发、社区生态。
+
+### Step 6.1：TUI (Terminal UI)
+
+**技术**：`ratatui` crate
+
+```bash
+shift tui   # 打开全屏 TUI，btop 风格
+```
+
+交互式界面（键盘导航）：
+- 主面板：今日班次 + 距休
+- 日历面板：月历总览
+- 统计面板：月度统计
+- 拼假面板：Top 5 策略
+- 导出面板：一键导出 ICS
+
+### Step 6.2：Local HTTP API
+
+**技术**：`axum` + `tokio`
+
+```rust
+#[tokio::main]
+async fn main() {
+    let app = Router::new()
+        .route("/shift", get(api_today_shift))
+        .route("/shift/:date", get(api_shift_for_date))
+        .route("/calendar/:year/:month", get(api_calendar))
+        .route("/leave", get(api_leave_plans))
+        .route("/colleague/:a/:b", get(api_colleague))
+        .route("/health", get(api_health))
+        .layer(CorsLayer::permissive());
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:11451").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+```
+
+### Step 6.3：打包与分发
+
+**Arch Linux (AUR)**：
+```bash
+# PKGBUILD
+pkgname=shift-cli
+pkgver=0.1.0
+pkgrel=1
+arch=('x86_64')
+depends=('gcc-libs')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/...")
+```
+
+**crates.io**：
+```bash
+cargo publish -p shift-algorithm
+cargo publish -p shift-statistics
+cargo publish -p leave-optimizer
+cargo publish -p holiday-engine
+cargo publish -p export-engine
+cargo install shift-cli
+```
+
+**KDE Store**：上传 Plasma Widget 到 KDE Store。
+
+**Flutter App**：Google Play + App Store（保留渠道，Phase 4 完成后上架）。
+
+### Step 6.4：自动化脚本示例
+
+```bash
+#!/bin/bash
+# ~/.local/bin/shift-notify.sh
+# cron: 0 6 * * * /home/user/.local/bin/shift-notify.sh
+
+RESULT=$(shift today --json)
+SHIFT=$(echo "$RESULT" | jq -r '.shift_type')
+DAYS=$(echo "$RESULT" | jq -r '.days_until_rest')
+
+notify-send "倒班助手" "今日: ${SHIFT} · 距休: ${DAYS}天" --icon=calendar
+```
+
+### Phase 6 完成标准
+
+- [ ] TUI 可用（`shift tui`）
+- [ ] Local API 可用（`curl localhost:11451/shift`）
+- [ ] AUR 包可用（`yay -S shift-cli`）
+- [ ] crates.io 发布
+- [ ] KDE Store Plasma Widget 发布
+- [ ] Waybar 模块文档完善
+
+---
+
+## C.8 风险与缓解
+
+| 风险 | 概率 | 影响 | 缓解措施 |
+|------|------|------|---------|
+| Rust 学习曲线陡峭 | 中 | 高 | AI 辅助编码、从简单 crate 开始、逐步复杂 |
+| flutter_rust_bridge 兼容性问题 | 低 | 中 | Phase 4 前先做 Rust demo 验证 FFI 可行 |
+| KDE Plasma API 变化 | 低 | 低 | Widget 逻辑极简、核心通过 DBus/CLI 解耦 |
+| 节假日数据不完整 | 中 | 中 | 每年更新一次、2027 数据标记"待确认" |
+| 过度投入 Rust 影响移动端交付 | 低 | 中 | Phase 4 之前 Flutter App 保持可用、渐进替换 |
+| 单人精力瓶颈 | 高 | 中 | 每个 Phase 独立可交付、不追求一步到位 |
+
+## C.9 下一步最具体的 TODO（2026-05-22 现在）
+
+### P0（本周开始）
+
+**1. 创建 `shift-core/` Rust workspace**
+
+```bash
+cd /home/zxl/Documents/myprojects/SimpleShiftScheduler
+mkdir -p shift-core/crates
+# 创建 Cargo.toml workspace + 5 个 crate 骨架
+```
+
+**2. 实现 `shift-algorithm` crate**
+
+```bash
+# types.rs → cycle.rs → calculator.rs
+# 每写完一个文件就跑 cargo test
+```
+
+**3. 写第一个 Rust 测试并跑通**
+
+```bash
+cargo test -p shift-algorithm
+# 看到绿色 PASSED 就算里程碑
+```
+
+### P1（本周/下周）
+
+**4. 从 Android `ShiftCalculatorTest.kt` 逐个迁移测试用例到 Rust**
+- 目标：16+ 用例，覆盖所有核心算法路径
+
+**5. 实现 `shift-statistics` + `holiday-engine` + `leave-optimizer`**
+- 每个 crate 独立测试，独立发布
+
+### P2（下周）
+
+**6. 实现 `export-engine` — 第一个可用功能**
+
+```bash
+cargo run -p shift-cli -- export --ics
+# 生成的 .ics 文件导入 Thunderbird 验证
+```
+
+**7. Thunderbird 导入测试** — 第一个真实里程碑 🎯
+
+### P3（后续）
+
+**8. 完善 CLI（所有子命令）**
+**9. `flutter_rust_bridge` 集成验证**
+**10. Plasma Widget 原型**
+
+---
+
+## C.10 一句话总结
+
+> 从"做一个跨平台 App"到"打造倒班人群的个人时间操作系统"——以 Rust 为核心、以标准协议为边界、以 Linux 生态为根据地、以移动端为延伸。每一行代码都为长期可维护性服务，不做任何会被推翻的设计。
