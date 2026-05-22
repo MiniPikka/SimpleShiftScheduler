@@ -412,7 +412,6 @@ fn cmd_tomorrow(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: 
                 "day_of_cycle": info.day_of_cycle,
                 "total_days": config.cycle_length,
             })
-            .to_string()
         );
     } else {
         let color = shift_color(info.shift_type);
@@ -797,11 +796,11 @@ fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
 
     let class = format!("{:?}", info.shift_type).to_lowercase();
     let text = match info.shift_type {
-        ShiftType::Morning => format!("🌅 早"),
-        ShiftType::Afternoon => format!("☀️ 中"),
-        ShiftType::Rest => format!("🌿 休"),
-        ShiftType::Night => format!("🌙 夜"),
-        ShiftType::Study => format!("📚 学"),
+        ShiftType::Morning => "🌅 早".to_string(),
+        ShiftType::Afternoon => "☀️ 中".to_string(),
+        ShiftType::Rest => "🌿 休".to_string(),
+        ShiftType::Night => "🌙 夜".to_string(),
+        ShiftType::Study => "📚 学".to_string(),
     };
     let rest_text = if info.shift_type.is_rest() {
         "今日休息".to_string()
