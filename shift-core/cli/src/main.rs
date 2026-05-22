@@ -198,11 +198,6 @@ enum Commands {
     Waybar,
     /// 导出 ICS 日历文件，可导入 Thunderbird/Nextcloud/Google Calendar 等。
     /// 每天一个独立事件，全年约 365 条。
-    ///
-    /// 示例：
-    ///   banban export --ics              导出到默认路径
-    ///   banban export --ics --open       导出并用系统默认程序打开（通常是 Thunderbird）
-    ///   banban export --ics -o ~/shifts.ics  导出到指定路径
     Export {
         /// 导出 ICS 格式
         #[arg(long)]
@@ -214,6 +209,10 @@ enum Commands {
         #[arg(long)]
         open: bool,
     },
+    /// 发送桌面通知，显示今天班次和距休信息
+    Notify,
+    /// 安装 systemd 定时器（每日自动导出 ICS + 通知）
+    Install,
 }
 
 // ── JSON output types ──
@@ -347,6 +346,8 @@ fn main() {
         Commands::Colleague { team_a, team_b } => cmd_colleague(&cli, today, &cycle_config, team_a, team_b),
         Commands::Waybar => cmd_waybar(today, &cycle_config, offset, team_id),
         Commands::Export { ics: _, output, open } => cmd_export(today, &cycle_config, offset, team_id, output, open),
+        Commands::Notify => cmd_notify(today, &cycle_config, offset, team_id),
+        Commands::Install => cmd_install(),
     }
 }
 
@@ -873,6 +874,86 @@ fn cmd_export(
             Err(e) => eprintln!("无法打开文件: {} ({}))", path_str, e),
         }
     }
+}
+
+fn cmd_notify(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u32) {
+    let info = get_shift_info(today, config, offset);
+    let rest = days_until_next_rest(today, config, offset);
+
+    let title = format!("{} · {}", info.shift_type.full_label(), shift_algorithm::team_name(team));
+    let body = if info.shift_type.is_rest() {
+        "今天是休息日".to_string()
+    } else if rest == 0 {
+        "明天休息".to_string()
+    } else {
+        format!("第 {}/{} 天 · 距休 {} 天", info.day_of_cycle, config.cycle_length, rest)
+    };
+
+    match notify_rust::Notification::new()
+        .summary(&title)
+        .body(&body)
+        .appname("班伴")
+        .icon("calendar")
+        .show()
+    {
+        Ok(_) => println!("通知已发送: {} — {}", title, body),
+        Err(e) => eprintln!("通知发送失败: {}", e),
+    }
+}
+
+fn cmd_install() {
+    let service_dir = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("~/.config"))
+        .join("systemd/user");
+    std::fs::create_dir_all(&service_dir).ok();
+
+    let banban_bin = std::env::current_exe()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| "banban".to_string());
+
+    // Service: runs once, exports ICS + sends notification
+    let service = format!(
+        r#"[Unit]
+Description=班伴 · 每日排班提醒
+
+[Service]
+Type=oneshot
+ExecStart={0} export --ics
+ExecStart={0} notify
+"#,
+        banban_bin,
+    );
+
+    // Timer: daily at 7:57am (off-peak minute)
+    let timer = r#"[Unit]
+Description=班伴 · 每日排班定时器
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+"#;
+
+    std::fs::write(service_dir.join("banban-notify.service"), &service).ok();
+    std::fs::write(service_dir.join("banban-notify.timer"), timer).ok();
+
+    println!("systemd 定时器已安装到: {}", service_dir.display());
+    println!();
+    println!("启用定时器:");
+    println!("  systemctl --user enable --now banban-notify.timer");
+    println!();
+    println!("查看状态:");
+    println!("  systemctl --user status banban-notify.timer");
+    println!("  systemctl --user list-timers");
+    println!();
+    println!("Waybar 模块（添加到 ~/.config/waybar/config.json）:");
+    println!(r#"  "custom/banban": {{"exec": "banban waybar", "interval": 3600}}"#);
+    println!();
+    println!("Waybar 样式（添加到 ~/.config/waybar/style.css）:");
+    println!(r#"  #custom-banban.morning {{ color: #FFB347; }}"#);
+    println!(r#"  #custom-banban.night {{ color: #7C5CFF; }}"#);
 }
 
 // ── Helpers ──
