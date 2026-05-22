@@ -16,6 +16,7 @@ shift-algorithm = { path = "../crates/shift-algorithm" }
 shift-statistics = { path = "../crates/shift-statistics" }
 leave-optimizer = { path = "../crates/leave-optimizer" }
 holiday-engine = { path = "../crates/holiday-engine" }
+export-engine = { path = "../crates/export-engine" }
 clap = { version = "4.5", features = ["derive"] }
 colored = "2.0"
 toml = "0.8"

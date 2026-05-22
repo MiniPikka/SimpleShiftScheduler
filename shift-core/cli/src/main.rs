@@ -8,6 +8,7 @@
 use chrono::{Datelike, Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use colored::*;
+use export_engine::generate_shift_ics;
 use holiday_engine::get_china_holidays;
 use leave_optimizer::find_best_leave_plans;
 use serde::Serialize;
@@ -195,6 +196,16 @@ enum Commands {
     /// 配置：~/.config/waybar/config.json 中加
     ///   "custom/banban": {"exec": "banban waybar", "interval": 3600}
     Waybar,
+    /// 导出 ICS 日历文件，可导入 Thunderbird/Nextcloud/Google Calendar 等。
+    /// 用 RRULE 压缩：365 天 → 约 5 条重复事件。
+    Export {
+        /// 导出 ICS 格式（默认）
+        #[arg(long)]
+        ics: bool,
+        /// 输出文件路径（默认 ~/.local/share/banban/shifts.ics）
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
 }
 
 // ── JSON output types ──
@@ -339,6 +350,7 @@ fn main() {
         Commands::Leave { max_days } => cmd_leave(&cli, today, &cycle_config, offset, max_days),
         Commands::Colleague { team_a, team_b } => cmd_colleague(&cli, today, &cycle_config, team_a, team_b),
         Commands::Waybar => cmd_waybar(today, &cycle_config, offset, team_id),
+        Commands::Export { ics: _, output } => cmd_export(today, &cycle_config, offset, team_id, output),
     }
 }
 
@@ -817,6 +829,45 @@ fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
         tooltip,
     };
     println!("{}", serde_json::to_string(&out).unwrap());
+}
+
+fn cmd_export(
+    today: NaiveDate,
+    config: &ShiftCycleConfig,
+    offset: u32,
+    team: u32,
+    output: Option<PathBuf>,
+) {
+    let end_of_year = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
+    let path = output.unwrap_or_else(|| {
+        dirs::data_local_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("banban")
+            .join("shifts.ics")
+    });
+
+    // Ensure parent directory exists
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+
+    let ics = generate_shift_ics(today, end_of_year, config, offset, team, None, "Asia/Shanghai");
+
+    match std::fs::write(&path, &ics) {
+        Ok(_) => {
+            println!("ICS 文件已导出到: {}", path.display());
+            println!();
+            println!("导入方法：");
+            println!("  Thunderbird: 日历 → 新建日历 → 从文件导入");
+            println!("  GNOME:      设置 → 在线账户 → 从文件导入");
+            println!("  Nextcloud:   日历 → 导入日历");
+            println!("  Google:      settings → Import & export → Select file");
+        }
+        Err(e) => {
+            eprintln!("导出失败: {}", e);
+            std::process::exit(1);
+        }
+    }
 }
 
 // ── Helpers ──
