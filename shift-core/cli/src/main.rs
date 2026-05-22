@@ -5,7 +5,7 @@
 //! Default: human-readable ANSI-colored output.
 //! With --json: machine-readable JSON.
 
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Datelike, Local, NaiveDate, Timelike};
 use clap::{Parser, Subcommand};
 use colored::*;
 use export_engine::generate_shift_ics;
@@ -876,9 +876,41 @@ fn cmd_export(
     }
 }
 
-fn cmd_notify(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u32) {
-    let info = get_shift_info(today, config, offset);
-    let rest = days_until_next_rest(today, config, offset);
+fn cmd_notify(today: NaiveDate, cycle_config: &ShiftCycleConfig, offset: u32, team: u32) {
+    let info = get_shift_info(today, cycle_config, offset);
+    let rest = days_until_next_rest(today, cycle_config, offset);
+    let config = Config::load();
+
+    // Only notify if current time is close to this shift's alarm time (±10 min)
+    // This prevents 3 irrelevant notifications per day when systemd timer
+    // fires at all 3 shift alarm times.
+    let alarm_key = match info.shift_type {
+        ShiftType::Morning => "morning",
+        ShiftType::Afternoon => "afternoon",
+        ShiftType::Night => "night",
+        _ => "", // Rest/Study: always notify (once at morning alarm time)
+    };
+
+    if !alarm_key.is_empty() {
+        let alarm_str = match alarm_key {
+            "morning" => config.alarms.morning.as_deref().unwrap_or("06:45"),
+            "afternoon" => config.alarms.afternoon.as_deref().unwrap_or("13:45"),
+            "night" => config.alarms.night.as_deref().unwrap_or("21:45"),
+            _ => "",
+        };
+        if let Some((ah, am)) = alarm_str.split_once(':') {
+            if let (Ok(ah), Ok(am)) = (ah.parse::<u32>(), am.parse::<u32>()) {
+                let now = Local::now();
+                let now_min = now.hour() * 60 + now.minute();
+                let alarm_min = ah * 60 + am;
+                let diff = (now_min as i32 - alarm_min as i32).abs();
+                if diff > 10 {
+                    // Not in the right time window — skip silently
+                    return;
+                }
+            }
+        }
+    }
 
     let title = format!("{} · {}", info.shift_type.full_label(), shift_algorithm::team_name(team));
     let body = if info.shift_type.is_rest() {
@@ -886,7 +918,7 @@ fn cmd_notify(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
     } else if rest == 0 {
         "明天休息".to_string()
     } else {
-        format!("第 {}/{} 天 · 距休 {} 天", info.day_of_cycle, config.cycle_length, rest)
+        format!("第 {}/{} 天 · 距休 {} 天", info.day_of_cycle, cycle_config.cycle_length, rest)
     };
 
     match notify_rust::Notification::new()
@@ -911,49 +943,97 @@ fn cmd_install() {
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "banban".to_string());
 
-    // Service: runs once, exports ICS + sends notification
-    let service = format!(
+    // Read alarm config for timing
+    let config = Config::load();
+    let morning_time = config.alarms.morning.as_deref().unwrap_or("06:45");
+    let afternoon_time = config.alarms.afternoon.as_deref().unwrap_or("13:45");
+    let night_time = config.alarms.night.as_deref().unwrap_or("21:45");
+
+    // Service: exports ICS daily (for calendar integration)
+    let ics_service = format!(
         r#"[Unit]
-Description=班伴 · 每日排班提醒
+Description=班伴 · 每日 ICS 导出
 
 [Service]
 Type=oneshot
 ExecStart={0} export --ics
+"#,
+        banban_bin,
+    );
+
+    // Service: sends notification at alarm time
+    let notify_service = format!(
+        r#"[Unit]
+Description=班伴 · 班次提醒通知
+
+[Service]
+Type=oneshot
 ExecStart={0} notify
 "#,
         banban_bin,
     );
 
-    // Timer: daily at 7:57am (off-peak minute)
-    let timer = r#"[Unit]
-Description=班伴 · 每日排班定时器
+    // Timer: ICS export daily at 00:00
+    let ics_timer = r#"[Unit]
+Description=班伴 · 每日 ICS 导出
 
 [Timer]
-OnCalendar=daily
+OnCalendar=*-*-* 00:03:00
 Persistent=true
 
 [Install]
 WantedBy=timers.target
 "#;
 
-    std::fs::write(service_dir.join("banban-notify.service"), &service).ok();
-    std::fs::write(service_dir.join("banban-notify.timer"), timer).ok();
+    // Timer: notification at each shift's alarm time
+    // banban notify checks if today's shift matches the alarm window
+    let notify_timer = format!(
+        r#"[Unit]
+Description=班伴 · 班次提醒通知
+
+[Timer]
+OnCalendar=*-*-* {0}:00
+OnCalendar=*-*-* {1}:00
+OnCalendar=*-*-* {2}:00
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target
+"#,
+        morning_time, afternoon_time, night_time,
+    );
+
+    std::fs::write(service_dir.join("banban-ics.service"), &ics_service).ok();
+    std::fs::write(service_dir.join("banban-ics.timer"), ics_timer).ok();
+    std::fs::write(service_dir.join("banban-notify.service"), &notify_service).ok();
+    std::fs::write(service_dir.join("banban-notify.timer"), &notify_timer).ok();
+
+    // Clean up old files from previous install
+    let _ = std::fs::remove_file(service_dir.join("banban-notify.service.bak"));
 
     println!("systemd 定时器已安装到: {}", service_dir.display());
     println!();
+    println!("班次提醒时间（来自配置文件或默认值）：");
+    println!("  早班: {}  中班: {}  夜班: {}", morning_time, afternoon_time, night_time);
+    println!();
+    println!("修改提醒时间:");
+    println!("  编辑 ~/.config/banban/config.toml，添加 [alarms] 段：");
+    println!("  [alarms]");
+    println!("  morning = \"06:30\"");
+    println!("  afternoon = \"13:45\"");
+    println!("  night = \"21:30\"");
+    println!("  然后重新运行 banban install");
+    println!();
     println!("启用定时器:");
+    println!("  systemctl --user enable --now banban-ics.timer");
     println!("  systemctl --user enable --now banban-notify.timer");
     println!();
     println!("查看状态:");
-    println!("  systemctl --user status banban-notify.timer");
-    println!("  systemctl --user list-timers");
+    println!("  systemctl --user list-timers | grep banban");
     println!();
-    println!("Waybar 模块（添加到 ~/.config/waybar/config.json）:");
+    println!("Waybar（添加到 ~/.config/waybar/config.json）:");
     println!(r#"  "custom/banban": {{"exec": "banban waybar", "interval": 3600}}"#);
-    println!();
-    println!("Waybar 样式（添加到 ~/.config/waybar/style.css）:");
-    println!(r#"  #custom-banban.morning {{ color: #FFB347; }}"#);
-    println!(r#"  #custom-banban.night {{ color: #7C5CFF; }}"#);
 }
 
 // ── Helpers ──
