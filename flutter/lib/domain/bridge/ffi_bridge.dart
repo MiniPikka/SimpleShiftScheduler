@@ -33,12 +33,17 @@ bool _tried = false;
 DynamicLibrary? _loadLib() {
   if (_tried) return _lib;
   _tried = true;
-  try {
-    _lib = DynamicLibrary.open('rust/target/debug/libshift_flutter_bridge.so');
-    return _lib;
-  } catch (_) {
+
+  // Order: Android (no path prefix), then Linux test, then Linux release
+  final candidates = [
+    'libshift_flutter_bridge.so',                     // Android / installed system-wide
+    'rust/target/debug/libshift_flutter_bridge.so',   // Linux flutter test
+    'rust/target/release/libshift_flutter_bridge.so', // Linux release
+  ];
+
+  for (final name in candidates) {
     try {
-      _lib = DynamicLibrary.open('libshift_flutter_bridge.so');
+      _lib = DynamicLibrary.open(name);
       return _lib;
     } catch (_) {}
   }
