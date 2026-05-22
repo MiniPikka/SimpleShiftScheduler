@@ -3,8 +3,10 @@ name = "export-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+description = "ICS (RFC 5545) calendar file export for shift schedules"
 
 [dependencies]
 chrono = { workspace = true }
 serde = { workspace = true }
-shift-algorithm = { path = "../shift-algorithm" }
+shift-algorithm = { path = "../shift-algorithm", version = "0.1.0" }

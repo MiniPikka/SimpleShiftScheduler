@@ -3,8 +3,10 @@ name = "shift-statistics"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+description = "Monthly stats, consecutive work days, rest countdown, colleague mode"
 
 [dependencies]
 chrono = { workspace = true }
 serde = { workspace = true }
-shift-algorithm = { path = "../shift-algorithm" }
+shift-algorithm = { path = "../shift-algorithm", version = "0.1.0" }
