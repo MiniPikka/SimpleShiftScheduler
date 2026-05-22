@@ -13,6 +13,7 @@ use shift_algorithm::{get_shift_info, ShiftCycleConfig, ShiftType};
 use shift_statistics::metrics::{consecutive_work_days, count_shift_type_in_month, count_work_days_in_month, days_until_next_rest};
 use shift_statistics::colleague::find_common_rest_days;
 use leave_optimizer::find_best_leave_plans;
+use unicode_width::UnicodeWidthStr;
 use std::io;
 
 enum View {
@@ -244,15 +245,25 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
     let weekday = first.weekday().num_days_from_sunday();
     let cal_start = first - chrono::Duration::days(weekday as i64);
 
-    // Fixed cell width: each column is exactly cell_w wide
+    // Fixed cell width in terminal columns, accounting for CJK double-width
     let cell_w = (area.width / 7).max(5) as usize;
+
+    // Helper: pad a string to exactly `width` terminal columns
+    fn pad_width(s: &str, width: usize) -> String {
+        let vis = UnicodeWidthStr::width(s);
+        if vis >= width {
+            s.to_string()
+        } else {
+            format!("{}{}", s, " ".repeat(width - vis))
+        }
+    }
 
     let mut lines: Vec<Line> = Vec::new();
 
     // Day-of-week header
     let dow_labels = ["日", "一", "二", "三", "四", "五", "六"];
     let header_spans: Vec<Span> = dow_labels.iter().map(|d| {
-        Span::styled(format!("{:^width$}", d, width = cell_w), Style::default().add_modifier(Modifier::BOLD))
+        Span::styled(pad_width(d, cell_w), Style::default().add_modifier(Modifier::BOLD))
     }).collect();
     lines.push(Line::from(header_spans));
 
@@ -264,9 +275,8 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
             let is_cur = date.month() == month;
             let is_tdy = date == app.today;
 
-            // Each cell: "{:2d}{:<rest}" padded to exactly cell_w
             let content = format!("{:2}{}", date.day(), info.shift_type.label());
-            let s = format!("{:width$}", content, width = cell_w);
+            let s = pad_width(&content, cell_w);
 
             let style = if !is_cur {
                 Style::default().dim()
