@@ -25,6 +25,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 struct Config {
+    #[serde(default)]
     shift: ShiftSection,
     #[serde(default)]
     alarms: AlarmSection,
@@ -38,6 +39,16 @@ struct ShiftSection {
     reference_date: String,
     #[serde(default = "default_team")]
     default_team: u32,
+}
+
+impl Default for ShiftSection {
+    fn default() -> Self {
+        Self {
+            cycle_length: 42,
+            reference_date: "2025-12-15".into(),
+            default_team: 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
