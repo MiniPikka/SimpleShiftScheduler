@@ -11,7 +11,7 @@ use chrono::{Datelike, Local, NaiveDate, Timelike};
 use clap::{Parser, Subcommand};
 use colored::*;
 use unicode_width::UnicodeWidthStr;
-use export_engine::generate_shift_ics;
+use shift_export::generate_shift_ics;
 use holiday_engine::get_china_holidays;
 use leave_optimizer::find_best_leave_plans;
 use serde::Serialize;

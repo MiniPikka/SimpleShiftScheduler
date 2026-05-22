@@ -5,7 +5,7 @@ members = [
     "crates/shift-statistics",
     "crates/leave-optimizer",
     "crates/holiday-engine",
-    "crates/export-engine",
+    "crates/shift-export",
     "cli",
 ]
 
