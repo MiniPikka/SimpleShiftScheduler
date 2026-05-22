@@ -242,7 +242,12 @@ pub fn find_best_leave_plans(
         LeaveStrategy { score, ..s }
     }).collect();
 
-    scored.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    // Stable sort: score desc, then break_start asc (earlier first)
+    scored.sort_by(|a, b| {
+        b.score.partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.break_start.cmp(&b.break_start))
+    });
     scored
 }
 
