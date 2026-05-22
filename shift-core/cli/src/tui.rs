@@ -83,7 +83,7 @@ fn handle_input(app: &mut App) -> io::Result<()> {
                         KeyCode::Char('4') => app.view = View::Colleague,
                         KeyCode::Char('+') | KeyCode::Char('=')
                             if app.max_leave_days < 10 => { app.max_leave_days += 1; }
-                        KeyCode::Char('-') | KeyCode::Char('_')
+                        KeyCode::Char('-') | KeyCode::Char('_') | KeyCode::Backspace
                             if app.max_leave_days > 1 => { app.max_leave_days -= 1; }
                         _ => {}
                     },
@@ -248,7 +248,13 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
     let cell_w = (area.width / 7).max(5) as usize;
 
     let mut lines: Vec<Line> = Vec::new();
-    lines.push(Line::from(format!("{:>width$}", "日  一  二  三  四  五  六", width = cell_w * 7).dim()));
+
+    // Day-of-week header — use same cell width as data rows
+    let dow_labels = ["日", "一", "二", "三", "四", "五", "六"];
+    let header_spans: Vec<Span> = dow_labels.iter().map(|d| {
+        Span::styled(format!(" {:<width$} ", d, width = cell_w.saturating_sub(2)), Style::default().add_modifier(Modifier::BOLD))
+    }).collect();
+    lines.push(Line::from(header_spans));
 
     for w in 0..6 {
         let mut spans: Vec<Span> = Vec::new();
@@ -260,9 +266,9 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
 
             let label = info.shift_type.label();
             let s = if cell_w >= 6 {
-                format!("{:2}{:<3} ", date.day(), label)
+                format!("{:2} {:<width$}", date.day(), label, width = cell_w.saturating_sub(4))
             } else {
-                format!("{:1}{} ", date.day(), label)
+                format!("{:1}{:<width$}", date.day(), label, width = cell_w.saturating_sub(2))
             };
 
             let style = if !is_cur {
@@ -280,7 +286,7 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
     }
 
     let cal = Paragraph::new(Text::from(lines))
-        .block(Block::default().title(format!("{}年{}月", year, month)));
+        .block(Block::default().title(format!("{}年{}月 · {}", year, month, team_name(app.team_id))));
     f.render_widget(cal, area);
 }
 
