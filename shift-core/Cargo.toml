@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/shift-algorithm",
+    "crates/shift-statistics",
+    "crates/leave-optimizer",
+    "crates/holiday-engine",
+    "crates/export-engine",
+    "cli",
+]
+
+[workspace.dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/zxllxk/SimpleShiftScheduler"
