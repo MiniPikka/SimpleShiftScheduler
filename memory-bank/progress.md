@@ -1,6 +1,6 @@
 # 倒班助手开发进度记录
 
-## 2026-05-22：重大战略决策 — 架构转型（班伴 / ShiftMate）✅
+## 2026-05-22：架构转型完成 — 班伴/ShiftMate 全栈 Rust 化 ✅
 
 ### CLI 命名：`banban`
 
@@ -10,7 +10,7 @@
 - 内部 crate 名仍保留 `shift-cli`（开发者视角）
 - 内部源码标识仍用 `shift-*`（crate names, function names）
 
-## 2026-05-22：重大战略决策 — 架构转型（班伴 / ShiftMate）✅
+## 2026-05-22：架构转型完成 — 班伴/ShiftMate 全栈 Rust 化 ✅
 
 ### 决策背景
 

@@ -159,8 +159,7 @@ fn shift_tui_color(st: ShiftType) -> Color {
 }
 
 fn team_name(id: u32) -> String {
-    let p = match id { 1=>"一",2=>"二",3=>"三",4=>"四",5=>"五",6=>"六",_=>"" };
-    format!("{}值", p)
+    shift_algorithm::team_name(id)
 }
 
 fn draw_today(f: &mut Frame, area: Rect, app: &App) {

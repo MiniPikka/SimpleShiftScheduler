@@ -72,11 +72,15 @@ fn default_team() -> u32 {
 }
 
 impl Config {
-    fn load() -> Self {
-        let path = dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("banban")
-            .join("config.toml");
+    fn load(override_path: Option<&std::path::Path>) -> Self {
+        let path = if let Some(p) = override_path {
+            p.to_path_buf()
+        } else {
+            dirs::config_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join("banban")
+                .join("config.toml")
+        };
 
         if path.exists() {
             std::fs::read_to_string(&path)
@@ -147,14 +151,19 @@ impl Default for Config {
                   banban today              看看今天什么班\n  \
                   banban --team 2 today     如果你是二值，试试这个\n  \
                   banban calendar           这个月的排班日历\n  \
+                  banban stats              本月班次统计\n  \
                   banban next-rest          还有几天休息\n  \
                   banban leave              今年怎么请假最划算\n  \
+                  banban leave -m 3         请假不超过 3 天的方案\n  \
                   banban colleague 1 3      一值和三值哪天能一起休\n  \
-                  banban waybar             Waybar 状态栏上显示班次\n  \
+                  banban export --ics --open  导出日历并打开\n  \
+                  banban notify             桌面通知\n  \
+                  banban tui                全屏终端界面\n  \
+                  banban waybar             Waybar 状态栏 JSON\n  \
+                  banban install            安装 systemd 定时器\n  \
                   \n  \
-                  默认就是一值（第 1 班组），周期 42 天，起始日 2025-12-15。\n  \
-                  如果你的班组不同，用 --team 或写配置文件：\n  \
-                  ~/.config/banban/config.toml"
+                  默认一值（第 1 班组），周期 42 天，起始日 2025-12-15。\n  \
+                  班组不同用 --team 或写 ~/.config/banban/config.toml"
 )]
 struct Cli {
     /// 输出 JSON 格式（给脚本用），默认是给人看的彩色文字
@@ -354,7 +363,7 @@ fn pad_cjk(s: &str, width: usize) -> String {
 
 fn main() {
     let cli = Cli::parse();
-    let config = Config::load();
+    let config = Config::load(cli.config.as_deref());
     let cycle_config = config.to_cycle_config();
     // --team flag overrides config file
     let team_id = if cli.team > 0 { cli.team } else { config.shift.default_team };
@@ -911,7 +920,7 @@ fn cmd_export(
 fn cmd_notify(today: NaiveDate, cycle_config: &ShiftCycleConfig, offset: u32, team: u32) {
     let info = get_shift_info(today, cycle_config, offset);
     let rest = days_until_next_rest(today, cycle_config, offset);
-    let config = Config::load();
+    let config = Config::load(None);
 
     // Only notify if current time is close to this shift's alarm time (±10 min)
     // This prevents 3 irrelevant notifications per day when systemd timer
@@ -976,7 +985,7 @@ fn cmd_install() {
         .unwrap_or_else(|_| "banban".to_string());
 
     // Read alarm config for timing
-    let config = Config::load();
+    let config = Config::load(None);
     let morning_time = config.alarms.morning.as_deref().unwrap_or("06:45");
     let afternoon_time = config.alarms.afternoon.as_deref().unwrap_or("13:45");
     let night_time = config.alarms.night.as_deref().unwrap_or("21:45");
@@ -1061,7 +1070,7 @@ WantedBy=timers.target
     println!("正在导出初始 ICS 文件...");
     let today = Local::now().date_naive();
     let end_of_year = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
-    let config = Config::load();
+    let config = Config::load(None);
     let cycle_config = config.to_cycle_config();
     let team_id = if config.shift.default_team > 0 { config.shift.default_team } else { 1 };
     let offset = cycle_config.team_phase_offset(team_id);
