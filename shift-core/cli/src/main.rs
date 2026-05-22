@@ -1025,6 +1025,26 @@ WantedBy=timers.target
     println!("  night = \"21:30\"");
     println!("  然后重新运行 banban install");
     println!();
+    // Generate initial ICS immediately so user doesn't wait until midnight
+    println!("正在导出初始 ICS 文件...");
+    let today = Local::now().date_naive();
+    let end_of_year = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
+    let config = Config::load();
+    let cycle_config = config.to_cycle_config();
+    let team_id = if config.shift.default_team > 0 { config.shift.default_team } else { 1 };
+    let offset = cycle_config.team_phase_offset(team_id);
+    let ics_path = dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("banban")
+        .join("shifts.ics");
+    if let Some(parent) = ics_path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+    let ics = generate_shift_ics(today, end_of_year, &cycle_config, offset, team_id, None, "Asia/Shanghai");
+    std::fs::write(&ics_path, &ics).ok();
+    println!("  ICS 文件: {}", ics_path.display());
+    println!();
+
     println!("启用定时器:");
     println!("  systemctl --user enable --now banban-ics.timer");
     println!("  systemctl --user enable --now banban-notify.timer");
