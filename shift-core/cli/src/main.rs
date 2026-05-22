@@ -5,6 +5,8 @@
 //! Default: human-readable ANSI-colored output.
 //! With --json: machine-readable JSON.
 
+mod tui;
+
 use chrono::{Datelike, Local, NaiveDate, Timelike};
 use clap::{Parser, Subcommand};
 use colored::*;
@@ -224,6 +226,8 @@ enum Commands {
     Notify,
     /// 安装 systemd 定时器（每日自动导出 ICS + 通知）
     Install,
+    /// 全屏终端交互界面（btop/lazygit 风格）
+    Tui,
 }
 
 // ── JSON output types ──
@@ -359,6 +363,11 @@ fn main() {
         Commands::Export { ics: _, output, open } => cmd_export(today, &cycle_config, offset, team_id, output, open),
         Commands::Notify => cmd_notify(today, &cycle_config, offset, team_id),
         Commands::Install => cmd_install(),
+        Commands::Tui => {
+            if let Err(e) = tui::run_tui(cycle_config, offset, team_id) {
+                eprintln!("TUI error: {}", e);
+            }
+        }
     }
 }
 
