@@ -107,8 +107,36 @@ impl Default for Config {
 // ── CLI definition ──
 
 /// 班伴 — 倒班人群的生活伴侣
+///
+/// Shift schedule CLI for querying today's shift, monthly stats,
+/// leave optimization, colleague mode, and Waybar integration.
+///
+/// Default output is human-readable with ANSI colors.
+/// Use --json for machine-readable JSON output.
+///
+/// Config file (optional): ~/.config/shift/config.toml
 #[derive(Parser)]
-#[command(name = "shift", version, about, long_about = None)]
+#[command(
+    name = "shift",
+    version,
+    about = "班伴 — 倒班人群的生活伴侣",
+    long_about = "Shift schedule CLI for querying today's shift, monthly stats, leave optimization, colleague mode, and Waybar integration.",
+    after_help = "EXAMPLES:\n  \
+                  shift today                     Show today's shift info\n  \
+                  shift today --json              Machine-readable JSON output\n  \
+                  shift next-rest                 Countdown to next rest day\n  \
+                  shift calendar                  Current month calendar (ANSI colored)\n  \
+                  shift calendar 2026-10          October 2026 calendar\n  \
+                  shift stats                     Current month statistics\n  \
+                  shift leave --max-days 3        Top leave strategies (max 3 leave days)\n  \
+                  shift colleague 1 3             Common rest days between teams 1 and 3\n  \
+                  shift waybar                    Waybar JSON output (Sway/Hyprland)\n  \
+                  \n  \
+                  CONFIG:\n  \
+                  ~/.config/shift/config.toml      Optional config file (TOML format)\n  \
+                  \n  \
+                  Project: https://github.com/zxllxk/SimpleShiftScheduler"
+)]
 struct Cli {
     /// JSON output mode (machine-readable)
     #[arg(short, long, global = true)]
@@ -124,36 +152,43 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Show today's shift info
+    /// Show today's shift info (shift type, cycle day, days until rest)
     Today,
     /// Show tomorrow's shift info
     Tomorrow,
-    /// Show countdown to next rest day
+    /// Countdown to next rest day (e.g. "明天休息" or "距休 3 天")
     NextRest,
-    /// Show monthly calendar (ANSI colored in default mode)
+    /// Show monthly calendar with ANSI-colored shift labels
     Calendar {
-        /// Month in YYYY-MM format (default: current month)
+        /// Month in YYYY-MM format (e.g. 2026-06), defaults to current month
         month: Option<String>,
     },
-    /// Show monthly shift statistics
+    /// Show monthly shift statistics (count per shift type with bar chart)
     Stats {
-        /// Month in YYYY-MM format (default: current month)
+        /// Month in YYYY-MM format (e.g. 2026-06), defaults to current month
         month: Option<String>,
     },
-    /// Find best leave/vacation strategies
+    /// Find best leave/vacation strategies using gap-merging algorithm.
+    /// Analyzes from today to Dec 31 of current year, combining shift
+    /// schedule with Chinese statutory holidays.
     Leave {
-        /// Maximum leave days to consider
+        /// Maximum leave days to consider (1-10). Default: 5.
+        /// Strategies with fewer leave days are not ranked higher unless
+        /// they produce longer breaks through better bridge opportunities.
         #[arg(short, long, default_value = "5")]
         max_days: u32,
     },
-    /// Find common rest days between two teams
+    /// Find common rest days between two teams within the current year.
+    /// Shows next common rest date, 30/60-day counts, and a list of dates.
     Colleague {
         /// Your team ID (1-6)
         team_a: u32,
         /// Their team ID (1-6)
         team_b: u32,
     },
-    /// Output for Waybar (JSON, auto-enables --json)
+    /// Output shift info as Waybar JSON (for Sway/Hyprland status bar).
+    /// Auto-enables JSON format. Configure in ~/.config/waybar/config.json
+    /// with: "custom/shift": {"exec": "shift waybar", "interval": 3600}
     Waybar,
 }
 

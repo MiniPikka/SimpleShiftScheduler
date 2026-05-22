@@ -118,4 +118,55 @@ mod tests {
         }
         assert_eq!(result.total_count, result.common_rest_dates.len() as u32);
     }
+
+    // ── Edge cases ──
+
+    #[test]
+    fn zero_day_window_returns_empty() {
+        let config = default_config();
+        let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
+        let result = find_common_rest_days(1, 2, today, 0, &config);
+        assert!(result.common_rest_dates.is_empty());
+        assert_eq!(result.total_count, 0);
+        assert!(result.next_common_rest_date.is_none());
+    }
+
+    #[test]
+    fn both_teams_all_rest_cycle_finds_every_day() {
+        use shift_algorithm::ShiftType::*;
+        let config = ShiftCycleConfig {
+            cycle: vec![Rest; 7],
+            cycle_length: 7,
+            reference_date: shift_algorithm::cycle::default_reference_date(),
+            total_teams: 2,
+        };
+        let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
+        let result = find_common_rest_days(1, 2, today, 10, &config);
+        assert_eq!(result.total_count, 10);
+        assert_eq!(result.common_rest_dates.len(), 10);
+    }
+
+    #[test]
+    fn both_teams_all_work_cycle_finds_nothing() {
+        use shift_algorithm::ShiftType::*;
+        let config = ShiftCycleConfig {
+            cycle: vec![Morning; 7],
+            cycle_length: 7,
+            reference_date: shift_algorithm::cycle::default_reference_date(),
+            total_teams: 2,
+        };
+        let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
+        let result = find_common_rest_days(1, 2, today, 30, &config);
+        assert_eq!(result.total_count, 0);
+        assert!(result.common_rest_dates.is_empty());
+    }
+
+    #[test]
+    fn counts_do_not_exceed_window() {
+        let config = default_config();
+        let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
+        let result = find_common_rest_days(1, 2, today, 20, &config);
+        assert!(result.count_in_30_days <= result.common_rest_dates.len() as u32);
+        assert!(result.count_in_60_days <= result.common_rest_dates.len() as u32);
+    }
 }

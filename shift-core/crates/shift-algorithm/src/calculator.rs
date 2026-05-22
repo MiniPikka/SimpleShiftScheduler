@@ -8,7 +8,11 @@ pub fn calculate_day_offset(date: NaiveDate, reference_date: NaiveDate) -> i64 {
 }
 
 /// Normalize an offset (potentially negative or out of range) into `0..cycle_length`.
+///
+/// # Panics
+/// Panics if `cycle_length == 0`.
 pub fn normalize_cycle_index(offset_days: i64, cycle_length: u32) -> u32 {
+    assert!(cycle_length >= 1, "cycle_length must be >= 1, got 0");
     let len = cycle_length as i64;
     let normalized = offset_days % len;
     if normalized < 0 {
@@ -21,7 +25,12 @@ pub fn normalize_cycle_index(offset_days: i64, cycle_length: u32) -> u32 {
 /// Team phase offset in days.
 /// Six teams share one 42-day cycle → each team offset by 7 days.
 /// For custom cycles: (team_id - 1) * (cycle_length / total_teams).
+///
+/// # Panics
+/// Panics if `total_teams == 0` or `team_id == 0`.
 pub fn team_phase_offset_for(team_id: u32, cycle_length: u32, total_teams: u32) -> u32 {
+    assert!(total_teams >= 1, "total_teams must be >= 1, got 0");
+    assert!(team_id >= 1, "team_id must be >= 1, got 0");
     (team_id - 1) * (cycle_length / total_teams)
 }
 
@@ -199,5 +208,69 @@ mod tests {
         assert_eq!(info.day_of_cycle, 33);
         // cycle index 32: check default cycle array
         assert_eq!(info.shift_type, config.cycle[32]);
+    }
+
+    // ── Edge cases ──
+
+    #[test]
+    fn normalize_cycle_length_1() {
+        // Single-day cycle: every day maps to index 0
+        assert_eq!(normalize_cycle_index(0, 1), 0);
+        assert_eq!(normalize_cycle_index(1, 1), 0);
+        assert_eq!(normalize_cycle_index(100, 1), 0);
+        assert_eq!(normalize_cycle_index(-1, 1), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "cycle_length must be >= 1")]
+    fn normalize_cycle_length_zero_panics() {
+        normalize_cycle_index(0, 0);
+    }
+
+    #[test]
+    fn team_phase_offset_large_values() {
+        // Very large offsets should still produce valid indices
+        let config = default_config();
+        let idx = normalize_cycle_index(i64::MAX, config.cycle_length);
+        assert!(idx < 42);
+    }
+
+    #[test]
+    #[should_panic(expected = "total_teams must be >= 1")]
+    fn team_phase_offset_zero_teams_panics() {
+        team_phase_offset_for(1, 42, 0);
+    }
+
+    #[test]
+    fn shift_info_day_of_cycle_range() {
+        let config = default_config();
+        // Check 1000 consecutive days all produce valid day_of_cycle (1..=42)
+        let mut date = config.reference_date;
+        for _ in 0..1000 {
+            let info = get_shift_info(date, &config, 0);
+            assert!(info.day_of_cycle >= 1);
+            assert!(info.day_of_cycle <= 42);
+            assert_eq!(info.cycle_index + 1, info.day_of_cycle);
+            date += chrono::Duration::days(1);
+        }
+    }
+
+    #[test]
+    fn all_same_shift_type_cycle() {
+        use ShiftType::*;
+        let config = ShiftCycleConfig {
+            cycle: vec![Night; 5],
+            cycle_length: 5,
+            reference_date: crate::cycle::default_reference_date(),
+            total_teams: 1,
+        };
+        let info = get_shift_info(config.reference_date, &config, 0);
+        assert_eq!(info.shift_type, Night);
+        assert_eq!(info.day_of_cycle, 1);
+
+        let d5 = config.reference_date + chrono::Duration::days(4);
+        let info5 = get_shift_info(d5, &config, 0);
+        assert_eq!(info5.day_of_cycle, 5);
+        assert_eq!(info5.shift_type, Night);
     }
 }
