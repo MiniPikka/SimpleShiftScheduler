@@ -197,14 +197,22 @@ enum Commands {
     ///   "custom/banban": {"exec": "banban waybar", "interval": 3600}
     Waybar,
     /// 导出 ICS 日历文件，可导入 Thunderbird/Nextcloud/Google Calendar 等。
-    /// 用 RRULE 压缩：365 天 → 约 5 条重复事件。
+    /// 每天一个独立事件，全年约 365 条。
+    ///
+    /// 示例：
+    ///   banban export --ics              导出到默认路径
+    ///   banban export --ics --open       导出并用系统默认程序打开（通常是 Thunderbird）
+    ///   banban export --ics -o ~/shifts.ics  导出到指定路径
     Export {
-        /// 导出 ICS 格式（默认）
+        /// 导出 ICS 格式
         #[arg(long)]
         ics: bool,
         /// 输出文件路径（默认 ~/.local/share/banban/shifts.ics）
         #[arg(short, long)]
         output: Option<PathBuf>,
+        /// 生成后用系统默认程序打开（通常是 Thunderbird 或日历 App）
+        #[arg(long)]
+        open: bool,
     },
 }
 
@@ -350,7 +358,7 @@ fn main() {
         Commands::Leave { max_days } => cmd_leave(&cli, today, &cycle_config, offset, max_days),
         Commands::Colleague { team_a, team_b } => cmd_colleague(&cli, today, &cycle_config, team_a, team_b),
         Commands::Waybar => cmd_waybar(today, &cycle_config, offset, team_id),
-        Commands::Export { ics: _, output } => cmd_export(today, &cycle_config, offset, team_id, output),
+        Commands::Export { ics: _, output, open } => cmd_export(today, &cycle_config, offset, team_id, output, open),
     }
 }
 
@@ -837,6 +845,7 @@ fn cmd_export(
     offset: u32,
     team: u32,
     output: Option<PathBuf>,
+    open: bool,
 ) {
     let end_of_year = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
     let path = output.unwrap_or_else(|| {
@@ -866,6 +875,15 @@ fn cmd_export(
         Err(e) => {
             eprintln!("导出失败: {}", e);
             std::process::exit(1);
+        }
+    }
+
+    if open {
+        let path_str = path.to_string_lossy().to_string();
+        println!("正在用系统默认程序打开...");
+        match std::process::Command::new("xdg-open").arg(&path_str).spawn() {
+            Ok(_) => {} // xdg-open detaches, don't wait
+            Err(e) => eprintln!("无法打开文件: {} ({}))", path_str, e),
         }
     }
 }
