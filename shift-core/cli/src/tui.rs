@@ -244,15 +244,15 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
     let weekday = first.weekday().num_days_from_sunday();
     let cal_start = first - chrono::Duration::days(weekday as i64);
 
-    // Responsive cell width
+    // Fixed cell width: each column is exactly cell_w wide
     let cell_w = (area.width / 7).max(5) as usize;
 
     let mut lines: Vec<Line> = Vec::new();
 
-    // Day-of-week header — use same cell width as data rows
+    // Day-of-week header
     let dow_labels = ["日", "一", "二", "三", "四", "五", "六"];
     let header_spans: Vec<Span> = dow_labels.iter().map(|d| {
-        Span::styled(format!(" {:<width$} ", d, width = cell_w.saturating_sub(2)), Style::default().add_modifier(Modifier::BOLD))
+        Span::styled(format!("{:^width$}", d, width = cell_w), Style::default().add_modifier(Modifier::BOLD))
     }).collect();
     lines.push(Line::from(header_spans));
 
@@ -264,12 +264,9 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
             let is_cur = date.month() == month;
             let is_tdy = date == app.today;
 
-            let label = info.shift_type.label();
-            let s = if cell_w >= 6 {
-                format!("{:2} {:<width$}", date.day(), label, width = cell_w.saturating_sub(4))
-            } else {
-                format!("{:1}{:<width$}", date.day(), label, width = cell_w.saturating_sub(2))
-            };
+            // Each cell: "{:2d}{:<rest}" padded to exactly cell_w
+            let content = format!("{:2}{}", date.day(), info.shift_type.label());
+            let s = format!("{:width$}", content, width = cell_w);
 
             let style = if !is_cur {
                 Style::default().dim()
