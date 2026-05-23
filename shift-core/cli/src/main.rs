@@ -170,19 +170,19 @@ impl Default for Config {
                   or Chinese (早/中/休/夜/学)."
 )]
 struct Cli {
-    /// 输出 JSON 格式（给脚本用），默认是给人看的彩色文字
+    /// JSON output (machine-readable). Default: human-readable colored text
     #[arg(short, long, global = true)]
     json: bool,
 
-    /// 你的班组编号（1=一值, 2=二值, ..., 6=六值），不写默认读配置文件或一值
+    /// Your team number (1-6). Default: from config file, or team 1
     #[arg(short = 't', long, global = true, default_value = "0")]
     team: u32,
 
-    /// 显示语言（en=英文, zh=中文），默认英文
+    /// Display language: en (default) or zh (Chinese)
     #[arg(short = 'l', long, global = true, default_value = "en")]
     lang: String,
 
-    /// 指定配置文件路径（默认 ~/.config/shift/config.toml）
+    /// Config file path (default: ~/.config/banban/config.toml)
     #[arg(short, long, global = true)]
     config: Option<PathBuf>,
 
