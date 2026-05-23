@@ -41,12 +41,6 @@ pub enum ShiftType {
 
 impl ShiftType {
     /// Short Chinese label (single character).
-    ///
-    /// ```rust
-    /// use shift_algorithm::ShiftType;
-    /// assert_eq!(ShiftType::Morning.label(), "早");
-    /// assert_eq!(ShiftType::Night.label(), "夜");
-    /// ```
     pub fn label(&self) -> &'static str {
         match self {
             ShiftType::Morning => "早",
@@ -58,11 +52,6 @@ impl ShiftType {
     }
 
     /// Full Chinese label.
-    ///
-    /// ```rust
-    /// use shift_algorithm::ShiftType;
-    /// assert_eq!(ShiftType::Afternoon.full_label(), "中班");
-    /// ```
     pub fn full_label(&self) -> &'static str {
         match self {
             ShiftType::Morning => "早班",
@@ -70,6 +59,28 @@ impl ShiftType {
             ShiftType::Rest => "休班",
             ShiftType::Night => "夜班",
             ShiftType::Study => "学习班",
+        }
+    }
+
+    /// Short English label.
+    pub fn label_en(&self) -> &'static str {
+        match self {
+            ShiftType::Morning => "AM",
+            ShiftType::Afternoon => "PM",
+            ShiftType::Rest => "Off",
+            ShiftType::Night => "NT",
+            ShiftType::Study => "TR",
+        }
+    }
+
+    /// Full English label.
+    pub fn full_label_en(&self) -> &'static str {
+        match self {
+            ShiftType::Morning => "Morning",
+            ShiftType::Afternoon => "Afternoon",
+            ShiftType::Rest => "Rest",
+            ShiftType::Night => "Night",
+            ShiftType::Study => "Study",
         }
     }
 

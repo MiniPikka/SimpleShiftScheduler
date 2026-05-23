@@ -131,44 +131,43 @@ impl Default for Config {
 
 // ── CLI definition ──
 
-/// 倒班工人每天按照固定周期轮换班次：早→早→中→中→休→夜→夜→休→...
-/// 42 天一个循环，6 个班组（一值～六值）各差 7 天。
+/// Rotating shift schedule CLI — check today's shift, plan leave, find common rest days.
 ///
-/// 这个工具帮你查今天什么班、什么时候休息、怎么请假最划算、
-/// 和另一个班组的人哪天能一起休息。
+/// Default 42-day cycle, 6 teams. Switch language: --lang zh
 ///
-/// 第一步：如果你不是一值（默认），先告诉工具你的班组：
-///   banban --team 2 today              试试看今天什么班
-///   banban --team 2 calendar           看看这个月的排班日历
+/// Step 1: tell it your team (if not team 1):
+///   banban --team 2 today
 ///
-/// 第二步：觉得班组对了，写进配置文件免得每次敲 --team：
-///   mkdir -p ~/.config/banban
-///   printf '\[shift]\ndefault_team = 2\n' > ~/.config/banban/config.toml
+/// Step 2: save your team so you don't need --team every time:
+///   banban config
+///   # edit ~/.config/banban/config.toml → default_team = 2
 ///
-/// 第三步：每天敲 banban 看一眼，或者加到 Waybar 状态栏上。
+/// Step 3: use it daily, or add to Waybar/systemd timer:
+///   banban install
 #[derive(Parser)]
 #[command(
     name = "banban",
     version,
-    about = "班伴 — 倒班助手命令行",
-    long_about = "倒班工人每天按照固定周期轮换班次：早→早→中→中→休→夜→夜→休→...\n42 天一个循环，6 个班组（一值～六值）各差 7 天。\n\n这个工具帮你查今天什么班、什么时候休息、怎么请假最划算、\n和另一个班组的人哪天能一起休息。",
-    after_help = "快速上手：\n  \
-                  banban today              看看今天什么班\n  \
-                  banban --team 2 today     如果你是二值，试试这个\n  \
-                  banban calendar           这个月的排班日历\n  \
-                  banban stats              本月班次统计\n  \
-                  banban next-rest          还有几天休息\n  \
-                  banban leave              今年怎么请假最划算\n  \
-                  banban colleague 1 3      一值和三值哪天能一起休\n  \
-                  banban export --ics       导出日历文件\n  \
-                  banban tui                全屏终端界面\n  \
-                  banban notify             桌面通知\n  \
-                  banban install            安装 systemd 每日提醒\n  \
+    about = "Shift schedule CLI — 班伴 (ShiftMate)",
+    long_about = "Rotating shift schedule CLI. Default 42-day cycle, 6 teams.\nCheck today's shift, plan optimal leave, find common rest days with colleagues.",
+    after_help = "Quick start:\n  \
+                  banban today              What shift is today?\n  \
+                  banban --team 2 today     If you're on team 2\n  \
+                  banban calendar           Monthly calendar (color-coded)\n  \
+                  banban stats              Monthly shift counts\n  \
+                  banban next-rest          Days until next rest\n  \
+                  banban leave              Best leave strategies\n  \
+                  banban colleague 1 3      Common rest days: team 1 vs 3\n  \
+                  banban export --ics       Export ICS calendar file\n  \
+                  banban tui                Full-screen terminal UI\n  \
+                  banban notify             Desktop notification\n  \
+                  banban install            Install systemd daily timer\n  \
                   \n  \
-                  自定义排班表：\n  \
-                  banban config             生成示例配置文件\n  \
-                  编辑 ~/.config/banban/config.toml，修改 cycle 数组即可。\n  \
-                  支持中文（早中休夜学）和英文（morning afternoon rest night study）"
+                  Custom cycle:\n  \
+                  banban config             Generate sample config file\n  \
+                  Edit ~/.config/banban/config.toml, change the cycle array.\n  \
+                  Accepts English labels (morning/afternoon/rest/night/study)\n  \
+                  or Chinese (早/中/休/夜/学)."
 )]
 struct Cli {
     /// 输出 JSON 格式（给脚本用），默认是给人看的彩色文字
@@ -178,6 +177,10 @@ struct Cli {
     /// 你的班组编号（1=一值, 2=二值, ..., 6=六值），不写默认读配置文件或一值
     #[arg(short = 't', long, global = true, default_value = "0")]
     team: u32,
+
+    /// 显示语言（en=英文, zh=中文），默认英文
+    #[arg(short = 'l', long, global = true, default_value = "en")]
+    lang: String,
 
     /// 指定配置文件路径（默认 ~/.config/shift/config.toml）
     #[arg(short, long, global = true)]
@@ -189,61 +192,61 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// 今天什么班？周期第几天？还有几天休息？
+    /// What shift is today? Cycle day, days until rest
     Today,
-    /// 明天什么班？
+    /// What shift is tomorrow?
     Tomorrow,
-    /// 距离下次休息还有几天（"明天休息" 或 "距休 3 天"）
+    /// Days until next rest day ("Rest tomorrow" or "3 days until rest")
     NextRest,
-    /// 月历视图，每一天用颜色标出班次（橙早/蓝中/绿休/紫夜/黄学）
+    /// Monthly calendar with color-coded shifts (orange AM / blue PM / green Off / purple NT / yellow TR)
     Calendar {
-        /// 哪个月，如 2026-06（不写就是当月）
+        /// Month in YYYY-MM format (default: current month)
         month: Option<String>,
     },
-    /// 这个月每种班次各有几天（带 ASCII 进度条）
+    /// Monthly shift counts with ASCII bar chart
     Stats {
-        /// 哪个月，如 2026-06（不写就是当月）
+        /// Month in YYYY-MM format (default: current month)
         month: Option<String>,
     },
-    /// 拼假神器：分析今天到年底，结合你的排班和法定节假日，
-    /// 算出怎么请假最划算（请最少天，连休最久）。
+    /// Find optimal leave strategies. Analyzes from today to Dec 31,
+    /// combining your shift schedule with Chinese statutory holidays.
     Leave {
-        /// 最多愿意请几天假（默认 5 天）
+        /// Max leave days to consider (default: 5)
         #[arg(short, long, default_value = "5")]
         max_days: u32,
     },
-    /// 同事模式：两个班组哪天能一起休息？
-    /// "我是二值，她是五值，我们什么时候能一起休？"
+    /// Find common rest days between two teams.
+    /// "I'm team 2, they're team 5 — when can we both rest?"
     Colleague {
-        /// 我的班组（1=一值, ... 6=六值）
+        /// My team (1=一值, ... 6=六值)
         team_a: u32,
-        /// 对方的班组（1=一值, ... 6=六值）
+        /// Their team (1=一值, ... 6=六值)
         team_b: u32,
     },
-    /// Waybar 状态栏显示班次（给 Sway/Hyprland 用）。
-    /// 配置：~/.config/waybar/config.json 中加
+    /// Output for Waybar status bar (Sway/Hyprland).
+    /// Config: add to ~/.config/waybar/config.json
     ///   "custom/banban": {"exec": "banban waybar", "interval": 3600}
     Waybar,
-    /// 导出 ICS 日历文件，可导入 Thunderbird/Nextcloud/Google Calendar 等。
-    /// 每天一个独立事件，全年约 365 条。
+    /// Export ICS calendar file for Thunderbird/Nextcloud/Google Calendar.
+    /// One event per day, ~365 events per year.
     Export {
-        /// 导出 ICS 格式
+        /// Export in ICS format
         #[arg(long)]
         ics: bool,
-        /// 输出文件路径（默认 ~/.local/share/banban/shifts.ics）
+        /// Output path (default: ~/.local/share/banban/shifts.ics)
         #[arg(short, long)]
         output: Option<PathBuf>,
-        /// 生成后用系统默认程序打开（通常是 Thunderbird 或日历 App）
+        /// Open with default app after export (usually Thunderbird)
         #[arg(long)]
         open: bool,
     },
-    /// 发送桌面通知，显示今天班次和距休信息
+    /// Send desktop notification with today's shift info
     Notify,
-    /// 安装 systemd 定时器（每日自动导出 ICS + 通知）
+    /// Install systemd timer for daily ICS export + notification
     Install,
-    /// 全屏终端交互界面（btop/lazygit 风格）
+    /// Full-screen interactive terminal UI (btop/lazygit style)
     Tui,
-    /// 生成示例配置文件（含自定义排班表说明）
+    /// Generate sample config file with custom cycle documentation
     Config,
 }
 
@@ -374,8 +377,23 @@ fn parse_shift_label(s: &str) -> ShiftType {
         "休" | "休班" | "rest" | "Rest" | "REST" => ShiftType::Rest,
         "夜" | "夜班" | "night" | "Night" | "NIGHT" => ShiftType::Night,
         "学" | "学习" | "学习班" | "study" | "Study" | "STUDY" => ShiftType::Study,
-        _ => ShiftType::Rest, // unknown → rest (safe default)
+        _ => ShiftType::Rest,
     }
+}
+
+/// Short label in current language.
+fn lbl(st: ShiftType, lang: &str) -> &'static str {
+    if lang == "zh" { st.label() } else { st.label_en() }
+}
+
+/// Full label in current language.
+fn full_lbl(st: ShiftType, lang: &str) -> &'static str {
+    if lang == "zh" { st.full_label() } else { st.full_label_en() }
+}
+
+/// Team name in current language.
+fn team_lbl(id: u32, lang: &str) -> String {
+    if lang == "zh" { shift_algorithm::team_name(id) } else { format!("Team {}", id) }
 }
 
 // ── Main ──
@@ -416,13 +434,14 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
     let info = get_shift_info(today, config, offset);
     let rest = days_until_next_rest(today, config, offset);
     let consec = consecutive_work_days(today, config, offset);
+    let lang = cli.lang.as_str();
 
     if cli.json {
         let out = TodayOutput {
             date: today.format("%Y-%m-%d").to_string(),
             shift_type: format!("{:?}", info.shift_type).to_lowercase(),
-            shift_label: info.shift_type.full_label().to_string(),
-            team: shift_algorithm::team_name(team),
+            shift_label: full_lbl(info.shift_type, lang).to_string(),
+            team: team_lbl(team, lang),
             day_of_cycle: info.day_of_cycle,
             total_days: config.cycle_length,
             days_until_rest: rest,
@@ -432,27 +451,30 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
     } else {
         let color = shift_color(info.shift_type);
         let rest_msg = if info.shift_type.is_rest() {
-            "今天是休息日 🎉".green().bold().to_string()
+            if lang == "zh" { "今天是休息日 🎉".green().bold().to_string() }
+            else { "Rest day 🎉".green().bold().to_string() }
         } else if rest == 0 {
-            "明天休息".green().to_string()
+            if lang == "zh" { "明天休息".green().to_string() }
+            else { "Rest tomorrow".green().to_string() }
         } else {
-            format!("距休 {} 天", rest)
+            if lang == "zh" { format!("距休 {} 天", rest) }
+            else { format!("{}d until rest", rest) }
         };
         println!(
-            "{} {} · {} · 第 {}/{} 天 · {}",
+            "{} {} · {} · Day {}/{} · {}",
             shift_icon(info.shift_type),
-            info.shift_type.full_label().color(color).bold(),
-            shift_algorithm::team_name(team).dimmed(),
+            full_lbl(info.shift_type, lang).color(color).bold(),
+            team_lbl(team, lang).dimmed(),
             info.day_of_cycle,
             config.cycle_length,
             rest_msg,
         );
         println!(
             "  {} {} · {} {}",
-            "连续上班".dimmed(),
-            format!("{}天", consec).bold(),
-            "日期".dimmed(),
+            if lang == "zh" { "连续上班".dimmed() } else { "Work streak".dimmed() },
+            format!("{}d", consec).bold(),
             today.format("%Y-%m-%d %A").to_string().dimmed(),
+            "".dimmed(),
         );
     }
 }
@@ -932,7 +954,7 @@ fn cmd_export(
         println!("正在用系统默认程序打开...");
         match std::process::Command::new("xdg-open").arg(&path_str).spawn() {
             Ok(_) => {} // xdg-open detaches, don't wait
-            Err(e) => eprintln!("无法打开文件: {} ({}))", path_str, e),
+            Err(e) => eprintln!("Can't open file: {} ({})", path_str, e),
         }
     }
 }
