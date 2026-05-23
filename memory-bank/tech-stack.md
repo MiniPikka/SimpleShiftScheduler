@@ -918,8 +918,10 @@ fn generate_shift_ics(
 ### Waybar 模块
 
 - Waybar 通过执行命令并读取 stdout JSON 来渲染模块
-- `shift waybar` 输出 JSON：`{"text": "🌙 夜", "class": "night", "tooltip": "距休2天 · 一值 · 第12/42天"}`
-- 配置：Waybar config.json 中添加 `"custom/shift": {"exec": "shift waybar", "interval": 3600}`
+- `banban waybar` 输出 JSON：`{"text": "🌙 夜", "class": "night", "tooltip": "夜班 · 一值 · Day 12/42 · 距休 2 天"}`
+- 支持 `--lang en/zh` 切换语言
+- Waybar 显示文字可通过 `~/.config/banban/config.toml` 的 `[display]` 段自定义
+- 配置：Waybar config.jsonc 中添加 `"custom/banban": {"exec": "banban -l zh waybar", "interval": 3600, "return-type": "json"}`
 
 ### DBus 服务
 

@@ -2311,9 +2311,11 @@ Plasma Plasmoid（QML + Rust backend via DBus）
 ### Waybar 模块
 
 ```
-Waybar custom module（JSON output from `shift waybar`）
-  显示："夜 · 距休2天"
-  shift waybar → {"text": "🌙 夜 · 距休2天", "class": "night", "tooltip": "..."}
+Waybar custom module（JSON output from `banban waybar`）
+  显示：班次标签（彩色，支持 --lang en/zh 切换）
+  CSS class：morning / afternoon / rest / night / study
+  显示文字可自定义：在 config.toml [display] 段设置 waybar_* 字段
+  banban waybar → {"text": "🌙 夜", "class": "night", "tooltip": "夜班 · 一值 · Day 12/42 · 距休 2 天"}
 ```
 
 ### DBus 服务

@@ -10,6 +10,7 @@ A worker on a rotating shift schedule (e.g. 42-day cycle, 6 teams) can answer:
 - **When do I next rest?** → `banban next-rest`
 - **How should I take leave to maximize my break?** → `banban leave`
 - **When can my colleague and I rest together?** → `banban colleague 1 3`
+- **Show shift in Waybar status bar** → `banban waybar` (supports `--lang` and custom labels)
 
 ## Crates
 

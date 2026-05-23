@@ -32,6 +32,8 @@ struct Config {
     shift: ShiftSection,
     #[serde(default)]
     alarms: AlarmSection,
+    #[serde(default)]
+    display: DisplaySection,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -64,6 +66,15 @@ struct AlarmSection {
     morning: Option<String>,
     afternoon: Option<String>,
     night: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
+struct DisplaySection {
+    waybar_morning: Option<String>,
+    waybar_afternoon: Option<String>,
+    waybar_rest: Option<String>,
+    waybar_night: Option<String>,
+    waybar_study: Option<String>,
 }
 
 fn default_cycle_len() -> u32 {
@@ -125,6 +136,7 @@ impl Default for Config {
                 cycle: Vec::new(),
             },
             alarms: AlarmSection::default(),
+            display: DisplaySection::default(),
         }
     }
 }
@@ -159,6 +171,7 @@ impl Default for Config {
                   banban leave              Best leave strategies\n  \
                   banban colleague 1 3      Common rest days: team 1 vs 3\n  \
                   banban export --ics       Export ICS calendar file\n  \
+                  banban waybar             Waybar status bar output\n  \
                   banban tui                Full-screen terminal UI\n  \
                   banban notify             Desktop notification\n  \
                   banban install            Install systemd daily timer\n  \
@@ -167,7 +180,16 @@ impl Default for Config {
                   banban config             Generate sample config file\n  \
                   Edit ~/.config/banban/config.toml, change the cycle array.\n  \
                   Accepts English labels (morning/afternoon/rest/night/study)\n  \
-                  or Chinese (早/中/休/夜/学)."
+                  or Chinese (早/中/休/夜/学).\n  \
+                  \n  \
+                  Language:\n  \
+                  banban -l zh today        Chinese output\n  \
+                  banban -l en waybar       English Waybar labels\n  \
+                  \n  \
+                  Custom display labels:\n  \
+                  Add [display] section to ~/.config/banban/config.toml:\n  \
+                  waybar_morning = \"🌅 早\"     # Waybar text for morning\n  \
+                  See: banban config"
 )]
 struct Cli {
     /// JSON output (machine-readable). Default: human-readable colored text
@@ -224,8 +246,10 @@ enum Commands {
         team_b: u32,
     },
     /// Output for Waybar status bar (Sway/Hyprland).
-    /// Config: add to ~/.config/waybar/config.json
-    ///   "custom/banban": {"exec": "banban waybar", "interval": 3600}
+    /// Respects --lang (en/zh). Customize labels via [display] in config.toml.
+    /// Config: add to ~/.config/waybar/config.jsonc
+    ///   "custom/banban": {"exec": "banban -l zh waybar", "interval": 3600, "return-type": "json"}
+    /// CSS: #custom-banban.morning { color: #FFB347; }
     Waybar,
     /// Export ICS calendar file for Thunderbird/Nextcloud/Google Calendar.
     /// One event per day, ~365 events per year.
@@ -423,7 +447,7 @@ fn main() {
         Commands::Stats { ref month } => cmd_stats(&cli, today, &cycle_config, offset, team_id, month.as_ref()),
         Commands::Leave { max_days } => cmd_leave(&cli, today, &cycle_config, offset, max_days),
         Commands::Colleague { team_a, team_b } => cmd_colleague(&cli, today, &cycle_config, team_a, team_b),
-        Commands::Waybar => cmd_waybar(today, &cycle_config, offset, team_id),
+        Commands::Waybar => cmd_waybar(today, &cycle_config, offset, team_id, &cli.lang, &config.display),
         Commands::Export { ics: _, output, open } => cmd_export(today, &cycle_config, offset, team_id, output, open),
         Commands::Notify => cmd_notify(today, &cycle_config, offset, team_id),
         Commands::Install => cmd_install(),
@@ -910,29 +934,23 @@ fn cmd_colleague(
     }
 }
 
-fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u32) {
+fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u32, lang: &str, display: &DisplaySection) {
     let info = get_shift_info(today, config, offset);
     let rest = days_until_next_rest(today, config, offset);
 
     let class = format!("{:?}", info.shift_type).to_lowercase();
-    let text = match info.shift_type {
-        ShiftType::Morning => "🌅 早".to_string(),
-        ShiftType::Afternoon => "☀️ 中".to_string(),
-        ShiftType::Rest => "🌿 休".to_string(),
-        ShiftType::Night => "🌙 夜".to_string(),
-        ShiftType::Study => "📚 学".to_string(),
-    };
+    let text = waybar_text(info.shift_type, lang, display);
     let rest_text = if info.shift_type.is_rest() {
-        "今日休息".to_string()
+        if lang == "zh" { "今日休息".to_string() } else { "Rest day 🎉".to_string() }
     } else if rest == 0 {
-        "明天休息".to_string()
+        if lang == "zh" { "明天休息".to_string() } else { "Rest tomorrow".to_string() }
     } else {
-        format!("距休 {} 天", rest)
+        if lang == "zh" { format!("距休 {} 天", rest) } else { format!("{}d until rest", rest) }
     };
     let tooltip = format!(
-        "{} · {} · 第 {}/{} 天 · {}",
-        info.shift_type.full_label(),
-        shift_algorithm::team_name(team),
+        "{} · {} · Day {}/{} · {}",
+        full_lbl(info.shift_type, lang),
+        team_lbl(team, lang),
         info.day_of_cycle,
         config.cycle_length,
         rest_text,
@@ -944,6 +962,34 @@ fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
         tooltip,
     };
     println!("{}", serde_json::to_string(&out).unwrap());
+}
+
+/// Waybar display text: custom config > language default.
+fn waybar_text(st: ShiftType, lang: &str, display: &DisplaySection) -> String {
+    let custom = match st {
+        ShiftType::Morning => &display.waybar_morning,
+        ShiftType::Afternoon => &display.waybar_afternoon,
+        ShiftType::Rest => &display.waybar_rest,
+        ShiftType::Night => &display.waybar_night,
+        ShiftType::Study => &display.waybar_study,
+    };
+    if let Some(text) = custom {
+        if !text.is_empty() {
+            return text.clone();
+        }
+    }
+    match (st, lang) {
+        (ShiftType::Morning, "zh") => "🌅 早".into(),
+        (ShiftType::Morning, _) => "🌅 AM".into(),
+        (ShiftType::Afternoon, "zh") => "☀️ 中".into(),
+        (ShiftType::Afternoon, _) => "☀️ PM".into(),
+        (ShiftType::Rest, "zh") => "🌿 休".into(),
+        (ShiftType::Rest, _) => "🌿 Off".into(),
+        (ShiftType::Night, "zh") => "🌙 夜".into(),
+        (ShiftType::Night, _) => "🌙 NT".into(),
+        (ShiftType::Study, "zh") => "📚 学".into(),
+        (ShiftType::Study, _) => "📚 TR".into(),
+    }
 }
 
 fn cmd_export(
@@ -1172,8 +1218,12 @@ WantedBy=timers.target
     println!("Check status:");
     println!("  systemctl --user list-timers | grep banban");
     println!();
-    println!("Waybar（添加到 ~/.config/waybar/config.json）:");
-    println!(r#"  "custom/banban": {{"exec": "banban waybar", "interval": 3600}}"#);
+    println!("Waybar（添加到 ~/.config/waybar/config.jsonc）:");
+    println!("  # 中文：");
+    println!(r#"  "custom/banban": {{"exec": "banban -l zh waybar", "interval": 3600, "return-type": "json"}},"#);
+    println!("  # 英文（默认）：");
+    println!(r#"  "custom/banban": {{"exec": "banban waybar", "interval": 3600, "return-type": "json"}},"#);
+    println!("  # 自定义标签：在 ~/.config/banban/config.toml 的 [display] 段设置");
 }
 
 fn cmd_config() {
@@ -1205,6 +1255,15 @@ total_teams = 6
 morning = "06:45"     # 早班前提醒
 afternoon = "13:45"   # 中班前提醒
 night = "21:45"       # 夜班前提醒
+
+[display]
+# Waybar 显示文字（可自定义 emoji 和标签）
+# 不设置则按 --lang 参数用默认值（中文 emoji / 英文缩写）
+waybar_morning = "🌅 早"
+waybar_afternoon = "☀️ 中"
+waybar_rest = "🌿 休"
+waybar_night = "🌙 夜"
+waybar_study = "📚 学"
 "#;
 
     if config_path.exists() {

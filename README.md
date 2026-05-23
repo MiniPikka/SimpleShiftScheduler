@@ -6,6 +6,7 @@
 banban today          →  🟣 夜班 · 一值 · 第 33/42 天 · 明天休息
 banban leave -m 3     →  🏖️  请 2 天 → 连休 15 天 (中秋+国庆桥接)
 banban export --ics   →  生成 ICS 日历文件，导入 Thunderbird
+banban waybar         →  {"text":"🌙 夜","class":"night","tooltip":"..."}  Waybar JSON
 banban tui            →  全屏终端界面，btop/lazygit 风格
 ```
 
@@ -23,11 +24,13 @@ banban today
 
 ```bash
 banban today                    # 看看今天什么班
+banban -l zh today              # 中文输出
 banban --team 2 today           # 你是二值？试试这个
 banban calendar                 # 这个月的排班日历
 banban stats                    # 本月统计
 banban leave -m 3               # 今年怎么请假最划算
 banban colleague 1 3            # 一值和三值哪天能一起休
+banban waybar                   # Waybar 状态栏输出 (--lang 切换语言)
 banban export --ics --open      # 导出日历并打开 Thunderbird
 banban tui                      # 全屏交互界面
 banban install                  # 安装 systemd 每日定时提醒
@@ -48,6 +51,42 @@ banban install                  # 安装 systemd 每日定时提醒
 | systemd 定时器 | `banban install` | — | — | — |
 | Waybar 状态栏 | `banban waybar` | — | — | — |
 | 桌面 Widget | — | — | ✅ | — |
+| Waybar 状态栏 | `banban waybar` | — | — | — |
+
+## Waybar Integration
+
+Add to `~/.config/waybar/config.jsonc`:
+
+```json
+"custom/banban": {
+    "exec": "banban -l zh waybar",
+    "interval": 3600,
+    "return-type": "json"
+}
+```
+
+Style with CSS (`~/.config/waybar/style.css`):
+
+```css
+#custom-banban.morning { color: #FFB347; }
+#custom-banban.afternoon { color: #4DA3FF; }
+#custom-banban.rest { color: #35D07F; }
+#custom-banban.night { color: #7C5CFF; }
+#custom-banban.study { color: #F2D94E; }
+```
+
+Customize display labels in `~/.config/banban/config.toml`:
+
+```toml
+[display]
+waybar_morning = "🌅 早"
+waybar_afternoon = "☀️ 中"
+waybar_rest = "🌿 休"
+waybar_night = "🌙 夜"
+waybar_study = "📚 学"
+```
+
+Run `banban -l en waybar` for English output, or set `--lang zh` for Chinese.
 
 ## Architecture
 
