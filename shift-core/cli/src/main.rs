@@ -42,6 +42,10 @@ struct ShiftSection {
     reference_date: String,
     #[serde(default = "default_team")]
     default_team: u32,
+    /// Custom cycle: e.g. ["早","早","中","中","休","夜","休"]
+    /// If empty, uses the default 42-day cycle.
+    #[serde(default)]
+    cycle: Vec<String>,
 }
 
 impl Default for ShiftSection {
@@ -50,6 +54,7 @@ impl Default for ShiftSection {
             cycle_length: 42,
             reference_date: "2025-12-15".into(),
             default_team: 1,
+            cycle: Vec::new(),
         }
     }
 }
@@ -95,15 +100,14 @@ impl Config {
     fn to_cycle_config(&self) -> ShiftCycleConfig {
         let ref_date = NaiveDate::parse_from_str(&self.shift.reference_date, "%Y-%m-%d")
             .unwrap_or_else(|_| default_reference_date());
-        let cycle = if self.shift.cycle_length == 42 {
-            default_shift_cycle()
+        let cycle = if !self.shift.cycle.is_empty() {
+            self.shift.cycle.iter().map(|s| parse_shift_label(s)).collect()
         } else {
-            // Generate a simple repeating cycle for custom lengths
-            // User should edit config.toml for full custom cycles (future: cycle array in config)
-            default_shift_cycle()[..self.shift.cycle_length as usize].to_vec()
+            default_shift_cycle()
         };
+        let cycle_length = cycle.len() as u32;
         ShiftCycleConfig {
-            cycle_length: self.shift.cycle_length,
+            cycle_length,
             cycle,
             reference_date: ref_date,
             total_teams: 6,
@@ -118,6 +122,7 @@ impl Default for Config {
                 cycle_length: 42,
                 reference_date: "2025-12-15".into(),
                 default_team: 1,
+                cycle: Vec::new(),
             },
             alarms: AlarmSection::default(),
         }
@@ -238,6 +243,8 @@ enum Commands {
     Install,
     /// 全屏终端交互界面（btop/lazygit 风格）
     Tui,
+    /// 生成示例配置文件（含自定义排班表说明）
+    Config,
 }
 
 // ── JSON output types ──
@@ -359,6 +366,18 @@ fn pad_cjk(s: &str, width: usize) -> String {
     }
 }
 
+/// Parse a shift label (Chinese or English) into a ShiftType.
+fn parse_shift_label(s: &str) -> ShiftType {
+    match s.trim() {
+        "早" | "早班" | "morning" | "Morning" | "MORNING" => ShiftType::Morning,
+        "中" | "中班" | "afternoon" | "Afternoon" | "AFTERNOON" => ShiftType::Afternoon,
+        "休" | "休班" | "rest" | "Rest" | "REST" => ShiftType::Rest,
+        "夜" | "夜班" | "night" | "Night" | "NIGHT" => ShiftType::Night,
+        "学" | "学习" | "学习班" | "study" | "Study" | "STUDY" => ShiftType::Study,
+        _ => ShiftType::Rest, // unknown → rest (safe default)
+    }
+}
+
 // ── Main ──
 
 fn main() {
@@ -387,6 +406,7 @@ fn main() {
                 eprintln!("TUI error: {}", e);
             }
         }
+        Commands::Config => cmd_config(),
     }
 }
 
@@ -1095,6 +1115,50 @@ WantedBy=timers.target
     println!();
     println!("Waybar（添加到 ~/.config/waybar/config.json）:");
     println!(r#"  "custom/banban": {{"exec": "banban waybar", "interval": 3600}}"#);
+}
+
+fn cmd_config() {
+    let config_dir = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("banban");
+    let config_path = config_dir.join("config.toml");
+
+    let sample = r#"# 班伴 · ShiftMate 配置文件
+# 修改后运行 banban install 重新生成 systemd 定时器
+
+[shift]
+# 排班周期：每天一个标签，写几个就几天
+# 支持中文：早 中 休 夜 学
+# 支持英文：morning afternoon rest night study
+cycle = ["早","早","中","中","休","夜","休","休","早","早","中","中","休","夜","休","休","休","早","早","中","休","夜","夜","休","休","休","早","中","中","休","夜","夜","休","休","学","学","学","学","学","休","休"]
+
+# 周期起始日（第 1 天是哪天）
+reference_date = "2025-12-15"
+
+# 默认班组编号（1=一值, ... 6=六值）
+default_team = 1
+
+# 总班组数
+total_teams = 6
+
+[alarms]
+# 提醒时间，可选。不写则用默认值
+morning = "06:45"     # 早班前提醒
+afternoon = "13:45"   # 中班前提醒
+night = "21:45"       # 夜班前提醒
+"#;
+
+    if config_path.exists() {
+        println!("配置文件已存在: {}", config_path.display());
+        println!("如需覆盖，请手动删除后重新运行 banban config");
+    } else {
+        std::fs::create_dir_all(&config_dir).ok();
+        std::fs::write(&config_path, sample).ok();
+        println!("示例配置文件已生成: {}", config_path.display());
+        println!();
+        println!("编辑这个文件来定义你自己的排班表，然后运行:");
+        println!("  banban today");
+    }
 }
 
 // ── Helpers ──
