@@ -159,16 +159,16 @@ impl Default for Config {
                   banban stats              本月班次统计\n  \
                   banban next-rest          还有几天休息\n  \
                   banban leave              今年怎么请假最划算\n  \
-                  banban leave -m 3         请假不超过 3 天的方案\n  \
                   banban colleague 1 3      一值和三值哪天能一起休\n  \
-                  banban export --ics --open  导出日历并打开\n  \
-                  banban notify             桌面通知\n  \
+                  banban export --ics       导出日历文件\n  \
                   banban tui                全屏终端界面\n  \
-                  banban waybar             Waybar 状态栏 JSON\n  \
-                  banban install            安装 systemd 定时器\n  \
+                  banban notify             桌面通知\n  \
+                  banban install            安装 systemd 每日提醒\n  \
                   \n  \
-                  默认一值（第 1 班组），周期 42 天，起始日 2025-12-15。\n  \
-                  班组不同用 --team 或写 ~/.config/banban/config.toml"
+                  自定义排班表：\n  \
+                  banban config             生成示例配置文件\n  \
+                  编辑 ~/.config/banban/config.toml，修改 cycle 数组即可。\n  \
+                  支持中文（早中休夜学）和英文（morning afternoon rest night study）"
 )]
 struct Cli {
     /// 输出 JSON 格式（给脚本用），默认是给人看的彩色文字
