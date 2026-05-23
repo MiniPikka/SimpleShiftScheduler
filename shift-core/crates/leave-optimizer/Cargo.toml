@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Gap-merging algorithm for optimal leave/vacation planning"
+description = "Gap-merging leave strategy optimizer. Finds optimal vacation plans by bridging work gaps between rest blocks, accounting for Chinese holidays and weekends."
 
 [dependencies]
 chrono = { workspace = true }

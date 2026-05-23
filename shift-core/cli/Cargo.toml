@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "CLI + TUI for shift scheduling — 班伴 (ShiftMate)"
+description = "CLI + TUI for rotating shift schedules. Check today's shift, plan leave, find common rest days, export ICS calendar files, desktop notifications, systemd timer. Configurable via ~/.config/banban/config.toml — define your own cycle: 12 commands. --lang zh for Chinese."
 
 [[bin]]
 name = "banban"

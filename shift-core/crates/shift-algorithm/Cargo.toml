@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Core scheduling algorithm: date → cycle index → shift type"
+description = "Rotating shift scheduling algorithm: calculate what shift falls on any date, with configurable cycle length, team offsets, and reference date. Powers the 班伴 (ShiftMate) CLI."
 
 [dependencies]
 chrono = { workspace = true }
