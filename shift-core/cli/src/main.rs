@@ -396,6 +396,14 @@ fn team_lbl(id: u32, lang: &str) -> String {
     if lang == "zh" { shift_algorithm::team_name(id) } else { format!("Team {}", id) }
 }
 
+fn month_name_en(m: u32) -> &'static str {
+    match m {
+        1 => "Jan", 2 => "Feb", 3 => "Mar", 4 => "Apr", 5 => "May", 6 => "Jun",
+        7 => "Jul", 8 => "Aug", 9 => "Sep", 10 => "Oct", 11 => "Nov", 12 => "Dec",
+        _ => "???",
+    }
+}
+
 // ── Main ──
 
 fn main() {
@@ -482,6 +490,7 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
 fn cmd_tomorrow(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u32) {
     let tomorrow = today + chrono::Duration::days(1);
     let info = get_shift_info(tomorrow, config, offset);
+    let lang = cli.lang.as_str();
 
     if cli.json {
         println!(
@@ -489,8 +498,8 @@ fn cmd_tomorrow(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: 
             serde_json::json!({
                 "date": tomorrow.format("%Y-%m-%d").to_string(),
                 "shift_type": format!("{:?}", info.shift_type).to_lowercase(),
-                "shift_label": info.shift_type.full_label(),
-                "team": shift_algorithm::team_name(team),
+                "shift_label": full_lbl(info.shift_type, lang),
+                "team": team_lbl(team, lang),
                 "day_of_cycle": info.day_of_cycle,
                 "total_days": config.cycle_length,
             })
@@ -500,8 +509,8 @@ fn cmd_tomorrow(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: 
         println!(
             "{} {} · {} · 第 {}/{} 天",
             shift_icon(info.shift_type),
-            info.shift_type.full_label().color(color).bold(),
-            tomorrow.format("%m月%d日 %A").to_string().dimmed(),
+            full_lbl(info.shift_type, lang).color(color).bold(),
+            tomorrow.format("%b %d %A").to_string().dimmed(),
             info.day_of_cycle,
             config.cycle_length,
         );
@@ -510,6 +519,7 @@ fn cmd_tomorrow(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: 
 
 fn cmd_next_rest(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32) {
     let info = get_shift_info(today, config, offset);
+    let lang = cli.lang.as_str();
     let today_is_rest = info.shift_type.is_rest();
     let days = days_until_next_rest(today, config, offset);
 
@@ -520,11 +530,11 @@ fn cmd_next_rest(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset:
             today + chrono::Duration::days(days as i64)
         };
         let msg = if today_is_rest {
-            "今天休息".into()
+            if lang == "zh" { "今天休息".to_string() } else { "Rest day".to_string() }
         } else if days == 0 {
-            "明天休息".into()
+            if lang == "zh" { "明天休息".to_string() } else { "Rest tomorrow".to_string() }
         } else {
-            format!("距休 {} 天", days)
+            format!("{}", format!("{}", if lang == "zh" { format!("距休 {} 天", days) } else { format!("{}d until rest", days) }))
         };
         let out = NextRestOutput {
             days_until: if today_is_rest { 0 } else { days },
@@ -534,24 +544,24 @@ fn cmd_next_rest(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset:
         println!("{}", serde_json::to_string_pretty(&out).unwrap());
     } else {
         if today_is_rest {
-            println!("{} {}", "🟢".bold(), "今天是休息日".green().bold());
+            println!("{} {}", "🟢".bold(), if lang == "zh" { "今天是休息日".green().bold() } else { "Rest day".green().bold() });
         } else if days == 0 {
             let tomorrow = today + chrono::Duration::days(1);
             println!(
                 "{} {} · {}",
                 "🟢".bold(),
-                "明天休息".green().bold(),
-                tomorrow.format("%m月%d日 %A").to_string().dimmed(),
+                if lang == "zh" { "明天休息".green().bold() } else { "Rest tomorrow".green().bold() },
+                tomorrow.format("%b %d %A").to_string().dimmed(),
             );
         } else {
             let rest_date = today + chrono::Duration::days(days as i64);
             println!(
-                "{} {} {} 天 · {} {}",
+                "{} {} {} · {} {}",
                 "⏳".bold(),
-                "距下次休息".dimmed(),
-                days.to_string().bold(),
-                "休息日".dimmed(),
-                rest_date.format("%m月%d日 %A").to_string().bold(),
+                if lang == "zh" { format!("距下次休息 {} 天", days) } else { format!("{}d until rest", days) }.dimmed(),
+                "".dimmed(),
+                rest_date.format("%b %d %A").to_string().bold(),
+                "".dimmed(),
             );
         }
     }
@@ -565,6 +575,7 @@ fn cmd_calendar(
     team: u32,
     month: Option<&String>,
 ) {
+    let lang = cli.lang.as_str();
     let (year, month_num) = parse_month(today, month);
     let start = NaiveDate::from_ymd_opt(year, month_num, 1).unwrap();
     let days_in_month = if month_num == 12 {
@@ -588,7 +599,7 @@ fn cmd_calendar(
                 week.push(CalendarDayOutput {
                     day: date.day(),
                     shift_type: format!("{:?}", info.shift_type).to_lowercase(),
-                    shift_label: info.shift_type.label().to_string(),
+                    shift_label: lbl(info.shift_type, lang).to_string(),
                     is_current_month: date.month() == month_num,
                     is_today: date == today,
                 });
@@ -598,7 +609,7 @@ fn cmd_calendar(
         let stats = build_stats(year, month_num, config, offset, total_days);
         let out = CalendarOutput {
             month: format!("{}-{:02}", year, month_num),
-            team: shift_algorithm::team_name(team),
+            team: team_lbl(team, lang),
             weeks,
             stats,
         };
@@ -612,8 +623,8 @@ fn cmd_calendar(
         );
 
         // Unicode-width-aware header
-        let header_width = 5; // 2-digit day + 1 CJK label + 2 padding
-        let dow = ["日", "一", "二", "三", "四", "五", "六"];
+        let dow = if lang == "zh" { ["日", "一", "二", "三", "四", "五", "六"] } else { ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] };
+        let header_width = if lang == "zh" { 5 } else { 4 };
         for d in dow {
             print!("{}", pad_cjk(d, header_width).dimmed());
         }
@@ -626,8 +637,8 @@ fn cmd_calendar(
                 let is_cur = date.month() == month_num;
                 let is_tdy = date == today;
 
-                let label = info.shift_type.label();
-                let content = format!("{:2}{}", date.day(), label);
+                let label = lbl(info.shift_type, lang);
+                let content = if lang == "zh" { format!("{:2}{}", date.day(), label) } else { format!("{:2} {}", date.day(), label) };
                 let cell = pad_cjk(&content, header_width);
 
                 if !is_cur {
@@ -644,16 +655,29 @@ fn cmd_calendar(
         // Inline stats
         let stats = build_stats(year, month_num, config, offset, total_days);
         println!();
-        println!(
-            "早{}  中{}  休{}  夜{}  学{}  上班{}/{}",
-            stats.morning.to_string().color(shift_color(ShiftType::Morning)).bold(),
-            stats.afternoon.to_string().color(shift_color(ShiftType::Afternoon)).bold(),
-            stats.rest.to_string().color(shift_color(ShiftType::Rest)).bold(),
-            stats.night.to_string().color(shift_color(ShiftType::Night)).bold(),
-            stats.study.to_string().color(shift_color(ShiftType::Study)).bold(),
-            stats.work_days,
-            stats.total_days,
-        );
+        if lang == "zh" {
+            println!(
+                "早{}  中{}  休{}  夜{}  学{}  上班{}/{}",
+                stats.morning.to_string().color(shift_color(ShiftType::Morning)).bold(),
+                stats.afternoon.to_string().color(shift_color(ShiftType::Afternoon)).bold(),
+                stats.rest.to_string().color(shift_color(ShiftType::Rest)).bold(),
+                stats.night.to_string().color(shift_color(ShiftType::Night)).bold(),
+                stats.study.to_string().color(shift_color(ShiftType::Study)).bold(),
+                stats.work_days,
+                stats.total_days,
+            );
+        } else {
+            println!(
+                "AM{} PM{} Off{} NT{} TR{} Work{}/{}",
+                stats.morning.to_string().color(shift_color(ShiftType::Morning)).bold(),
+                stats.afternoon.to_string().color(shift_color(ShiftType::Afternoon)).bold(),
+                stats.rest.to_string().color(shift_color(ShiftType::Rest)).bold(),
+                stats.night.to_string().color(shift_color(ShiftType::Night)).bold(),
+                stats.study.to_string().color(shift_color(ShiftType::Study)).bold(),
+                stats.work_days,
+                stats.total_days,
+            );
+        }
     }
 }
 
@@ -665,6 +689,7 @@ fn cmd_stats(
     team: u32,
     month: Option<&String>,
 ) {
+    let lang = cli.lang.as_str();
     let (year, month_num) = parse_month(today, month);
     let days_in_month = if month_num == 12 {
         NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
@@ -681,45 +706,54 @@ fn cmd_stats(
         println!(
             "{} {} · {}",
             "📊".bold(),
-            format!("{}年{}月 统计", year, month_num).bold(),
-            shift_algorithm::team_name(team).dimmed(),
+            if lang == "zh" { format!("{}年{}月 统计", year, month_num) } else { format!("{} {}", month_name_en(month_num), year) }.bold(),
+            team_lbl(team, lang).dimmed(),
         );
         println!();
         println!(
-            "  早班  {:>3} 天   {}",
+            "  {}  {:>3}d   {}",
+            if lang == "zh" { "早班" } else { "AM  " },
             stats.morning,
             "█".repeat(stats.morning as usize).color(shift_color(ShiftType::Morning)),
         );
         println!(
-            "  中班  {:>3} 天   {}",
+            "  {}  {:>3}d   {}",
+            if lang == "zh" { "中班" } else { "PM  " },
             stats.afternoon,
             "█".repeat(stats.afternoon as usize).color(shift_color(ShiftType::Afternoon)),
         );
         println!(
-            "  休班  {:>3} 天   {}",
+            "  {}  {:>3}d   {}",
+            if lang == "zh" { "休班" } else { "Off " },
             stats.rest,
             "█".repeat(stats.rest as usize).color(shift_color(ShiftType::Rest)),
         );
         println!(
-            "  夜班  {:>3} 天   {}",
+            "  {}  {:>3}d   {}",
+            if lang == "zh" { "夜班" } else { "NT  " },
             stats.night,
             "█".repeat(stats.night as usize).color(shift_color(ShiftType::Night)),
         );
         println!(
-            "  学习  {:>3} 天   {}",
+            "  {}  {:>3}d   {}",
+            if lang == "zh" { "学习" } else { "TR  " },
             stats.study,
             "█".repeat(stats.study as usize).color(shift_color(ShiftType::Study)),
         );
         println!();
         println!(
-            "  上班 {} 天 / {} 天",
-            stats.work_days.to_string().bold(),
-            stats.total_days,
+            "  {}",
+            if lang == "zh" {
+                format!("上班 {} 天 / {} 天", stats.work_days, stats.total_days)
+            } else {
+                format!("Work {}d / {}d", stats.work_days, stats.total_days)
+            },
         );
     }
 }
 
 fn cmd_leave(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32, max_days: u32) {
+    let lang = cli.lang.as_str();
     // Analyze from today to end of year
     let end_of_year = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
     let days_to_analyze = ((end_of_year - today).num_days() + 1) as u32;
@@ -751,16 +785,16 @@ fn cmd_leave(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
     } else {
         let range = format!("{} → {}", today.format("%m/%d"), end_of_year.format("%m/%d"));
         println!(
-            "{} {} · 请假 ≤ {} 天 · {}",
+            "{} {} · ≤ {} leave days · {}",
             "🏖️".bold(),
-            "最佳拼假方案".bold(),
+            if lang == "zh" { "最佳拼假方案".bold() } else { "Best Leave Plans".bold() },
             max_days,
             range.dimmed(),
         );
         println!();
 
         if plans.is_empty() {
-            println!("  {}", "未找到拼假方案".dimmed());
+            println!("  {}", if lang == "zh" { "未找到拼假方案".dimmed() } else { "No strategies found".dimmed() });
             return;
         }
 
@@ -769,15 +803,15 @@ fn cmd_leave(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
             let eff_str = format!("{:.1}x", s.efficiency);
             let holiday_tag = if s.holiday_overlap > 0 {
                 let names = s.overlapping_holiday_names.join("·");
-                format!(" 含{}", names)
+                if lang == "zh" { format!(" 含{}", names) } else { format!(" +{}", names) }
             } else if s.weekend_overlap > 0 {
-                " 含周末".to_string()
+                if lang == "zh" { " 含周末".to_string() } else { " +weekend".to_string() }
             } else {
                 String::new()
             };
 
             println!(
-                "  {:>3} 请 {} 天 → 连休 {} 天  {:>5}  {} — {}{}",
+                "  {:>3}  {}d → break {}d  {:>5}  {} — {}{}",
                 rank,
                 s.leave_days.to_string().bold(),
                 s.total_break_days.to_string().green().bold(),
@@ -789,7 +823,7 @@ fn cmd_leave(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
         }
 
         if plans.len() > 10 {
-            println!("  ... 还有 {} 个方案", plans.len() - 10);
+            println!("  ... {} {} {}", plans.len() - 10, if lang == "zh" { "个方案" } else { "more" }, "".dimmed());
         }
     }
 }
@@ -801,6 +835,7 @@ fn cmd_colleague(
     team_a: u32,
     team_b: u32,
 ) {
+    let lang = cli.lang.as_str();
     let end_of_year = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
     let days_to_analyze = ((end_of_year - today).num_days() + 1) as u32;
 
@@ -839,7 +874,7 @@ fn cmd_colleague(
                 format!("(距今 {} 天)", days).dimmed(),
             );
         } else {
-            println!("  {}", "今年无共同休息日".dimmed());
+            println!("  {}", if lang == "zh" { "今年无共同休息日".dimmed() } else { "No common rest days this year".dimmed() });
         }
 
         println!();
@@ -867,7 +902,8 @@ fn cmd_colleague(
 
         println!();
         println!(
-            "  分析范围：{} → {}",
+            "  {}: {} → {}",
+            if lang == "zh" { "分析范围" } else { "Range" },
             today.format("%Y/%m/%d").to_string().dimmed(),
             end_of_year.format("%Y/%m/%d").to_string().dimmed(),
         );
@@ -935,9 +971,9 @@ fn cmd_export(
 
     match std::fs::write(&path, &ics) {
         Ok(_) => {
-            println!("ICS 文件已导出到: {}", path.display());
+            println!("ICS file exported to: {}", path.display());
             println!();
-            println!("导入方法：");
+            println!("Import instructions:");
             println!("  Thunderbird: 日历 → 新建日历 → 从文件导入");
             println!("  GNOME:      设置 → 在线账户 → 从文件导入");
             println!("  Nextcloud:   日历 → 导入日历");
@@ -960,6 +996,7 @@ fn cmd_export(
 }
 
 fn cmd_notify(today: NaiveDate, cycle_config: &ShiftCycleConfig, offset: u32, team: u32) {
+    let _lang = "en";
     let info = get_shift_info(today, cycle_config, offset);
     let rest = days_until_next_rest(today, cycle_config, offset);
     let config = Config::load(None);
@@ -1007,12 +1044,12 @@ fn cmd_notify(today: NaiveDate, cycle_config: &ShiftCycleConfig, offset: u32, te
     match notify_rust::Notification::new()
         .summary(&title)
         .body(&body)
-        .appname("班伴")
+        .appname("ShiftMate")
         .icon("calendar")
         .show()
     {
-        Ok(_) => println!("通知已发送: {} — {}", title, body),
-        Err(e) => eprintln!("通知发送失败: {}", e),
+        Ok(_) => println!("Notification sent: {} — {}", title, body),
+        Err(e) => eprintln!("Notification failed: {}", e),
     }
 }
 
@@ -1095,21 +1132,21 @@ WantedBy=timers.target
     // Clean up old files from previous install
     let _ = std::fs::remove_file(service_dir.join("banban-notify.service.bak"));
 
-    println!("systemd 定时器已安装到: {}", service_dir.display());
+    println!("systemd timers installed to: {}", service_dir.display());
     println!();
-    println!("班次提醒时间（来自配置文件或默认值）：");
-    println!("  早班: {}  中班: {}  夜班: {}", morning_time, afternoon_time, night_time);
+    println!("Alarm times (from config or defaults):");
+    println!("  AM: {}  PM: {}  NT: {}", morning_time, afternoon_time, night_time);
     println!();
-    println!("修改提醒时间:");
-    println!("  编辑 ~/.config/banban/config.toml，添加 [alarms] 段：");
+    println!("To change alarm times:");
+    println!("  Edit ~/.config/banban/config.toml, add [alarms] section:");
     println!("  [alarms]");
     println!("  morning = \"06:30\"");
     println!("  afternoon = \"13:45\"");
     println!("  night = \"21:30\"");
-    println!("  然后重新运行 banban install");
+    println!("  Then re-run: banban install");
     println!();
     // Generate initial ICS immediately so user doesn't wait until midnight
-    println!("正在导出初始 ICS 文件...");
+    println!("Generating initial ICS file...");
     let today = Local::now().date_naive();
     let end_of_year = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
     let config = Config::load(None);
@@ -1125,14 +1162,14 @@ WantedBy=timers.target
     }
     let ics = generate_shift_ics(today, end_of_year, &cycle_config, offset, team_id, None, "Asia/Shanghai");
     std::fs::write(&ics_path, &ics).ok();
-    println!("  ICS 文件: {}", ics_path.display());
+    println!("  ICS: {}", ics_path.display());
     println!();
 
-    println!("启用定时器:");
+    println!("Enable timers:");
     println!("  systemctl --user enable --now banban-ics.timer");
     println!("  systemctl --user enable --now banban-notify.timer");
     println!();
-    println!("查看状态:");
+    println!("Check status:");
     println!("  systemctl --user list-timers | grep banban");
     println!();
     println!("Waybar（添加到 ~/.config/waybar/config.json）:");
@@ -1171,12 +1208,12 @@ night = "21:45"       # 夜班前提醒
 "#;
 
     if config_path.exists() {
-        println!("配置文件已存在: {}", config_path.display());
-        println!("如需覆盖，请手动删除后重新运行 banban config");
+        println!("Config file already exists: {}", config_path.display());
+        println!("Delete it first, then re-run banban config to regenerate");
     } else {
         std::fs::create_dir_all(&config_dir).ok();
         std::fs::write(&config_path, sample).ok();
-        println!("示例配置文件已生成: {}", config_path.display());
+        println!("Sample config file generated: {}", config_path.display());
         println!();
         println!("编辑这个文件来定义你自己的排班表，然后运行:");
         println!("  banban today");
