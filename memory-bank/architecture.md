@@ -2063,7 +2063,7 @@ Glance 编译为 RemoteViews，不支持 `androidx.compose.ui.graphics.Color` �
                               │  leave-optimizer      │
                               │  shift-statistics     │
                               │  holiday-engine       │
-                              │  export-engine        │
+                              │  shift-export        │
                               └──────────┬────────────┘
                                          │
                  ┌───────────────────────┼───────────────────────┐
@@ -2138,7 +2138,7 @@ shift-core/                    ← Cargo workspace root
 │       ├── lib.rs
 │       └── data.rs           ← 2026-2027 节假日 + 调休数据
 │
-└── export-engine/            ← ICS/RRULE 导出
+└── shift-export/            ← ICS/RRULE 导出
     ├── Cargo.toml
     └── src/
         ├── lib.rs
@@ -2212,7 +2212,7 @@ features/colleague_mode/
   colleague_screen    ◄──FFI── CommonRestResult
 
 core/services/
-  calendar_service    ──FFI──► export_engine::ics::generate_ics()
+  calendar_service    ──FFI──► shift_export::ics::generate_ics()
                        ◄──FFI── String (ICS content)
 ```
 
@@ -2223,7 +2223,7 @@ core/services/
 ### ICS 文件生成
 
 ```
-shift-core/export-engine/src/ics.rs
+shift-core/shift-export/src/ics.rs
 
 输入：ShiftCycleConfig + AlarmSettings + 日期范围
       │

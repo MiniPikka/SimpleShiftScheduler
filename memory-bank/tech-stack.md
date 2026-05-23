@@ -782,7 +782,7 @@ tempfile = "3.0"           # 临时文件（测试用）
 
 ## C.4 Flutter ↔ Rust FFI 技术选型
 
-### flutter_rust_bridge v2
+### dart:ffi + package:ffi (JSON over C)
 
 | 特性 | 说明 |
 |------|------|
