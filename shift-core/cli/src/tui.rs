@@ -30,15 +30,14 @@ struct App {
     offset: u32,
     team_id: u32,
     should_quit: bool,
-    // Leave config
     max_leave_days: u32,
-    // Colleague mode
     col_team_a: u32,
     col_team_b: u32,
+    lang: String,
 }
 
 impl App {
-    fn new(config: ShiftCycleConfig, offset: u32, team_id: u32) -> Self {
+    fn new(config: ShiftCycleConfig, offset: u32, team_id: u32, lang: String) -> Self {
         Self {
             view: View::Today,
             today: Local::now().date_naive(),
@@ -49,12 +48,27 @@ impl App {
             max_leave_days: 5,
             col_team_a: team_id,
             col_team_b: if team_id < 3 { team_id + 2 } else { team_id - 2 },
+            lang,
         }
+    }
+
+    fn is_zh(&self) -> bool { self.lang == "zh" }
+
+    fn lbl(&self, st: ShiftType) -> &'static str {
+        if self.is_zh() { st.label() } else { st.label_en() }
+    }
+
+    fn full_lbl(&self, st: ShiftType) -> &'static str {
+        if self.is_zh() { st.full_label() } else { st.full_label_en() }
+    }
+
+    fn team_str(&self, id: u32) -> String {
+        if self.is_zh() { shift_algorithm::team_name(id) } else { format!("Team {}", id) }
     }
 }
 
-pub fn run_tui(config: ShiftCycleConfig, offset: u32, team_id: u32) -> io::Result<()> {
-    let mut app = App::new(config, offset, team_id);
+pub fn run_tui(config: ShiftCycleConfig, offset: u32, team_id: u32, lang: &str) -> io::Result<()> {
+    let mut app = App::new(config, offset, team_id, lang.to_string());
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -132,7 +146,6 @@ fn handle_input(app: &mut App) -> io::Result<()> {
 
 fn draw(f: &mut Frame, app: &App) {
     let area = f.area();
-    // Responsive: bottom bar is 1 line, rest is content
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(3), Constraint::Length(1)])
@@ -158,10 +171,6 @@ fn shift_tui_color(st: ShiftType) -> Color {
     }
 }
 
-fn team_name(id: u32) -> String {
-    shift_algorithm::team_name(id)
-}
-
 fn draw_today(f: &mut Frame, area: Rect, app: &App) {
     let info = get_shift_info(app.today, &app.config, app.offset);
     let rest = days_until_next_rest(app.today, &app.config, app.offset);
@@ -169,49 +178,54 @@ fn draw_today(f: &mut Frame, area: Rect, app: &App) {
 
     let color = shift_tui_color(info.shift_type);
     let rest_text = if info.shift_type.is_rest() {
-        "今天是休息日".to_string()
+        if app.is_zh() { "今天是休息日" } else { "Rest day" }.to_string()
     } else if rest == 0 {
-        "明天休息".to_string()
+        if app.is_zh() { "明天休息" } else { "Rest tomorrow" }.to_string()
     } else {
-        format!("距休 {} 天", rest)
+        if app.is_zh() { format!("距休 {} 天", rest) } else { format!("{}d until rest", rest) }
     };
 
-    // Responsive layout: use ratios based on available height
     let h = area.height;
-    let chunks = Layout::vertical(if h > 20 {
-        [Constraint::Length(3), Constraint::Length(2), Constraint::Length(2), Constraint::Length(1), Constraint::Length(2)]
+    let constraints: &[Constraint] = if h > 20 {
+        &[Constraint::Length(3), Constraint::Length(2), Constraint::Length(2), Constraint::Length(1), Constraint::Length(2)]
     } else {
-        [Constraint::Length(2), Constraint::Length(1), Constraint::Length(1), Constraint::Length(0), Constraint::Length(1)]
-    })
-    .split(area);
+        &[Constraint::Length(2), Constraint::Length(1), Constraint::Length(1), Constraint::Length(0), Constraint::Length(1)]
+    };
+    let chunks = Layout::vertical(constraints).split(area);
 
     // Title
     let title = Paragraph::new(Line::from(vec![
-        Span::styled(info.shift_type.full_label(), Style::default().fg(color).add_modifier(Modifier::BOLD)),
-        Span::raw(format!("  ·  {}  ·  {}", team_name(app.team_id), app.today.format("%Y-%m-%d %A"))),
+        Span::styled(app.full_lbl(info.shift_type), Style::default().fg(color).add_modifier(Modifier::BOLD)),
+        Span::raw(format!("  ·  {}  ·  {}", app.team_str(app.team_id), app.today.format("%Y-%m-%d %A"))),
     ]));
     f.render_widget(title, chunks[0]);
 
     // Progress
     let progress = info.day_of_cycle as f64 / app.config.cycle_length as f64;
+    let gauge_label = if app.is_zh() {
+        format!("第 {}/{} 天", info.day_of_cycle, app.config.cycle_length)
+    } else {
+        format!("Day {}/{}", info.day_of_cycle, app.config.cycle_length)
+    };
     let gauge = Gauge::default()
         .gauge_style(Style::default().fg(color).add_modifier(Modifier::BOLD))
-        .label(format!("第 {}/{} 天", info.day_of_cycle, app.config.cycle_length))
+        .label(gauge_label)
         .ratio(progress);
     f.render_widget(gauge, chunks[1]);
 
     // Stats row
+    let streak_label = if app.is_zh() { "连续上班" } else { "Work streak" };
     let stats = Line::from(vec![
         Span::raw("  "),
         Span::styled(rest_text, Style::default().fg(if info.shift_type.is_rest() { Color::Green } else { Color::White })),
         Span::raw("  │  "),
-        Span::raw(format!("连续上班 {} 天", consec)),
+        Span::raw(format!("{} {}d", streak_label, consec)),
     ]);
     f.render_widget(Paragraph::new(stats), chunks[2]);
 
     if h <= 20 { return; }
 
-    // Monthly overview (only when there's space)
+    // Monthly overview
     let month = app.today.month();
     let year = app.today.year();
     let work = count_work_days_in_month(year, month, &app.config, app.offset);
@@ -227,12 +241,16 @@ fn draw_today(f: &mut Frame, area: Rect, app: &App) {
     let s = count_shift_type_in_month(year, month, ShiftType::Study, &app.config, app.offset);
 
     let monthly = Paragraph::new(Line::from(vec![
-        Span::raw(format!("本月上班 {}/{}  ", work, days_in_month)),
-        Span::styled(format!("早{} ", m), Style::default().fg(shift_tui_color(ShiftType::Morning))),
-        Span::styled(format!("中{} ", a), Style::default().fg(shift_tui_color(ShiftType::Afternoon))),
-        Span::styled(format!("休{} ", r), Style::default().fg(shift_tui_color(ShiftType::Rest))),
-        Span::styled(format!("夜{} ", n), Style::default().fg(shift_tui_color(ShiftType::Night))),
-        Span::styled(format!("学{}", s), Style::default().fg(shift_tui_color(ShiftType::Study))),
+        Span::raw(if app.is_zh() {
+            format!("本月上班 {}/{}  ", work, days_in_month)
+        } else {
+            format!("Work {}/{}d  ", work, days_in_month)
+        }),
+        Span::styled(format!("{}{} ", app.lbl(ShiftType::Morning), m), Style::default().fg(shift_tui_color(ShiftType::Morning))),
+        Span::styled(format!("{}{} ", app.lbl(ShiftType::Afternoon), a), Style::default().fg(shift_tui_color(ShiftType::Afternoon))),
+        Span::styled(format!("{}{} ", app.lbl(ShiftType::Rest), r), Style::default().fg(shift_tui_color(ShiftType::Rest))),
+        Span::styled(format!("{}{} ", app.lbl(ShiftType::Night), n), Style::default().fg(shift_tui_color(ShiftType::Night))),
+        Span::styled(format!("{}{}", app.lbl(ShiftType::Study), s), Style::default().fg(shift_tui_color(ShiftType::Study))),
     ]));
     f.render_widget(monthly, chunks[4]);
 }
@@ -244,24 +262,21 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
     let weekday = first.weekday().num_days_from_sunday();
     let cal_start = first - chrono::Duration::days(weekday as i64);
 
-    // Fixed cell width in terminal columns, accounting for CJK double-width
     let cell_w = (area.width / 7).max(5) as usize;
 
-    // Helper: pad a string to exactly `width` terminal columns
     fn pad_width(s: &str, width: usize) -> String {
         let vis = UnicodeWidthStr::width(s);
-        if vis >= width {
-            s.to_string()
-        } else {
-            format!("{}{}", s, " ".repeat(width - vis))
-        }
+        if vis >= width { s.to_string() } else { format!("{}{}", s, " ".repeat(width - vis)) }
     }
 
     let mut lines: Vec<Line> = Vec::new();
 
-    // Day-of-week header
-    let dow_labels = ["日", "一", "二", "三", "四", "五", "六"];
-    let header_spans: Vec<Span> = dow_labels.iter().map(|d| {
+    let dow: &[&str] = if app.is_zh() {
+        &["日", "一", "二", "三", "四", "五", "六"]
+    } else {
+        &["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+    };
+    let header_spans: Vec<Span> = dow.iter().map(|d| {
         Span::styled(pad_width(d, cell_w), Style::default().add_modifier(Modifier::BOLD))
     }).collect();
     lines.push(Line::from(header_spans));
@@ -274,7 +289,7 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
             let is_cur = date.month() == month;
             let is_tdy = date == app.today;
 
-            let content = format!("{:2}{}", date.day(), info.shift_type.label());
+            let content = format!("{:2}{}", date.day(), app.lbl(info.shift_type));
             let s = pad_width(&content, cell_w);
 
             let style = if !is_cur {
@@ -291,8 +306,12 @@ fn draw_calendar(f: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(spans));
     }
 
-    let cal = Paragraph::new(Text::from(lines))
-        .block(Block::default().title(format!("{}年{}月 · {}", year, month, team_name(app.team_id))));
+    let title = if app.is_zh() {
+        format!("{}年{}月 · {}", year, month, app.team_str(app.team_id))
+    } else {
+        format!("{} {} · {}", month_name_en(month), year, app.team_str(app.team_id))
+    };
+    let cal = Paragraph::new(Text::from(lines)).block(Block::default().title(title));
     f.render_widget(cal, area);
 }
 
@@ -307,22 +326,32 @@ fn draw_leave(f: &mut Frame, area: Rect, app: &App) {
     for (i, s) in plans.iter().take(max_items).enumerate() {
         let prefix = if i == 0 { "🏆" } else { "  " };
         let holiday_tag = if !s.overlapping_holiday_names.is_empty() {
-            format!(" 含{}", s.overlapping_holiday_names.join("·"))
+            if app.is_zh() { format!(" 含{}", s.overlapping_holiday_names.join("·")) }
+            else { format!(" +{}", s.overlapping_holiday_names.join("·")) }
         } else if s.weekend_overlap > 0 {
-            " 含周末".to_string()
+            if app.is_zh() { " 含周末".to_string() } else { " +weekend".to_string() }
         } else {
             String::new()
         };
+        let line_text = if app.is_zh() {
+            format!("{}d→{}d", s.leave_days, s.total_break_days)
+        } else {
+            format!("{}d → {}d break", s.leave_days, s.total_break_days)
+        };
         let line = Line::from(vec![
             Span::raw(format!("{} ", prefix)),
-            Span::styled(format!("请{}天→连休{}天", s.leave_days, s.total_break_days), Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled(line_text, Style::default().add_modifier(Modifier::BOLD)),
             Span::raw(format!("  {:.1}x  {}–{}", s.efficiency, s.break_start.format("%m/%d"), s.break_end.format("%m/%d"))),
             Span::styled(holiday_tag, Style::default().fg(Color::Yellow)),
         ]);
         items.push(ListItem::new(line));
     }
 
-    let title = format!("拼假方案 · +/- 调请假天数({}) · {} → 12/31", app.max_leave_days, app.today.format("%m/%d"));
+    let title = if app.is_zh() {
+        format!("拼假方案 · +/-请假天数({}) · {} → 12/31", app.max_leave_days, app.today.format("%m/%d"))
+    } else {
+        format!("Leave Plans · +/-leave({}) · {} → 12/31", app.max_leave_days, app.today.format("%m/%d"))
+    };
     let list = List::new(items).block(Block::default().title(title));
     f.render_widget(list, area);
 }
@@ -333,50 +362,74 @@ fn draw_colleague(f: &mut Frame, area: Rect, app: &App) {
     let result = find_common_rest_days(app.col_team_a, app.col_team_b, app.today, days, &app.config);
 
     let h = area.height;
-    let chunks = Layout::vertical(if h > 10 {
-        [Constraint::Length(3), Constraint::Length(2), Constraint::Min(3)]
+    let constraints: &[Constraint] = if h > 10 {
+        &[Constraint::Length(3), Constraint::Length(2), Constraint::Min(3)]
     } else {
-        [Constraint::Length(2), Constraint::Length(1), Constraint::Min(1)]
-    }).split(area);
+        &[Constraint::Length(2), Constraint::Length(1), Constraint::Min(1)]
+    };
+    let chunks = Layout::vertical(constraints).split(area);
 
-    // Next common rest
     if let Some(next) = result.next_common_rest_date {
         let until = result.days_until_next.unwrap_or(0);
         let next_text = Paragraph::new(Line::from(vec![
-            Span::raw("下次共同休息："),
-            Span::styled(format!("{}", next.format("%m月%d日 %A")), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::raw(format!("  (距今 {} 天)", until)),
+            Span::raw(if app.is_zh() { "下次共同休息：" } else { "Next common rest: " }),
+            Span::styled(format!("{}", next.format("%b %d %A")), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw(format!("  ({} {}d)", if app.is_zh() { "距今 " } else { "" }, until)),
         ]));
         f.render_widget(next_text, chunks[0]);
     } else {
-        f.render_widget(Paragraph::new("今年无共同休息日"), chunks[0]);
+        f.render_widget(Paragraph::new(if app.is_zh() { "今年无共同休息日" } else { "No common rest days" }), chunks[0]);
     }
 
-    // Stats
-    let stats = format!("未来30天: {} 次    未来60天: {} 次", result.count_in_30_days, result.count_in_60_days);
+    let stats = if app.is_zh() {
+        format!("未来30天: {} 次    未来60天: {} 次", result.count_in_30_days, result.count_in_60_days)
+    } else {
+        format!("30 days: {}    60 days: {}", result.count_in_30_days, result.count_in_60_days)
+    };
     f.render_widget(Paragraph::new(stats), chunks[1]);
 
-    // Date list
     let max_dates = (chunks[2].height).max(3) as usize;
     let dates: Vec<ListItem> = result.common_rest_dates.iter().take(max_dates)
         .map(|d| ListItem::new(format!("  {} {}", d.format("%m/%d"), d.format("%A"))))
         .collect();
 
-    let title = format!("{}×{} 共同休息日", team_name(app.col_team_a), team_name(app.col_team_b));
+    let title = if app.is_zh() {
+        format!("{}×{} 共同休息日", app.team_str(app.col_team_a), app.team_str(app.col_team_b))
+    } else {
+        format!("{} × {} Common Rests", app.team_str(app.col_team_a), app.team_str(app.col_team_b))
+    };
     let list = List::new(dates).block(Block::default().title(title));
     f.render_widget(list, chunks[2]);
 }
 
 fn draw_bottom_bar(f: &mut Frame, area: Rect, app: &App) {
-    let help: String = match app.view {
-        View::Today => "1今日  2日历  3拼假  4同事  t/T换班组  q退出".into(),
-        View::Calendar => "1今日  2日历  3拼假  4同事  t/T换班组  q退出".into(),
-        View::Leave => format!("1今日  2日历  3拼假  4同事  +/-请假天数({})  q退出", app.max_leave_days),
-        View::Colleague => format!("1今日  2日历  3拼假  4同事  ←→调我({})  ↑↓调他({})  q退出",
-            team_name(app.col_team_a), team_name(app.col_team_b)),
+    let help: String = if app.is_zh() {
+        match app.view {
+            View::Today => "1今日  2日历  3拼假  4同事  t/T换班组  q退出".into(),
+            View::Calendar => "1今日  2日历  3拼假  4同事  t/T换班组  q退出".into(),
+            View::Leave => format!("1今日  2日历  3拼假  4同事  +/-请假天数({})  q退出", app.max_leave_days),
+            View::Colleague => format!("1今日  2日历  3拼假  4同事  ←→调我({})  ↑↓调他({})  q退出",
+                app.team_str(app.col_team_a), app.team_str(app.col_team_b)),
+        }
+    } else {
+        match app.view {
+            View::Today => "1Today  2Cal  3Leave  4Colleague  t/T team  q quit".into(),
+            View::Calendar => "1Today  2Cal  3Leave  4Colleague  t/T team  q quit".into(),
+            View::Leave => format!("1Today  2Cal  3Leave  4Colleague  +/-leave({})  q quit", app.max_leave_days),
+            View::Colleague => format!("1Today  2Cal  3Leave  4Colleague  ←→me({})  ↑↓them({})  q quit",
+                app.team_str(app.col_team_a), app.team_str(app.col_team_b)),
+        }
     };
     let bar = Paragraph::new(help)
         .style(Style::default().bg(Color::DarkGray).fg(Color::White))
         .alignment(Alignment::Center);
     f.render_widget(bar, area);
+}
+
+fn month_name_en(m: u32) -> &'static str {
+    match m {
+        1 => "Jan", 2 => "Feb", 3 => "Mar", 4 => "Apr", 5 => "May", 6 => "Jun",
+        7 => "Jul", 8 => "Aug", 9 => "Sep", 10 => "Oct", 11 => "Nov", 12 => "Dec",
+        _ => "???",
+    }
 }

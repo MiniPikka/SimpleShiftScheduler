@@ -428,7 +428,7 @@ fn main() {
         Commands::Notify => cmd_notify(today, &cycle_config, offset, team_id),
         Commands::Install => cmd_install(),
         Commands::Tui => {
-            if let Err(e) = tui::run_tui(cycle_config, offset, team_id) {
+            if let Err(e) = tui::run_tui(cycle_config, offset, team_id, &cli.lang) {
                 eprintln!("TUI error: {}", e);
             }
         }
