@@ -122,7 +122,7 @@
 
 ### 当前版本
 
-crates.io: shift-cli v0.1.2 (`cargo install shift-cli`)
+crates.io: shift-cli v0.1.3 (`cargo install shift-cli`)
 GitHub: https://github.com/MiniPikka/SimpleShiftScheduler
 
 ---

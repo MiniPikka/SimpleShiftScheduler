@@ -14,7 +14,7 @@ SimpleShiftScheduler/          ← git repo root
 └── flutter/                   ← Flutter 移动端 (通过 dart:ffi 调用 Rust)
 ```
 
-- **shift-core (Rust)**：主力开发目标。5 个 crate：algorithm, statistics, holiday-engine, leave-optimizer, export-engine。CLI 工具 `banban`。
+- **shift-core (Rust)**：主力开发目标。6 个 crate：shift-algorithm, shift-statistics, holiday-engine, leave-optimizer, shift-export, shift-cli。CLI 工具 `banban`。
 - **Flutter 移动端**：Android/iOS UI。Domain 层已通过 dart:ffi 接入 Rust，纯 Dart 保留为 fallback。
 - **Android 原版**：参考实现，162 tests，不再活跃开发。算法已验证。
 
@@ -44,7 +44,7 @@ cargo run --bin banban -- today  # 运行 CLI
 | `shift-statistics` | 月度统计、连续上班、距休、同事模式 | 18 |
 | `holiday-engine` | 2026-2027 中国法定节假日 + 调休数据 | 12 |
 | `leave-optimizer` | 间隙桥接法拼假算法 | 14 |
-| `export-engine` | ICS (RFC 5545) 日历导出 | 11 |
+| `shift-export` | ICS (RFC 5545) 日历导出 | 11 |
 
 **CLI** (`shift-core/cli/`)：二进制名为 `banban`（产品同名，避免与 bash `shift` 冲突）。
 

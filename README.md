@@ -41,6 +41,8 @@ banban install                  # 安装 systemd 每日定时提醒
 | 功能 | CLI | TUI | Flutter | ICS |
 |------|-----|-----|---------|-----|
 | 今日班次 + 距休倒计时 | `banban today` | ✅ | ✅ | — |
+| 明日班次 | `banban tomorrow` | ✅ | ✅ | — |
+| 周视图 | `banban week` | ✅ | — | — |
 | 月历（彩色 ANSI/CJK 对齐） | `banban calendar` | ✅ | ✅ | ✅ |
 | 月度统计 | `banban stats` | ✅ | ✅ | — |
 | 拼假神器 | `banban leave -m 3` | ✅ + - | ✅ | — |
@@ -51,7 +53,6 @@ banban install                  # 安装 systemd 每日定时提醒
 | systemd 定时器 | `banban install` | — | — | — |
 | Waybar 状态栏 | `banban waybar` | — | — | — |
 | 桌面 Widget | — | — | ✅ | — |
-| Waybar 状态栏 | `banban waybar` | — | — | — |
 
 ## Waybar Integration
 
@@ -129,10 +130,10 @@ SimpleShiftScheduler/
 | Component | Tests |
 |-----------|-------|
 | shift-core (Rust) | 111 |
-| Flutter FFI bridge | 5 |
+| Flutter FFI bridge | 9 |
 | Flutter (Dart) | 110 |
 | Android (reference) | 162 |
-| **Total** | **388** |
+| **Total** | **392** |
 
 ```bash
 cd shift-core && cargo test        # Rust

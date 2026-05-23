@@ -1,9 +1,10 @@
 # tech-stack.md
 
-## 0. 项目双阶段概述
+## 0. 项目三阶段概述
 
 - **Phase 1（已完成）**：Android 原生版 — Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore
-- **Phase 2（规划中）**：CP（Cross Platform）版 — Flutter + Riverpod + GoRouter + Freezed + Hive
+- **Phase 2（已完成）**：Flutter 移动端 — Riverpod + GoRouter + Freezed + Hive，通过 dart:ffi 调用 Rust
+- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（13 commands）+ ratatui TUI，v0.1.3，edition 2024
 
 ---
 
@@ -748,7 +749,8 @@ members = [
     "shift-statistics",
     "leave-optimizer",
     "holiday-engine",
-    "export-engine",
+    "shift-export",
+    "cli",
 ]
 ```
 
@@ -758,7 +760,8 @@ members = [
 | `shift-statistics` | `chrono`, `shift-algorithm` | 月度统计、连续上班、距休、同事模式 |
 | `leave-optimizer` | `chrono`, `shift-algorithm`, `holiday-engine` | 间隙桥接法拼假算法、综合评分 |
 | `holiday-engine` | `chrono` | 2026-2027 中国法定节假日 + 调休数据 |
-| `export-engine` | `icalendar`, `chrono`, `rrule`, `shift-algorithm` | ICS 文件生成、RRULE 压缩、CalDAV 同步 |
+| `shift-export` | `chrono`, `shift-algorithm` | ICS 文件生成 |
+| `shift-cli` (banban) | 全部 5 crate + `clap`, `ratatui`, `colored`, `notify-rust` | CLI 13 命令 + TUI |
 
 ### C.3.2 关键 Rust 依赖
 
@@ -810,7 +813,7 @@ tempfile = "3.0"           # 临时文件（测试用）
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "shift", about = "倒班助手 CLI")]
+#[command(name = "banban", about = "班伴 CLI")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -818,22 +821,16 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Today,              // shift today
-    NextRest,           // shift next-rest
-    Calendar { month: Option<String> },  // shift calendar [month]
-    Stats { month: Option<String> },     // shift stats [month]
-    Leave { max_days: Option<u32> },     // shift leave [--max-days 5]
-    Colleague { team_a: u8, team_b: u8 }, // shift colleague 1 3
-    Export {
-        #[arg(long)]
-        ics: bool,      // shift export --ics
-        #[arg(long)]
-        caldav: bool,   // shift export --caldav
-    },
-    Config {
-        #[command(subcommand)]
-        action: ConfigAction,
-    },
+    Today, Tomorrow, NextRest,  // 快速查询
+    Calendar { month }, Stats { month },  // 月历 + 统计
+    Week,                               // 周视图 (v0.1.3 新增)
+    Leave { max_days },                 // 拼假神器
+    Colleague { team_a, team_b },       // 同事模式
+    Waybar,                             // Waybar 状态栏
+    Export { ics, output, open },        // ICS 导出
+    Notify, Install,                    // 通知 + systemd
+    Tui,                                // 全屏终端 UI
+    Config,                             // 生成配置文件
 }
 ```
 
@@ -842,10 +839,10 @@ enum Commands {
 CLI 默认输出人类可读文本（ANSI 颜色），支持 `--json` 全局 flag 输出机器可读 JSON：
 
 ```bash
-shift today
+banban today
 # 🟠 早班 · 一值 · 第 12/42 天 · 距休 3 天
 
-shift today --json
+banban today --json
 # {"date":"2026-05-22","shift_type":"MORNING","shift_label":"早班","team":"一值","day_of_cycle":12,"total_days":42,"days_until_rest":3}
 ```
 

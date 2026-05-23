@@ -2,12 +2,12 @@
 
 ## 0. 项目总览
 
-**应用名称**：倒班助手
-**当前阶段**：Phase 1 Android 版已完成（阶段 1-27），Phase 2 CP（Cross Platform）版规划中
+**应用名称**：班伴 / ShiftMate
+**当前阶段**：Phase 3 Rust shift-core 活跃开发（v0.1.3），Phase 1 Android 和 Phase 2 Flutter 均已完成
 
-### Phase 1：Android 原生版（已完成）
+### Phase 1：Android 原生版（已完成，不再活跃开发）
 
-Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore。功能完整，150+ 单元测试全部通过。详见下方「Phase 1: Android 版设计文档」章节。
+Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore。162 tests。算法已验证正确。
 
 ### Phase 2：CP（Cross Platform）版（规划中）
 
@@ -877,7 +877,7 @@ ICS (RFC 5545) 是日历数据交换的世界语。生成一个标准的 `.ics` 
 
 ### C.2.3 CLI 是工程师的入口
 
-Linux 用户天然喜欢命令行。`shift today` 比打开 App 查看快得多。CLI 也是自动化（cron/systemd timer）和脚本集成的基础。
+Linux 用户天然喜欢命令行。`banban today` 比打开 App 查看快得多。CLI 也是自动化（cron/systemd timer）和脚本集成的基础。
 
 ### C.2.4 本地优先，云可叠加
 
@@ -944,24 +944,31 @@ shift export --ics --output ~/my_shift_schedule.ics
 **命令矩阵**：
 
 ```bash
-shift today              # 今日班次
-shift tomorrow           # 明日班次
-shift next-rest          # 距下次休息倒计时
-shift calendar           # 当月日历（ANSI 颜色）
-shift calendar -m 2026-06  # 指定月份
-shift stats              # 本月统计（早/中/休/夜/学）
-shift leave              # 拼假推荐 Top 5
-shift leave --max-days 3 # 限制最多请假天数
-shift colleague 1 3      # 班组1和3共同休息日
-shift export --ics       # 导出 ICS
-shift config              # 管理配置
+banban today              # 今日班次
+banban tomorrow           # 明日班次
+banban week               # 本周 7 天视图 (v0.1.3)
+banban next-rest          # 距下次休息倒计时
+banban calendar           # 当月日历（ANSI 颜色）
+banban calendar -m 2026-06  # 指定月份
+banban stats              # 本月统计（早/中/休/夜/学）
+banban leave              # 拼假推荐 Top 5
+banban leave --max-days 3 # 限制最多请假天数
+banban colleague 1 3      # 班组1和3共同休息日
+banban export --ics       # 导出 ICS
+banban waybar             # Waybar 状态栏输出
+banban notify             # 桌面通知
+banban install            # 安装 systemd 定时器
+banban tui                # 全屏终端 UI
+banban config             # 管理配置
 ```
 
 **设计要点**：
 - 默认人类可读输出（ANSI 颜色：早=橙、中=蓝、休=绿、夜=紫、学=黄）
 - `--json` 全局 flag 输出机器可读 JSON
-- 配置文件：`~/.config/shift/config.toml`（XDG 规范）
-- 数据输出：`~/.local/share/shift/`（XDG 规范）
+- `--lang zh/en` 全局 flag 切换中英文
+- `--team N` 指定班组
+- 配置文件：`~/.config/banban/config.toml`（XDG 规范）
+- 数据输出：`~/.local/share/banban/`（XDG 规范）
 - Shell 自动补全：bash/zsh/fish/nushell
 
 ### C.4.3 KDE Plasma Widget

@@ -1,9 +1,10 @@
 # 倒班助手架构说明
 
-## 0. 项目双阶段概述
+## 0. 项目三阶段概述
 
-- **Phase 1（已完成）**：Android 原生版 — 单模块 Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore。阶段 1-27 全部完成，150+ 单元测试全部通过。
-- **Phase 2（规划中）**：CP（Cross Platform）版 — Flutter + Riverpod + GoRouter，跨 Android / iOS / Web / Desktop。算法从 Android 版直接迁移（纯 Domain 层）。
+- **Phase 1（已完成）**：Android 原生版 — Kotlin + Jetpack Compose + MVVM。162 tests，不再活跃开发。算法已验证。
+- **Phase 2（已完成）**：Flutter 移动端 — Riverpod + GoRouter + dart:ffi → Rust。110 tests，Android/iOS 双平台。
+- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（13 commands）+ TUI。算法唯一来源，Flutter 通过 FFI 调用。230 tests，v0.1.3 已发布到 crates.io。
 
 ---
 
