@@ -67,7 +67,7 @@ impl ShiftType {
         match self {
             ShiftType::Morning => "AM",
             ShiftType::Afternoon => "PM",
-            ShiftType::Rest => "Off",
+            ShiftType::Rest => "R ",
             ShiftType::Night => "NT",
             ShiftType::Study => "TR",
         }
@@ -78,7 +78,7 @@ impl ShiftType {
         match self {
             ShiftType::Morning => "AM ",
             ShiftType::Afternoon => "PM ",
-            ShiftType::Rest => "Off",
+            ShiftType::Rest => "R ",
             ShiftType::Night => "NT ",
             ShiftType::Study => "TR ",
         }
