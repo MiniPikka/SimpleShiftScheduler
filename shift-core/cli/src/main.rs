@@ -1051,11 +1051,10 @@ fn waybar_text(st: ShiftType, lang: &str, display: &DisplaySection) -> String {
         ShiftType::Night => &display.waybar_night,
         ShiftType::Study => &display.waybar_study,
     };
-    if let Some(text) = custom {
-        if !text.is_empty() {
+    if let Some(text) = custom
+        && !text.is_empty() {
             return text.clone();
         }
-    }
     match (st, lang) {
         (ShiftType::Morning, "zh") => "🌅 早".into(),
         (ShiftType::Morning, _) => "🌅 AM".into(),
@@ -1142,8 +1141,8 @@ fn cmd_notify(today: NaiveDate, cycle_config: &ShiftCycleConfig, offset: u32, te
             "night" => config.alarms.night.as_deref().unwrap_or("21:45"),
             _ => "",
         };
-        if let Some((ah, am)) = alarm_str.split_once(':') {
-            if let (Ok(ah), Ok(am)) = (ah.parse::<u32>(), am.parse::<u32>()) {
+        if let Some((ah, am)) = alarm_str.split_once(':')
+            && let (Ok(ah), Ok(am)) = (ah.parse::<u32>(), am.parse::<u32>()) {
                 let now = Local::now();
                 let now_min = now.hour() * 60 + now.minute();
                 let alarm_min = ah * 60 + am;
@@ -1153,7 +1152,6 @@ fn cmd_notify(today: NaiveDate, cycle_config: &ShiftCycleConfig, offset: u32, te
                     return;
                 }
             }
-        }
     }
 
     let title = format!("{} · {}", info.shift_type.full_label(), shift_algorithm::team_name(team));

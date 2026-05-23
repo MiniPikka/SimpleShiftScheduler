@@ -87,9 +87,9 @@ pub fn run_tui(config: ShiftCycleConfig, offset: u32, team_id: u32, lang: &str) 
 }
 
 fn handle_input(app: &mut App) -> io::Result<()> {
-    if event::poll(std::time::Duration::from_millis(100))? {
-        if let Event::Key(key) = event::read()? {
-            if key.kind == KeyEventKind::Press {
+    if event::poll(std::time::Duration::from_millis(100))?
+        && let Event::Key(key) = event::read()?
+            && key.kind == KeyEventKind::Press {
                 match app.view {
                     View::Leave => match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
@@ -139,8 +139,6 @@ fn handle_input(app: &mut App) -> io::Result<()> {
                     },
                 }
             }
-        }
-    }
     Ok(())
 }
 

@@ -21,7 +21,7 @@ use std::os::raw::c_char;
 // ── Memory management ──
 
 /// Free a string returned by any shift_* function.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_free_string(ptr: *mut c_char) {
     if ptr.is_null() { return; }
     unsafe { let _ = CString::from_raw(ptr); }
@@ -55,7 +55,7 @@ macro_rules! c_str {
 
 // ── Shift info ──
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_get_shift_info(
     date_iso: *const c_char,
     team_id: u32,
@@ -84,7 +84,7 @@ pub unsafe extern "C" fn shift_get_shift_info(
 
 // ── Shift type for date (single lookup, no full ShiftInfo) ──
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_get_shift_type_for_date(
     date_iso: *const c_char,
     team_id: u32,
@@ -105,7 +105,7 @@ pub unsafe extern "C" fn shift_get_shift_type_for_date(
 
 // ── Batch shift info for date range ──
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_get_shift_info_range(
     start_date_iso: *const c_char,
     end_date_iso: *const c_char,
@@ -136,7 +136,7 @@ pub unsafe extern "C" fn shift_get_shift_info_range(
 
 // ── Rest/work tracking ──
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_get_days_until_rest(
     date_iso: *const c_char,
     team_id: u32,
@@ -157,7 +157,7 @@ pub unsafe extern "C" fn shift_get_days_until_rest(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_get_consecutive_work_days(
     date_iso: *const c_char,
     team_id: u32,
@@ -175,7 +175,7 @@ pub unsafe extern "C" fn shift_get_consecutive_work_days(
 
 // ── Monthly stats ──
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_get_monthly_stats(
     year: i32,
     month: u32,
@@ -200,7 +200,7 @@ pub unsafe extern "C" fn shift_get_monthly_stats(
 
 // ── Colleague mode ──
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_get_common_rest_days(
     team_a: u32,
     team_b: u32,
@@ -226,7 +226,7 @@ pub unsafe extern "C" fn shift_get_common_rest_days(
 
 // ── Holiday data ──
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_get_holidays() -> *mut c_char {
     to_json_or_error({
         let holidays = get_china_holidays();
@@ -244,7 +244,7 @@ pub unsafe extern "C" fn shift_get_holidays() -> *mut c_char {
 
 // ── ICS export ──
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_generate_ics(
     start_date_iso: *const c_char,
     end_date_iso: *const c_char,
@@ -266,7 +266,7 @@ pub unsafe extern "C" fn shift_generate_ics(
 
 // ── Leave optimizer ──
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn shift_get_best_leave_plans(
     date_iso: *const c_char,
     days_to_analyze: u32,
@@ -331,7 +331,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn test_get_shift_info_range() {
         let ptr = unsafe { shift_get_shift_info_range(c("2026-05-22").as_ptr(), c("2026-05-24").as_ptr(), 1, 0, c("2025-12-15").as_ptr()) };
         let json = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
@@ -344,6 +343,7 @@ mod tests {
         assert_eq!(days[2]["date"], "2026-05-24");
     }
 
+    #[test]
     fn test_days_until_rest() {
         let ptr = unsafe { shift_get_days_until_rest(c("2026-05-22").as_ptr(), 1, 0, c("2025-12-15").as_ptr()) };
         let json = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
