@@ -16,7 +16,7 @@ class ShiftRuleUiState {
   final bool isSaved;
   final bool isLoading;
 
-  const ShiftRuleUiState({
+  ShiftRuleUiState({
     this.cycleLength = ShiftCycleConfig.cycleLength,
     this.sequence = ShiftCycleConfig.shiftCycle,
     this.defaultTeamId = 1,

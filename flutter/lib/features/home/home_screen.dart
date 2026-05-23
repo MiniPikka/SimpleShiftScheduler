@@ -30,7 +30,7 @@ class HomeScreen extends ConsumerWidget {
     final teamName = localizedTeamName(teamId, l10n);
     final greeting = localizedGreeting(now.hour, l10n);
     final weekday = localizedWeekday(now.weekday, l10n);
-    final dateText = '${now.year}年${now.month}月${now.day}日 $weekday';
+    final dateText = l10n.fullDateFormat(now.year, now.month, now.day, weekday);
     final shiftLabel = localizedShiftLabel(state.shiftType, l10n);
 
     // Update desktop widget via domain pure function + dedup guard
@@ -40,7 +40,7 @@ class HomeScreen extends ConsumerWidget {
         settings: settings,
         shiftLabelResolver: (t) => localizedShiftLabel(t, l10n),
         teamNameResolver: (id) => localizedTeamName(id, l10n),
-        dateFormatter: (d) => '${d.month}月${d.day}日 ${localizedWeekday(d.weekday, l10n)}',
+        dateFormatter: (d) => l10n.monthDayWeekday(d.month, d.day, localizedWeekday(d.weekday, l10n)),
       );
       final fp = '${wd.shiftLabel}|${wd.teamName}|${wd.dateLabel}|${wd.dayOfCycle}|${wd.totalDays}|${wd.daysUntilRest}|${wd.tomorrowShiftLabel}';
       if (fp == _lastWidgetFingerprint) return;
@@ -198,7 +198,7 @@ class _GreetingRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$greeting，$teamName', style: theme.textTheme.headlineLarge),
+          Text('$greeting, $teamName', style: theme.textTheme.headlineLarge),
           const SizedBox(height: 2),
           Text(dateText, style: theme.textTheme.bodyMedium),
         ],

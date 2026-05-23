@@ -16,13 +16,28 @@ int normalizeCycleIndex(int offsetDays, {int? cycleLength}) {
   return (offsetDays % len + len) % len;
 }
 
-/// 获取指定日期的班次类型 — 对应 Android 版 getShiftTypeForDate()
+/// 获取指定日期的班次类型 — 优先走 Rust FFI，失败回退纯 Dart。
 ShiftType getShiftTypeForDate(
   DateTime date, {
   int teamPhaseOffset = 0,
   List<ShiftType>? customCycle,
   DateTime? referenceDate,
 }) {
+  // Try Rust FFI for default cycle
+  if (customCycle == null || customCycle.length == ShiftCycleConfig.cycleLength) {
+    final refDate = referenceDate ?? ShiftCycleConfig.referenceDate;
+    final teamId = (teamPhaseOffset ~/ teamPhaseStepFor()) + 1;
+    final result = ffiGetShiftTypeForDate(
+      date: date,
+      teamId: teamId,
+      cycleLength: customCycle?.length ?? 0,
+      referenceDate: refDate,
+    );
+    if (result != null) {
+      return parseShiftType(result['shift_type'] as String);
+    }
+  }
+
   final cycle = customCycle ?? ShiftCycleConfig.shiftCycle;
   final offsetDays =
       calculateDayOffset(date, referenceDate: referenceDate) + teamPhaseOffset;
@@ -51,7 +66,7 @@ ShiftInfo getShiftInfo(
       return ShiftInfo(
         date: date,
         dayOfCycle: result['day_of_cycle'] as int,
-        shiftType: _parseShiftType(result['shift_type'] as String),
+        shiftType: parseShiftType(result['shift_type'] as String),
       );
     }
   }
@@ -80,10 +95,8 @@ int teamPhaseOffsetFor(int teamId, {List<ShiftType>? customCycle}) {
   return (teamId - 1) * step;
 }
 
-String _fmt(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-ShiftType _parseShiftType(String s) {
+ShiftType parseShiftType(String s) {
   switch (s) {
     case 'morning': return ShiftType.MORNING;
     case 'afternoon': return ShiftType.AFTERNOON;

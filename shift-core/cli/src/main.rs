@@ -268,6 +268,8 @@ enum Commands {
     Notify,
     /// Install systemd timer for daily ICS export + notification
     Install,
+    /// Weekly view — 7 days from today with shift types and cycle info
+    Week,
     /// Full-screen interactive terminal UI (btop/lazygit style)
     Tui,
     /// Generate sample config file with custom cycle documentation
@@ -293,6 +295,26 @@ struct NextRestOutput {
     days_until: u32,
     rest_date: String,
     message: String,
+}
+
+#[derive(Serialize)]
+struct WeekOutput {
+    team: String,
+    start_date: String,
+    end_date: String,
+    total_days: u32,
+    days: Vec<WeekDayOutput>,
+}
+
+#[derive(Serialize)]
+struct WeekDayOutput {
+    date: String,
+    weekday: String,
+    shift_type: String,
+    shift_label: String,
+    day_of_cycle: u32,
+    is_today: bool,
+    is_rest: bool,
 }
 
 #[derive(Serialize)]
@@ -456,6 +478,7 @@ fn main() {
                 eprintln!("TUI error: {}", e);
             }
         }
+        Commands::Week => cmd_week(&cli, today, &cycle_config, offset, team_id),
         Commands::Config => cmd_config(),
     }
 }
@@ -586,6 +609,61 @@ fn cmd_next_rest(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset:
                 "".dimmed(),
                 rest_date.format("%b %d %A").to_string().bold(),
                 "".dimmed(),
+            );
+        }
+    }
+}
+
+fn cmd_week(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u32) {
+    let lang = cli.lang.as_str();
+    let end = today + chrono::Duration::days(6);
+
+    if cli.json {
+        let days: Vec<WeekDayOutput> = (0..7).map(|d| {
+            let date = today + chrono::Duration::days(d);
+            let info = get_shift_info(date, config, offset);
+            WeekDayOutput {
+                date: date.format("%Y-%m-%d").to_string(),
+                weekday: date.format("%A").to_string(),
+                shift_type: format!("{:?}", info.shift_type).to_lowercase(),
+                shift_label: full_lbl(info.shift_type, lang).to_string(),
+                day_of_cycle: info.day_of_cycle,
+                is_today: d == 0,
+                is_rest: info.shift_type.is_rest(),
+            }
+        }).collect();
+        let out = WeekOutput {
+            team: team_lbl(team, lang),
+            start_date: today.format("%Y-%m-%d").to_string(),
+            end_date: end.format("%Y-%m-%d").to_string(),
+            total_days: config.cycle_length,
+            days,
+        };
+        println!("{}", serde_json::to_string_pretty(&out).unwrap());
+    } else {
+        println!(
+            "{} {} · {}",
+            if lang == "zh" { "本周".bold() } else { "This Week".bold() },
+            team_lbl(team, lang).dimmed(),
+            format!("{} → {}", today.format("%m/%d"), end.format("%m/%d")).dimmed(),
+        );
+        println!();
+        for d in 0..7 {
+            let date = today + chrono::Duration::days(d);
+            let info = get_shift_info(date, config, offset);
+            let color = shift_color(info.shift_type);
+            let marker = if d == 0 {
+                if lang == "zh" { "今天" } else { "Today" }
+            } else { "" };
+            println!(
+                "  {} {:>5} {:>2}  {:<6}  Day {}/{}  {}",
+                shift_icon(info.shift_type),
+                date.format("%m/%d").to_string(),
+                date.format("%a").to_string(),
+                full_lbl(info.shift_type, lang).color(color).bold(),
+                info.day_of_cycle,
+                config.cycle_length,
+                marker.dimmed(),
             );
         }
     }

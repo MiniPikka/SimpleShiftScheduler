@@ -234,6 +234,46 @@ class AppLocalizationsEn extends AppLocalizations {
       'No efficient leave plan found. Try increasing the max leave days.';
 
   @override
+  String leaveAnalyzeRange(
+    Object startYear,
+    Object startMonth,
+    Object startDay,
+    Object endYear,
+  ) {
+    return '$startMonth/$startDay/$startYear — 12/31/$endYear';
+  }
+
+  @override
+  String leavePlanFormat(Object leaveDays, Object breakDays) {
+    return '$leaveDays day(s) off → $breakDays day(s) break';
+  }
+
+  @override
+  String leaveDateRange(
+    Object startMonth,
+    Object startDay,
+    Object endMonth,
+    Object endDay,
+  ) {
+    return '$startMonth/$startDay — $endMonth/$endDay';
+  }
+
+  @override
+  String leaveWithHolidays(Object holidays) {
+    return '+ $holidays';
+  }
+
+  @override
+  String leaveDayCount(Object days) {
+    return '${days}d off';
+  }
+
+  @override
+  String leaveWeekendPlus(Object count) {
+    return 'Weekend +$count';
+  }
+
+  @override
   String get colleagueModeTitle => 'Colleague Mode';
 
   @override
@@ -278,6 +318,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get statusToday => 'Today';
+
+  @override
+  String fullDateFormat(Object year, Object month, Object day, Object weekday) {
+    return '$weekday, $month/$day/$year';
+  }
+
+  @override
+  String monthDay(Object month, Object day) {
+    return '$month/$day';
+  }
+
+  @override
+  String monthDayWeekday(Object month, Object day, Object weekday) {
+    return '$month/$day $weekday';
+  }
+
+  @override
+  String shareRenderError(Object error) {
+    return 'Render failed: $error';
+  }
+
+  @override
+  String shareSubject(Object teamA, Object teamB) {
+    return '$teamA & $teamB Shared Rest';
+  }
+
+  @override
+  String dateRangeYearEnd(Object startDate, Object year) {
+    return '$startDate — $year/12/31';
+  }
 
   @override
   String get salaryTitle => 'Shift Pay';
@@ -388,6 +458,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addAtLeastOne => 'Add at least one shift';
+
+  @override
+  String get slogan => 'ShiftMate · Your Smart Shift Companion';
+
+  @override
+  String analysisRange(Object range) {
+    return 'Analysis range: $range';
+  }
+
+  @override
+  String countTimes(Object count) {
+    return '$count time(s)';
+  }
+
+  @override
+  String get scanToDownload => 'Scan to download ShiftMate';
 
   @override
   String get versionInfo => 'Shift Mate CP v1.0.0';

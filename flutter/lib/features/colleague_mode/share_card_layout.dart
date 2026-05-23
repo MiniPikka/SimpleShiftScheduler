@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../core/services/share_service.dart';
+import '../../core/utils/l10n.dart';
 import 'share_card_data.dart';
 
 /// 同事模式分享长图布局 — 对应 Android 版 ShareCardLayout
@@ -27,6 +28,7 @@ class ShareCardLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 使用固定宽度 SizedBox + SingleChildScrollView 来容纳内容
+    final l10n = context.l10n;
     return SizedBox(
       width: _cardWidth,
       child: Container(
@@ -35,28 +37,21 @@ class ShareCardLayout extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // App 名称
-            Text('倒班助手', style: const TextStyle(fontSize: 20, color: _textSecondary)),
+            Text(l10n.appTitle, style: const TextStyle(fontSize: 20, color: _textSecondary)),
             const SizedBox(height: 36),
-            // 区标题
-            Text('下次同时休息', style: const TextStyle(fontSize: 24, color: _textSecondary)),
+            Text(l10n.nextCommonRest, style: const TextStyle(fontSize: 24, color: _textSecondary)),
             const SizedBox(height: 24),
-            // 主结果卡片
             _MainResultCard(data: data),
             const SizedBox(height: 32),
-            // 统计卡片行
             _StatsRow(data: data),
             const SizedBox(height: 32),
-            // 共同休息日列表
             _DateList(data: data),
             const SizedBox(height: 36),
-            // QR 码区
             _QrSection(),
             const SizedBox(height: 36),
-            // 页脚
-            Text('倒班助手 · 你的智能排班管家', style: const TextStyle(fontSize: 18, color: _footerColor)),
+            Text(l10n.slogan, style: const TextStyle(fontSize: 18, color: _footerColor)),
             const SizedBox(height: 8),
-            Text('分析范围：${data.dateRange}', style: const TextStyle(fontSize: 16, color: Color(0xFF4B5563))),
+            Text(l10n.analysisRange(data.dateRange), style: const TextStyle(fontSize: 16, color: Color(0xFF4B5563))),
           ],
         ),
       ),
@@ -100,7 +95,7 @@ class _MainResultCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '距今 ${data.daysUntilNext} 天',
+            context.l10n.daysUntil(data.daysUntilNext),
             style: const TextStyle(fontSize: 20, color: ShareCardLayout._accentGold),
           ),
         ],
@@ -116,11 +111,12 @@ class _StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Row(
       children: [
-        Expanded(child: _StatCard(title: '未来30天', count: data.countIn30Days)),
+        Expanded(child: _StatCard(title: l10n.next30days, count: data.countIn30Days)),
         const SizedBox(width: 16),
-        Expanded(child: _StatCard(title: '未来60天', count: data.countIn60Days)),
+        Expanded(child: _StatCard(title: l10n.next60days, count: data.countIn60Days)),
       ],
     );
   }
@@ -142,7 +138,7 @@ class _StatCard extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            '$count 次',
+            context.l10n.countTimes(count),
             style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: ShareCardLayout._textPrimary),
           ),
           const SizedBox(height: 4),
@@ -165,7 +161,7 @@ class _DateList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '共同休息日（共 ${items.length} 次）',
+          context.l10n.commonRestDaysList(items.length),
           style: const TextStyle(fontSize: 20, color: ShareCardLayout._textSecondary),
         ),
         const SizedBox(height: 12),
@@ -210,9 +206,9 @@ class _QrSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          '扫码下载倒班助手',
-          style: TextStyle(fontSize: 16, color: ShareCardLayout._textMuted),
+        Text(
+          context.l10n.scanToDownload,
+          style: const TextStyle(fontSize: 16, color: ShareCardLayout._textMuted),
         ),
       ],
     );

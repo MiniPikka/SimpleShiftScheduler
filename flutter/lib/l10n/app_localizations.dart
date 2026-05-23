@@ -534,6 +534,52 @@ abstract class AppLocalizations {
   /// **'当前倒班表下未找到高效请假方案，尝试增加请假天数'**
   String get noLeavePlanFound;
 
+  /// No description provided for @leaveAnalyzeRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'{startYear}年{startMonth}月{startDay}日 — {endYear}年12月31日'**
+  String leaveAnalyzeRange(
+    Object startYear,
+    Object startMonth,
+    Object startDay,
+    Object endYear,
+  );
+
+  /// No description provided for @leavePlanFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'请假 {leaveDays} 天 → 连休 {breakDays} 天'**
+  String leavePlanFormat(Object leaveDays, Object breakDays);
+
+  /// No description provided for @leaveDateRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'{startMonth}月{startDay}日 — {endMonth}月{endDay}日'**
+  String leaveDateRange(
+    Object startMonth,
+    Object startDay,
+    Object endMonth,
+    Object endDay,
+  );
+
+  /// No description provided for @leaveWithHolidays.
+  ///
+  /// In zh, this message translates to:
+  /// **'含 {holidays}'**
+  String leaveWithHolidays(Object holidays);
+
+  /// No description provided for @leaveDayCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'请假{days}天'**
+  String leaveDayCount(Object days);
+
+  /// No description provided for @leaveWeekendPlus.
+  ///
+  /// In zh, this message translates to:
+  /// **'周末+{count}'**
+  String leaveWeekendPlus(Object count);
+
   /// No description provided for @colleagueModeTitle.
   ///
   /// In zh, this message translates to:
@@ -611,6 +657,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'今天'**
   String get statusToday;
+
+  /// No description provided for @fullDateFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'{year}年{month}月{day}日 {weekday}'**
+  String fullDateFormat(Object year, Object month, Object day, Object weekday);
+
+  /// No description provided for @monthDay.
+  ///
+  /// In zh, this message translates to:
+  /// **'{month}月{day}日'**
+  String monthDay(Object month, Object day);
+
+  /// No description provided for @monthDayWeekday.
+  ///
+  /// In zh, this message translates to:
+  /// **'{month}月{day}日 {weekday}'**
+  String monthDayWeekday(Object month, Object day, Object weekday);
+
+  /// No description provided for @shareRenderError.
+  ///
+  /// In zh, this message translates to:
+  /// **'渲染失败: {error}'**
+  String shareRenderError(Object error);
+
+  /// No description provided for @shareSubject.
+  ///
+  /// In zh, this message translates to:
+  /// **'{teamA} & {teamB} 共同休息'**
+  String shareSubject(Object teamA, Object teamB);
+
+  /// No description provided for @dateRangeYearEnd.
+  ///
+  /// In zh, this message translates to:
+  /// **'{startDate} — {year}/12/31'**
+  String dateRangeYearEnd(Object startDate, Object year);
 
   /// No description provided for @salaryTitle.
   ///
@@ -815,6 +897,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'请添加至少一个班次'**
   String get addAtLeastOne;
+
+  /// No description provided for @slogan.
+  ///
+  /// In zh, this message translates to:
+  /// **'倒班助手 · 你的智能排班管家'**
+  String get slogan;
+
+  /// No description provided for @analysisRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'分析范围：{range}'**
+  String analysisRange(Object range);
+
+  /// No description provided for @countTimes.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 次'**
+  String countTimes(Object count);
+
+  /// No description provided for @scanToDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫码下载倒班助手'**
+  String get scanToDownload;
 
   /// No description provided for @versionInfo.
   ///

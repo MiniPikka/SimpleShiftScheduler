@@ -55,13 +55,14 @@ Future<void> cleanupOldShareImages() async {
 
 /// 分享图片文件
 Future<void> shareImageFile(String filePath, {String? subject}) async {
-  await Share.shareXFiles(
-    [XFile(filePath)],
-    subject: subject,
+  await SharePlus.instance.share(
+    ShareParams(files: [XFile(filePath)], subject: subject),
   );
 }
 
 /// 分享文本
 Future<void> shareText(String text, {String? subject}) async {
-  await Share.share(text, subject: subject);
+  await SharePlus.instance.share(
+    ShareParams(text: text, subject: subject),
+  );
 }

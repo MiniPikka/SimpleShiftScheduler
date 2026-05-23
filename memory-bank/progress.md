@@ -1,4 +1,103 @@
+## 2026-05-23：v0.1.3 — i18n 完善 + FFI 扩展 + 批量模式 + banban week ✅
+
+### 版本迭代
+
+| 版本 | 主要变更 |
+|------|---------|
+| v0.1.0 | 初始发布：6 crates + banban CLI (12 commands) + Flutter FFI |
+| v0.1.1 | 英文默认 + 自定义周期 config + 配置生成器 |
+| v0.1.2 | TUI 全英文化 + 日历 CJK 对齐修复 + crates.io 发布 |
+| v0.1.3 | FFI 扩展 (+4 函数) + 批量模式 + i18n 全消除硬编码 + banban week |
+
+### v0.1.3 详细变更
+
+**FFI 扩展** (flutter/rust + flutter/lib):
+- Rust FFI 函数: 6 → 10 (+4: shift_type_for_date, holidays, ics, range)
+- 批量模式: calendar_generator (42次→1次), calendar_service (365次→1次), notification_scheduler (30次→1次)
+- 消除 holiday_data.dart Dart/Rust 双重数据
+- ICS 导出从 CLI-only → Flutter 端可调用
+- shift-export 路径修复 (export-engine → shift-export in Cargo.toml)
+
+**i18n 全消除硬编码中文** (flutter/lib/l10n + 5 files):
+- leave_optimizer_screen.dart: +6 keys, 全 l10n
+- colleague_mode_screen.dart: +5 keys (monthDay, monthDayWeekday 等)
+- share_card_layout.dart: +4 keys (slogan, analysisRange, countTimes, scanToDownload)
+- home_screen.dart: +2 keys (fullDateFormat, monthDayWeekday)
+- notification_scheduler.dart: 通知文案英文化
+- 4 语言 (.arb): zh/en/ja/ko 全部同步
+
+**CLI 新增**:
+- `banban week` — 7 天周视图，支持 --json 和 --lang en/zh
+
+**代码质量**:
+- 修复: shift_rule_notifier.dart const 构造 error, 3 个 unused import, unused _fmt
+- 废弃 API 迁移: Share → SharePlus, red/green/blue → this.r/g/b
+- flutter analyze: 0 errors, 0 warnings
+
+### 测试总览
+
+| Component | Tests |
+|-----------|-------|
+| Rust FFI bridge (shift-flutter-bridge) | 9 |
+| shift-core (5 crates) | 111 |
+| Flutter (Dart) | 110 |
+| **Total** | **230** |
+| Android ARM64 真机 | ✅ 构建+安装+运行成功 |
+
 ## 2026-05-23：v0.1.2 — TUI i18n, crates.io 发布, 全面审查 ✅
+
+（略，详见 v0.1.3 条目）
+
+## 2026-05-23：Flutter FFI 扩展 — 领域算法全面 Rust 化 ✅
+
+### 目标：Flutter 端所有领域算法优先走 Rust FFI，Dart 纯作 fallback
+
+| FFI 函数 | 新增/已有 | 覆盖的 Dart 文件 |
+|---------|----------|-----------------|
+| `shift_get_shift_info` | 已有 | `shift_calculator.dart` → `getShiftInfo()` |
+| `shift_get_shift_type_for_date` | **新增** | `shift_calculator.dart` → `getShiftTypeForDate()` |
+| `shift_get_days_until_rest` | 已有 | `shift_metrics.dart` → `daysUntilNextRest()` |
+| `shift_get_consecutive_work_days` | 已有 | `shift_metrics.dart` → `consecutiveWorkDays()` |
+| `shift_get_monthly_stats` | 已有 | `shift_metrics.dart` + **`salary_calculator.dart`**（新接线）|
+| `shift_get_common_rest_days` | 已有 | `colleague_mode.dart` → `findCommonRestDays()` |
+| `shift_get_best_leave_plans` | 已有 | `leave_optimizer.dart` → `findBestLeavePlans()` |
+| `shift_get_holidays` | **新增** | `holiday_data.dart` → `getChinaHolidays()` |
+| `shift_generate_ics` | **新增** | `ffi_bridge.dart` → `ffiGenerateIcs()` |
+
+### 变更文件
+
+| 类型 | 文件 |
+|------|------|
+| 新增 Rust FFI 函数 (3) | `flutter/rust/src/lib.rs` → `shift_get_shift_type_for_date`, `shift_get_holidays`, `shift_generate_ics` |
+| 新增 Dart FFI 包装 (3) | `flutter/lib/domain/bridge/ffi_bridge.dart` → `ffiGetShiftTypeForDate`, `ffiGetHolidays`, `ffiGenerateIcs` |
+| 改造 Dart 算法 (3) | `shift_calculator.dart` → `getShiftTypeForDate` FFI 优先 |
+|       | `salary_calculator.dart` → `countAllShiftTypesInMonth` 复用已有 FFI |
+|       | `holiday_data.dart` → `getChinaHolidays` FFI 优先，消除重复数据 |
+| 修复 (1) | `flutter/rust/Cargo.toml` → `export-engine` 路径改为 `shift-export` |
+| 启用代理 (1) | `~/.bashrc` → Clash 代理取消注释 |
+
+### 效果
+
+- **FFI 覆盖**: 5 → 9 Rust FFI 函数，4 → 6 Dart 算法文件有 FFI 优先路径
+- **测试**: 120 (9 FFI + 111 shift-core) Rust + 110 Flutter, clippy 0 warnings
+- **关键收益**: `salary_calculator.dart` 从零 FFI → FFI 覆盖；`holiday_data.dart` 消除 Dart/Rust 双重数据维护
+- **ICS 导出**: 从 CLI-only → Flutter 端可调用
+
+### 2026-05-23：FFI 批量模式 — 减少跨语言调用开销 ✅
+
+新增 `shift_get_shift_info_range`：一个 FFI 调用返回日期范围内所有班次数据。
+
+| 消费者 | 之前 | 之后 |
+|--------|------|------|
+| `calendar_generator.dart` | 42 次单独调用 | 1 次批量调用 |
+| `calendar_service.dart` | 365 次单独调用 | 1 次批量调用 |
+| `notification_scheduler.dart` | 30 次单独调用 | 1 次批量调用 |
+
+### 2026-05-23：Android ARM64 真机重建验证 ✅
+
+- `cargo-ndk` 交叉编译 `libshift_flutter_bridge.so` (806KB ARM64)
+- `flutter build apk --debug` 构建成功
+- `adb install` + 启动验证：零崩溃，零 FFI 错误
 
 ### v0.1.0 → v0.1.2 迭代
 

@@ -50,9 +50,9 @@ Color shiftColor(ShiftType type) {
 /// Color → #RRGGBB hex string (for Android widget color passing)
 extension CpColorHex on Color {
   String toHex() {
-    final r = (red * 255).round().toRadixString(16).padLeft(2, '0');
-    final g = (green * 255).round().toRadixString(16).padLeft(2, '0');
-    final b = (blue * 255).round().toRadixString(16).padLeft(2, '0');
-    return '#${r}${g}${b}'.toUpperCase();
+    final r = ((this.r * 255).round().clamp(0, 255)).toRadixString(16).padLeft(2, '0');
+    final g = ((this.g * 255).round().clamp(0, 255)).toRadixString(16).padLeft(2, '0');
+    final b = ((this.b * 255).round().clamp(0, 255)).toRadixString(16).padLeft(2, '0');
+    return '#$r$g$b'.toUpperCase();
   }
 }

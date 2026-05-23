@@ -232,6 +232,46 @@ class AppLocalizationsKo extends AppLocalizations {
   String get noLeavePlanFound => '효율적인 휴가 계획을 찾을 수 없습니다. 최대 휴가 일수를 늘려보세요.';
 
   @override
+  String leaveAnalyzeRange(
+    Object startYear,
+    Object startMonth,
+    Object startDay,
+    Object endYear,
+  ) {
+    return '$startYear년 $startMonth월 $startDay일 — $endYear년 12월 31일';
+  }
+
+  @override
+  String leavePlanFormat(Object leaveDays, Object breakDays) {
+    return '$leaveDays일 휴가 → $breakDays일 연휴';
+  }
+
+  @override
+  String leaveDateRange(
+    Object startMonth,
+    Object startDay,
+    Object endMonth,
+    Object endDay,
+  ) {
+    return '$startMonth월 $startDay일 — $endMonth월 $endDay일';
+  }
+
+  @override
+  String leaveWithHolidays(Object holidays) {
+    return '$holidays 포함';
+  }
+
+  @override
+  String leaveDayCount(Object days) {
+    return '$days일 휴가';
+  }
+
+  @override
+  String leaveWeekendPlus(Object count) {
+    return '주말+$count';
+  }
+
+  @override
   String get colleagueModeTitle => '동료 모드';
 
   @override
@@ -275,6 +315,36 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get statusToday => '오늘';
+
+  @override
+  String fullDateFormat(Object year, Object month, Object day, Object weekday) {
+    return '$year년 $month월 $day일 $weekday';
+  }
+
+  @override
+  String monthDay(Object month, Object day) {
+    return '$month월 $day일';
+  }
+
+  @override
+  String monthDayWeekday(Object month, Object day, Object weekday) {
+    return '$month월 $day일 $weekday';
+  }
+
+  @override
+  String shareRenderError(Object error) {
+    return '렌더링 실패: $error';
+  }
+
+  @override
+  String shareSubject(Object teamA, Object teamB) {
+    return '$teamA & $teamB 공동 휴일';
+  }
+
+  @override
+  String dateRangeYearEnd(Object startDate, Object year) {
+    return '$startDate — $year/12/31';
+  }
 
   @override
   String get salaryTitle => '근무 수당';
@@ -385,6 +455,22 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get addAtLeastOne => '최소 하나의 근무를 추가하세요';
+
+  @override
+  String get slogan => 'ShiftMate · 스마트 근무 관리';
+
+  @override
+  String analysisRange(Object range) {
+    return '분석 범위：$range';
+  }
+
+  @override
+  String countTimes(Object count) {
+    return '$count 회';
+  }
+
+  @override
+  String get scanToDownload => '스캔하여 다운로드';
 
   @override
   String get versionInfo => '교대 도우미 CP v1.0.0';

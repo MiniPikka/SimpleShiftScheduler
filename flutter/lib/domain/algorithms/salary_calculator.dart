@@ -1,9 +1,11 @@
 import '../models/salary_breakdown.dart';
 import '../models/salary_config.dart';
 import '../models/shift_type.dart';
+import '../models/shift_cycle_config.dart';
+import '../bridge/ffi_bridge.dart';
 import 'shift_calculator.dart';
 
-/// 统计当月所有班次类型出现次数 — 对应 Android 版 countAllShiftTypesInMonth()
+/// 统计当月所有班次类型出现次数 — 优先走 Rust FFI，失败回退纯 Dart。
 Map<ShiftType, int> countAllShiftTypesInMonth(
   int year,
   int month, {
@@ -11,6 +13,25 @@ Map<ShiftType, int> countAllShiftTypesInMonth(
   List<ShiftType>? customCycle,
   DateTime? referenceDate,
 }) {
+  // Try Rust FFI for default cycle
+  if (customCycle == null || customCycle.length == ShiftCycleConfig.cycleLength) {
+    final teamId = (teamPhaseOffset ~/ teamPhaseStepFor()) + 1;
+    final stats = ffiGetMonthlyStats(
+      year: year, month: month, teamId: teamId,
+      referenceDate: referenceDate,
+    );
+    if (stats != null) {
+      return {
+        ShiftType.MORNING: stats['morning'] as int? ?? 0,
+        ShiftType.AFTERNOON: stats['afternoon'] as int? ?? 0,
+        ShiftType.REST: stats['rest'] as int? ?? 0,
+        ShiftType.NIGHT: stats['night'] as int? ?? 0,
+        ShiftType.STUDY: stats['study'] as int? ?? 0,
+      };
+    }
+  }
+
+  // Fallback to pure Dart
   final counts = <ShiftType, int>{};
   for (final type in ShiftType.values) {
     counts[type] = 0;

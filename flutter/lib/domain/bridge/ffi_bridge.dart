@@ -10,6 +10,9 @@ import 'package:ffi/ffi.dart';
 
 // ── Native types ──
 
+typedef _CFunc0 = Pointer<Utf8> Function();
+typedef _DFunc0 = Pointer<Utf8> Function();
+
 typedef _CFunc1 = Pointer<Utf8> Function(Pointer<Utf8>, Uint32, Uint32, Pointer<Utf8>);
 typedef _DFunc1 = Pointer<Utf8> Function(Pointer<Utf8>, int, int, Pointer<Utf8>);
 
@@ -21,6 +24,12 @@ typedef _DFunc3 = Pointer<Utf8> Function(int, int, Pointer<Utf8>, int, int, Poin
 
 typedef _CFunc4 = Pointer<Utf8> Function(Pointer<Utf8>, Uint32, Uint32, Uint32, Uint32, Pointer<Utf8>);
 typedef _DFunc4 = Pointer<Utf8> Function(Pointer<Utf8>, int, int, int, int, Pointer<Utf8>);
+
+typedef _CFuncRange = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Uint32, Uint32, Pointer<Utf8>);
+typedef _DFuncRange = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, int, int, Pointer<Utf8>);
+
+typedef _CFuncIcs = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, Uint32, Uint32, Pointer<Utf8>, Pointer<Utf8>);
+typedef _DFuncIcs = Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>, int, int, Pointer<Utf8>, Pointer<Utf8>);
 
 typedef _CFree = Void Function(Pointer<Utf8>);
 typedef _DFree = void Function(Pointer<Utf8>);
@@ -64,6 +73,50 @@ dynamic _call(String name, List<Object?> args, dynamic Function(DynamicLibrary l
 }
 
 // ── Public FFI API ──
+
+Map<String, dynamic>? ffiGetShiftTypeForDate({
+  required DateTime date,
+  required int teamId,
+  int cycleLength = 0,
+  DateTime? referenceDate,
+}) {
+  return _call('shift_get_shift_type_for_date', [], (lib) {
+    final fn = lib.lookupFunction<_CFunc1, _DFunc1>('shift_get_shift_type_for_date');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final dp = _fmt(date).toNativeUtf8();
+    final rp = _fmt(referenceDate ?? DateTime(2025, 12, 15)).toNativeUtf8();
+    final ptr = fn(dp, teamId, cycleLength, rp);
+    final json = ptr.toDartString();
+    free(ptr);
+    calloc.free(dp); calloc.free(rp);
+    return jsonDecode(json);
+  });
+}
+
+// ──
+
+List<Map<String, dynamic>>? ffiGetShiftInfoRange({
+  required DateTime startDate,
+  required DateTime endDate,
+  required int teamId,
+  int cycleLength = 0,
+  DateTime? referenceDate,
+}) {
+  final result = _call('shift_get_shift_info_range', [], (lib) {
+    final fn = lib.lookupFunction<_CFuncRange, _DFuncRange>('shift_get_shift_info_range');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final sp = _fmt(startDate).toNativeUtf8();
+    final ep = _fmt(endDate).toNativeUtf8();
+    final rp = _fmt(referenceDate ?? DateTime(2025, 12, 15)).toNativeUtf8();
+    final ptr = fn(sp, ep, teamId, cycleLength, rp);
+    final json = ptr.toDartString();
+    free(ptr);
+    calloc.free(sp); calloc.free(ep); calloc.free(rp);
+    return jsonDecode(json);
+  });
+  if (result == null || result['days'] == null) return null;
+  return (result['days'] as List).cast<Map<String, dynamic>>();
+}
 
 Map<String, dynamic>? ffiGetShiftInfo({
   required DateTime date,
@@ -158,6 +211,40 @@ Map<String, dynamic>? ffiGetCommonRestDays({
     final json = ptr.toDartString();
     free(ptr);
     calloc.free(dp); calloc.free(rp);
+    return jsonDecode(json);
+  });
+}
+
+Map<String, dynamic>? ffiGetHolidays() {
+  return _call('shift_get_holidays', [], (lib) {
+    final fn = lib.lookupFunction<_CFunc0, _DFunc0>('shift_get_holidays');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final ptr = fn();
+    final json = ptr.toDartString();
+    free(ptr);
+    return jsonDecode(json);
+  });
+}
+
+Map<String, dynamic>? ffiGenerateIcs({
+  required DateTime startDate,
+  required DateTime endDate,
+  required int teamId,
+  int cycleLength = 0,
+  DateTime? referenceDate,
+  String timezone = 'Asia/Shanghai',
+}) {
+  return _call('shift_generate_ics', [], (lib) {
+    final fn = lib.lookupFunction<_CFuncIcs, _DFuncIcs>('shift_generate_ics');
+    final free = lib.lookupFunction<_CFree, _DFree>('shift_free_string');
+    final sp = _fmt(startDate).toNativeUtf8();
+    final ep = _fmt(endDate).toNativeUtf8();
+    final rp = _fmt(referenceDate ?? DateTime(2025, 12, 15)).toNativeUtf8();
+    final tp = timezone.toNativeUtf8();
+    final ptr = fn(sp, ep, teamId, cycleLength, rp, tp);
+    final json = ptr.toDartString();
+    free(ptr);
+    calloc.free(sp); calloc.free(ep); calloc.free(rp); calloc.free(tp);
     return jsonDecode(json);
   });
 }

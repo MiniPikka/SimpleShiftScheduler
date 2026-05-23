@@ -86,6 +86,18 @@
   "leaveOptimizerExplain": "Find the best leave plans based on your shift schedule and public holidays",
   "maxLeave": "Max leave: ",
   "noLeavePlanFound": "No efficient leave plan found. Try increasing the max leave days.",
+  "leaveAnalyzeRange": "{startMonth}/{startDay}/{startYear} — 12/31/{endYear}",
+  "leavePlanFormat": "{leaveDays} day(s) off → {breakDays} day(s) break",
+  "leaveDateRange": "{startMonth}/{startDay} — {endMonth}/{endDay}",
+  "leaveWithHolidays": "+ {holidays}",
+  "leaveDayCount": "{days}d off",
+  "leaveWeekendPlus": "Weekend +{count}",
+  "@leaveAnalyzeRange": {"placeholders": {"startYear": {}, "startMonth": {}, "startDay": {}, "endYear": {}}},
+  "@leavePlanFormat": {"placeholders": {"leaveDays": {}, "breakDays": {}}},
+  "@leaveDateRange": {"placeholders": {"startMonth": {}, "startDay": {}, "endMonth": {}, "endDay": {}}},
+  "@leaveWithHolidays": {"placeholders": {"holidays": {}}},
+  "@leaveDayCount": {"placeholders": {"days": {}}},
+  "@leaveWeekendPlus": {"placeholders": {"count": {}}},
 
   "colleagueModeTitle": "Colleague Mode",
   "iam": "I am",
@@ -100,6 +112,19 @@
   "noCommonRestFound": "No shared rest days found in the analysis range.",
   "dayCount": "{days}d later",
   "statusToday": "Today",
+  "fullDateFormat": "{weekday}, {month}/{day}/{year}",
+  "monthDay": "{month}/{day}",
+
+  "@fullDateFormat": {"placeholders": {"year": {}, "month": {}, "day": {}, "weekday": {}}},
+  "monthDayWeekday": "{month}/{day} {weekday}",
+  "shareRenderError": "Render failed: {error}",
+  "shareSubject": "{teamA} & {teamB} Shared Rest",
+  "dateRangeYearEnd": "{startDate} — {year}/12/31",
+  "@monthDay": {"placeholders": {"month": {}, "day": {}}},
+  "@monthDayWeekday": {"placeholders": {"month": {}, "day": {}, "weekday": {}}},
+  "@shareRenderError": {"placeholders": {"error": {}}},
+  "@shareSubject": {"placeholders": {"teamA": {}, "teamB": {}}},
+  "@dateRangeYearEnd": {"placeholders": {"startDate": {}, "year": {}}},
 
   "salaryTitle": "Shift Pay",
   "premiumPerShift": "Premium per shift (CNY)",
@@ -137,6 +162,13 @@
   "teamGapLabel": "Team gap: {days} days",
   "yuanPerShift": "CNY/shift",
   "addAtLeastOne": "Add at least one shift",
+
+  "slogan": "ShiftMate · Your Smart Shift Companion",
+  "analysisRange": "Analysis range: {range}",
+  "countTimes": "{count} time(s)",
+  "scanToDownload": "Scan to download ShiftMate",
+  "@analysisRange": {"placeholders": {"range": {}}},
+  "@countTimes": {"placeholders": {"count": {}}},
 
   "versionInfo": "Shift Mate CP v1.0.0"
 }

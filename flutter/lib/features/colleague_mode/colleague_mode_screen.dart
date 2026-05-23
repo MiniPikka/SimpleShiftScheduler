@@ -140,7 +140,7 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
                     const SizedBox(height: 8),
                     Text(
                       result.nextCommonRestDate != null
-                          ? '${result.nextCommonRestDate!.month}月${result.nextCommonRestDate!.day}日'
+                          ? l10n.monthDay(result.nextCommonRestDate!.month, result.nextCommonRestDate!.day)
                           : l10n.noCommonRest,
                       style: theme.textTheme.displayLarge,
                     ),
@@ -191,7 +191,7 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
                   return ListTile(
                     dense: true,
                     title: Text(
-                      '${date.month}月${date.day}日 ${localizedWeekday(date.weekday, l10n)}',
+                      l10n.monthDayWeekday(date.month, date.day, localizedWeekday(date.weekday, l10n)),
                     ),
                     trailing: Text(
                       diffDays == 0 ? l10n.statusToday : l10n.dayCount(diffDays),
@@ -243,13 +243,13 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
       final data = ShareCardData(
         teamAName: result.teamAName,
         teamBName: result.teamBName,
-        nextCommonRestDate: '${nextDate.month}月${nextDate.day}日',
+        nextCommonRestDate: l10n.monthDay(nextDate.month, nextDate.day),
         nextCommonRestWeekday: localizedWeekday(nextDate.weekday, l10n),
         daysUntilNext: result.daysUntilNext ?? 0,
         countIn30Days: result.countIn30Days,
         countIn60Days: result.countIn60Days,
-        commonRestDateItems: result.commonRestDates.take(12).map<String>((d) => '${d.month}月${d.day}日 ${localizedWeekday(d.weekday, l10n)}').toList(),
-        dateRange: '${today.year}/${today.month.toString().padLeft(2, '0')}/${today.day.toString().padLeft(2, '0')} — 12/31',
+        commonRestDateItems: result.commonRestDates.take(12).map<String>((d) => l10n.monthDayWeekday(d.month, d.day, localizedWeekday(d.weekday, l10n))).toList(),
+        dateRange: l10n.dateRangeYearEnd('${today.year}/${today.month.toString().padLeft(2, '0')}/${today.day.toString().padLeft(2, '0')}', today.year),
       );
 
       setState(() => _shareData = data);
@@ -264,7 +264,7 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
       try {
         image = await renderToImage(_shareKey, pixelRatio: 1.0);
       } catch (e) {
-        throw Exception('渲染失败: $e');
+        throw Exception(l10n.shareRenderError('$e'));
       }
 
       // 4. 转为 PNG bytes
@@ -278,7 +278,7 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
       // 6. 调起系统分享
       await shareImageFile(
         filePath,
-        subject: '${result.teamAName} & ${result.teamBName} 共同休息',
+        subject: l10n.shareSubject(result.teamAName, result.teamBName),
       );
     } catch (e) {
       setState(() {

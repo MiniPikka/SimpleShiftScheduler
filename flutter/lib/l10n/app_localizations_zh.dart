@@ -232,6 +232,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noLeavePlanFound => '当前倒班表下未找到高效请假方案，尝试增加请假天数';
 
   @override
+  String leaveAnalyzeRange(
+    Object startYear,
+    Object startMonth,
+    Object startDay,
+    Object endYear,
+  ) {
+    return '$startYear年$startMonth月$startDay日 — $endYear年12月31日';
+  }
+
+  @override
+  String leavePlanFormat(Object leaveDays, Object breakDays) {
+    return '请假 $leaveDays 天 → 连休 $breakDays 天';
+  }
+
+  @override
+  String leaveDateRange(
+    Object startMonth,
+    Object startDay,
+    Object endMonth,
+    Object endDay,
+  ) {
+    return '$startMonth月$startDay日 — $endMonth月$endDay日';
+  }
+
+  @override
+  String leaveWithHolidays(Object holidays) {
+    return '含 $holidays';
+  }
+
+  @override
+  String leaveDayCount(Object days) {
+    return '请假$days天';
+  }
+
+  @override
+  String leaveWeekendPlus(Object count) {
+    return '周末+$count';
+  }
+
+  @override
   String get colleagueModeTitle => '同事模式';
 
   @override
@@ -275,6 +315,36 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get statusToday => '今天';
+
+  @override
+  String fullDateFormat(Object year, Object month, Object day, Object weekday) {
+    return '$year年$month月$day日 $weekday';
+  }
+
+  @override
+  String monthDay(Object month, Object day) {
+    return '$month月$day日';
+  }
+
+  @override
+  String monthDayWeekday(Object month, Object day, Object weekday) {
+    return '$month月$day日 $weekday';
+  }
+
+  @override
+  String shareRenderError(Object error) {
+    return '渲染失败: $error';
+  }
+
+  @override
+  String shareSubject(Object teamA, Object teamB) {
+    return '$teamA & $teamB 共同休息';
+  }
+
+  @override
+  String dateRangeYearEnd(Object startDate, Object year) {
+    return '$startDate — $year/12/31';
+  }
 
   @override
   String get salaryTitle => '倒班津贴';
@@ -385,6 +455,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get addAtLeastOne => '请添加至少一个班次';
+
+  @override
+  String get slogan => '倒班助手 · 你的智能排班管家';
+
+  @override
+  String analysisRange(Object range) {
+    return '分析范围：$range';
+  }
+
+  @override
+  String countTimes(Object count) {
+    return '$count 次';
+  }
+
+  @override
+  String get scanToDownload => '扫码下载倒班助手';
 
   @override
   String get versionInfo => '倒班助手 CP v1.0.0';

@@ -36,7 +36,7 @@ class _LeaveOptimizerScreenState extends ConsumerState<LeaveOptimizerScreen> {
       appBar: AppBar(title: Text(l10n.leaveOptimizer)),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Text(l10n.leaveOptimizerExplain, style: theme.textTheme.bodySmall),
-        Text('${now.year}年${now.month}月${now.day}日 — ${now.year}年12月31日 · ${localizedTeamName(teamId, l10n)}', style: theme.textTheme.bodySmall),
+        Text(l10n.leaveAnalyzeRange(now.year, now.month, now.day, now.year) + ' · ${localizedTeamName(teamId, l10n)}', style: theme.textTheme.bodySmall),
         const SizedBox(height: 12),
         Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, children: [
           Padding(padding: const EdgeInsets.only(top: 8), child: Text(l10n.maxLeave)),
@@ -60,6 +60,7 @@ class _StrategyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final accentColor = plan.score > 0.7 ? shiftMorning : shiftAfternoon;
     return Card(
       shape: RoundedRectangleBorder(borderRadius: CpShapes.card),
@@ -69,20 +70,20 @@ class _StrategyCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: Text('请假 ${plan.leaveDays} 天 → 连休 ${plan.totalBreakDays} 天', style: theme.textTheme.headlineMedium)),
+            Expanded(child: Text(l10n.leavePlanFormat(plan.leaveDays, plan.totalBreakDays), style: theme.textTheme.headlineMedium)),
             _Tag('${plan.efficiency.toStringAsFixed(1)}x', shiftRest),
           ]),
           const SizedBox(height: 4),
-          Text('${plan.breakStart.month}月${plan.breakStart.day}日 — ${plan.breakEnd.month}月${plan.breakEnd.day}日', style: theme.textTheme.bodyMedium),
+          Text(l10n.leaveDateRange(plan.breakStart.month, plan.breakStart.day, plan.breakEnd.month, plan.breakEnd.day), style: theme.textTheme.bodyMedium),
           if (plan.overlappingHolidayNames.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text('含 ${plan.overlappingHolidayNames.join("、")}', style: TextStyle(color: shiftStudy, fontWeight: FontWeight.w600)),
+            Text(l10n.leaveWithHolidays(plan.overlappingHolidayNames.join("、")), style: TextStyle(color: shiftStudy, fontWeight: FontWeight.w600)),
           ],
           const SizedBox(height: 4),
           Row(children: [
-            _Tag('请假${plan.leaveDays}天', Theme.of(context).colorScheme.onSurfaceVariant),
+            _Tag(l10n.leaveDayCount(plan.leaveDays), Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(width: 8),
-            _Tag('周末+${plan.weekendOverlap}', Theme.of(context).colorScheme.onSurfaceVariant),
+            _Tag(l10n.leaveWeekendPlus(plan.weekendOverlap), Theme.of(context).colorScheme.onSurfaceVariant),
           ]),
         ]),
       ),

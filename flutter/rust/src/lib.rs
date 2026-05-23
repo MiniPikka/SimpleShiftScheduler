@@ -8,7 +8,8 @@ use chrono::NaiveDate;
 use holiday_engine::get_china_holidays;
 use leave_optimizer::find_best_leave_plans;
 use shift_algorithm::cycle::default_config;
-use shift_algorithm::{get_shift_info, ShiftCycleConfig};
+use shift_algorithm::{get_shift_info, get_shift_type_for_date, ShiftCycleConfig};
+use shift_export::generate_shift_ics;
 use shift_statistics::colleague::find_common_rest_days;
 use shift_statistics::metrics::{
     consecutive_work_days, count_shift_type_in_month, count_work_days_in_month,
@@ -81,6 +82,58 @@ pub unsafe extern "C" fn shift_get_shift_info(
     CString::new(json).unwrap().into_raw()
 }
 
+// ── Shift type for date (single lookup, no full ShiftInfo) ──
+
+#[no_mangle]
+pub unsafe extern "C" fn shift_get_shift_type_for_date(
+    date_iso: *const c_char,
+    team_id: u32,
+    cycle_length: u32,
+    reference_date_iso: *const c_char,
+) -> *mut c_char {
+    to_json_or_error({
+        let date = parse_date(c_str!(date_iso), default_config().reference_date);
+        let ref_date = parse_date(c_str!(reference_date_iso), default_config().reference_date);
+        let config = build_config(cycle_length, ref_date);
+        let st = get_shift_type_for_date(date, &config, config.team_phase_offset(team_id.max(1)));
+        Ok(serde_json::json!({
+            "shift_type": format!("{:?}", st).to_lowercase(),
+            "shift_label": st.full_label(),
+        }).to_string())
+    })
+}
+
+// ── Batch shift info for date range ──
+
+#[no_mangle]
+pub unsafe extern "C" fn shift_get_shift_info_range(
+    start_date_iso: *const c_char,
+    end_date_iso: *const c_char,
+    team_id: u32,
+    cycle_length: u32,
+    reference_date_iso: *const c_char,
+) -> *mut c_char {
+    to_json_or_error({
+        let start = parse_date(c_str!(start_date_iso), default_config().reference_date);
+        let end = parse_date(c_str!(end_date_iso), default_config().reference_date);
+        let ref_date = parse_date(c_str!(reference_date_iso), default_config().reference_date);
+        let config = build_config(cycle_length, ref_date);
+        let offset = config.team_phase_offset(team_id.max(1));
+        let days: Vec<serde_json::Value> = (0..=(end - start).num_days()).map(|d| {
+            let date = start + chrono::Duration::days(d);
+            let info = get_shift_info(date, &config, offset);
+            serde_json::json!({
+                "date": info.date.format("%Y-%m-%d").to_string(),
+                "shift_type": format!("{:?}", info.shift_type).to_lowercase(),
+                "shift_label": info.shift_type.full_label(),
+                "day_of_cycle": info.day_of_cycle,
+                "total_days": config.cycle_length,
+            })
+        }).collect();
+        Ok(serde_json::json!({"days": days}).to_string())
+    })
+}
+
 // ── Rest/work tracking ──
 
 #[no_mangle]
@@ -90,7 +143,7 @@ pub unsafe extern "C" fn shift_get_days_until_rest(
     cycle_length: u32,
     reference_date_iso: *const c_char,
 ) -> *mut c_char {
-    to_json_or_error((|| -> Result<String, String> {
+    to_json_or_error({
         let date = parse_date(c_str!(date_iso), default_config().reference_date);
         let ref_date = parse_date(c_str!(reference_date_iso), default_config().reference_date);
         let config = build_config(cycle_length, ref_date);
@@ -101,7 +154,7 @@ pub unsafe extern "C" fn shift_get_days_until_rest(
             "days_until": days,
             "today_is_rest": today_is_rest,
         }).to_string())
-    })())
+    })
 }
 
 #[no_mangle]
@@ -111,13 +164,13 @@ pub unsafe extern "C" fn shift_get_consecutive_work_days(
     cycle_length: u32,
     reference_date_iso: *const c_char,
 ) -> *mut c_char {
-    to_json_or_error((|| -> Result<String, String> {
+    to_json_or_error({
         let date = parse_date(c_str!(date_iso), default_config().reference_date);
         let ref_date = parse_date(c_str!(reference_date_iso), default_config().reference_date);
         let config = build_config(cycle_length, ref_date);
         let days = consecutive_work_days(date, &config, config.team_phase_offset(team_id.max(1)));
         Ok(serde_json::json!({"consecutive_work_days": days}).to_string())
-    })())
+    })
 }
 
 // ── Monthly stats ──
@@ -130,7 +183,7 @@ pub unsafe extern "C" fn shift_get_monthly_stats(
     cycle_length: u32,
     reference_date_iso: *const c_char,
 ) -> *mut c_char {
-    to_json_or_error((|| -> Result<String, String> {
+    to_json_or_error({
         let ref_date = parse_date(c_str!(reference_date_iso), default_config().reference_date);
         let config = build_config(cycle_length, ref_date);
         let offset = config.team_phase_offset(team_id.max(1));
@@ -142,7 +195,7 @@ pub unsafe extern "C" fn shift_get_monthly_stats(
             "study": count_shift_type_in_month(year, month, shift_algorithm::ShiftType::Study, &config, offset),
             "work_days": count_work_days_in_month(year, month, &config, offset),
         }).to_string())
-    })())
+    })
 }
 
 // ── Colleague mode ──
@@ -156,7 +209,7 @@ pub unsafe extern "C" fn shift_get_common_rest_days(
     cycle_length: u32,
     reference_date_iso: *const c_char,
 ) -> *mut c_char {
-    to_json_or_error((|| -> Result<String, String> {
+    to_json_or_error({
         let today = parse_date(c_str!(date_iso), default_config().reference_date);
         let ref_date = parse_date(c_str!(reference_date_iso), default_config().reference_date);
         let config = build_config(cycle_length, ref_date);
@@ -168,7 +221,47 @@ pub unsafe extern "C" fn shift_get_common_rest_days(
             "count_30_days": result.count_in_30_days,
             "count_60_days": result.count_in_60_days,
         }).to_string())
-    })())
+    })
+}
+
+// ── Holiday data ──
+
+#[no_mangle]
+pub unsafe extern "C" fn shift_get_holidays() -> *mut c_char {
+    to_json_or_error({
+        let holidays = get_china_holidays();
+        let list: Vec<serde_json::Value> = holidays.iter().map(|(date, info)| {
+            serde_json::json!({
+                "date": date.format("%Y-%m-%d").to_string(),
+                "name": info.name,
+                "is_holiday": info.is_holiday,
+                "is_confirmed": info.is_confirmed,
+            })
+        }).collect();
+        Ok(serde_json::json!({"holidays": list}).to_string())
+    })
+}
+
+// ── ICS export ──
+
+#[no_mangle]
+pub unsafe extern "C" fn shift_generate_ics(
+    start_date_iso: *const c_char,
+    end_date_iso: *const c_char,
+    team_id: u32,
+    cycle_length: u32,
+    reference_date_iso: *const c_char,
+    timezone_iso: *const c_char,
+) -> *mut c_char {
+    to_json_or_error({
+        let start = parse_date(c_str!(start_date_iso), default_config().reference_date);
+        let end = parse_date(c_str!(end_date_iso), default_config().reference_date);
+        let ref_date = parse_date(c_str!(reference_date_iso), default_config().reference_date);
+        let config = build_config(cycle_length, ref_date);
+        let tz = unsafe { CStr::from_ptr(timezone_iso) }.to_str().unwrap_or("Asia/Shanghai");
+        let ics = generate_shift_ics(start, end, &config, config.team_phase_offset(team_id.max(1)), team_id.max(1), None, tz);
+        Ok(serde_json::json!({"ics": ics}).to_string())
+    })
 }
 
 // ── Leave optimizer ──
@@ -182,7 +275,7 @@ pub unsafe extern "C" fn shift_get_best_leave_plans(
     cycle_length: u32,
     reference_date_iso: *const c_char,
 ) -> *mut c_char {
-    to_json_or_error((|| -> Result<String, String> {
+    to_json_or_error({
         let today = parse_date(c_str!(date_iso), default_config().reference_date);
         let ref_date = parse_date(c_str!(reference_date_iso), default_config().reference_date);
         let config = build_config(cycle_length, ref_date);
@@ -207,7 +300,7 @@ pub unsafe extern "C" fn shift_get_best_leave_plans(
             })
         }).collect();
         Ok(serde_json::json!({"strategies": list}).to_string())
-    })())
+    })
 }
 
 #[cfg(test)]
@@ -228,6 +321,29 @@ mod tests {
     }
 
     #[test]
+    fn test_get_shift_type_for_date() {
+        let ptr = unsafe { shift_get_shift_type_for_date(c("2026-05-22").as_ptr(), 1, 0, c("2025-12-15").as_ptr()) };
+        let json = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
+        unsafe { shift_free_string(ptr) };
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["shift_type"], "night");
+        assert_eq!(v["shift_label"], "夜班");
+    }
+
+    #[test]
+    #[test]
+    fn test_get_shift_info_range() {
+        let ptr = unsafe { shift_get_shift_info_range(c("2026-05-22").as_ptr(), c("2026-05-24").as_ptr(), 1, 0, c("2025-12-15").as_ptr()) };
+        let json = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
+        unsafe { shift_free_string(ptr) };
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let days = v["days"].as_array().unwrap();
+        assert_eq!(days.len(), 3); // May 22, 23, 24
+        assert_eq!(days[0]["date"], "2026-05-22");
+        assert_eq!(days[0]["shift_type"], "night");
+        assert_eq!(days[2]["date"], "2026-05-24");
+    }
+
     fn test_days_until_rest() {
         let ptr = unsafe { shift_get_days_until_rest(c("2026-05-22").as_ptr(), 1, 0, c("2025-12-15").as_ptr()) };
         let json = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
@@ -262,11 +378,44 @@ mod tests {
     }
 
     #[test]
+    fn test_get_holidays() {
+        let ptr = unsafe { shift_get_holidays() };
+        let json = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
+        unsafe { shift_free_string(ptr) };
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let holidays = v["holidays"].as_array().unwrap();
+        assert!(holidays.len() > 50);
+        // At least one confirmed holiday and one adjusted work day
+        let has_holiday = holidays.iter().any(|h| h["is_holiday"] == true);
+        let has_workday = holidays.iter().any(|h| h["is_holiday"] == false);
+        assert!(has_holiday);
+        assert!(has_workday);
+        // 2026 New Year should be present
+        let new_year = holidays.iter().find(|h| h["date"] == "2026-01-01");
+        assert!(new_year.is_some());
+        assert_eq!(new_year.unwrap()["name"], "元旦");
+    }
+
+    #[test]
+    fn test_generate_ics() {
+        let ptr = unsafe { shift_generate_ics(c("2026-06-01").as_ptr(), c("2026-06-07").as_ptr(), 1, 0, c("2025-12-15").as_ptr(), c("Asia/Shanghai").as_ptr()) };
+        let json = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
+        unsafe { shift_free_string(ptr) };
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let ics = v["ics"].as_str().unwrap();
+        assert!(ics.starts_with("BEGIN:VCALENDAR\r\n"));
+        assert!(ics.contains("VERSION:2.0\r\n"));
+        assert!(ics.ends_with("END:VCALENDAR\r\n"));
+        // 7 days → 7 VEVENTs
+        assert_eq!(ics.matches("BEGIN:VEVENT\r\n").count(), 7);
+    }
+
+    #[test]
     fn test_leave_plans() {
         let ptr = unsafe { shift_get_best_leave_plans(c("2026-09-01").as_ptr(), 60, 1, 5, 0, c("2025-12-15").as_ptr()) };
         let json = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap().to_string();
         unsafe { shift_free_string(ptr) };
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert!(v["strategies"].as_array().unwrap().len() > 0);
+        assert!(!v["strategies"].as_array().unwrap().is_empty());
     }
 }

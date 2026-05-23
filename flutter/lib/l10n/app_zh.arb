@@ -86,6 +86,18 @@
   "leaveOptimizerExplain": "基于你的倒班表 + 法定节假日，找到最佳请假方案",
   "maxLeave": "最多请假：",
   "noLeavePlanFound": "当前倒班表下未找到高效请假方案，尝试增加请假天数",
+  "leaveAnalyzeRange": "{startYear}年{startMonth}月{startDay}日 — {endYear}年12月31日",
+  "leavePlanFormat": "请假 {leaveDays} 天 → 连休 {breakDays} 天",
+  "leaveDateRange": "{startMonth}月{startDay}日 — {endMonth}月{endDay}日",
+  "leaveWithHolidays": "含 {holidays}",
+  "leaveDayCount": "请假{days}天",
+  "leaveWeekendPlus": "周末+{count}",
+  "@leaveAnalyzeRange": {"placeholders": {"startYear": {}, "startMonth": {}, "startDay": {}, "endYear": {}}},
+  "@leavePlanFormat": {"placeholders": {"leaveDays": {}, "breakDays": {}}},
+  "@leaveDateRange": {"placeholders": {"startMonth": {}, "startDay": {}, "endMonth": {}, "endDay": {}}},
+  "@leaveWithHolidays": {"placeholders": {"holidays": {}}},
+  "@leaveDayCount": {"placeholders": {"days": {}}},
+  "@leaveWeekendPlus": {"placeholders": {"count": {}}},
 
   "colleagueModeTitle": "同事模式",
   "iam": "我是",
@@ -100,6 +112,19 @@
   "noCommonRestFound": "在分析范围内未找到共同休息日",
   "dayCount": "{days}天后",
   "statusToday": "今天",
+  "fullDateFormat": "{year}年{month}月{day}日 {weekday}",
+  "monthDay": "{month}月{day}日",
+
+  "@fullDateFormat": {"placeholders": {"year": {}, "month": {}, "day": {}, "weekday": {}}},
+  "monthDayWeekday": "{month}月{day}日 {weekday}",
+  "shareRenderError": "渲染失败: {error}",
+  "shareSubject": "{teamA} & {teamB} 共同休息",
+  "dateRangeYearEnd": "{startDate} — {year}/12/31",
+  "@monthDay": {"placeholders": {"month": {}, "day": {}}},
+  "@monthDayWeekday": {"placeholders": {"month": {}, "day": {}, "weekday": {}}},
+  "@shareRenderError": {"placeholders": {"error": {}}},
+  "@shareSubject": {"placeholders": {"teamA": {}, "teamB": {}}},
+  "@dateRangeYearEnd": {"placeholders": {"startDate": {}, "year": {}}},
 
   "salaryTitle": "倒班津贴",
   "premiumPerShift": "班次补贴（元/班）",
@@ -140,6 +165,13 @@
   "@monthYearFormat": {"placeholders": {"year": {}, "month": {}}},
   "@rotationSeqLabel": {"placeholders": {"count": {}}},
   "@teamGapLabel": {"placeholders": {"days": {}}},
+
+  "slogan": "倒班助手 · 你的智能排班管家",
+  "analysisRange": "分析范围：{range}",
+  "countTimes": "{count} 次",
+  "scanToDownload": "扫码下载倒班助手",
+  "@analysisRange": {"placeholders": {"range": {}}},
+  "@countTimes": {"placeholders": {"count": {}}},
 
   "versionInfo": "倒班助手 CP v1.0.0"
 }

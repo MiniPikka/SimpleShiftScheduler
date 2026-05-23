@@ -1,19 +1,18 @@
 import 'package:flutter/services.dart';
 import '../../domain/models/shift_type.dart';
+import '../../domain/models/shift_cycle_config.dart';
 import '../../domain/models/alarm_settings.dart';
 import '../../domain/algorithms/shift_calculator.dart';
+import '../../domain/bridge/ffi_bridge.dart';
 
 /// Bridges to the native Android CalendarEventManager via MethodChannel.
 ///
-/// All shift calculation happens in Dart (single source of truth).
-/// Kotlin side only handles Calendar Provider CRUD — no algorithm duplication.
+/// Shift calculation prioritizes Rust FFI batch — one call for the entire date range.
+/// Dart per-day loop is the fallback.
 class CalendarService {
   static const _channel = MethodChannel('com.simpleshift.scheduler_cp/calendar');
 
   /// Sync shift events to the system calendar.
-  ///
-  /// Computes all (date, shift, alarmTime) tuples in Dart,
-  /// then passes them as a flat list to Kotlin for calendar insertion.
   static Future<int> syncShiftEvents({
     required List<ShiftType> shiftCycle,
     required int teamPhaseOffset,
@@ -25,6 +24,21 @@ class CalendarService {
 
     final today = DateTime.now();
     final refDate = DateTime.tryParse(referenceDate) ?? DateTime(2025, 12, 15);
+    final endDate = today.add(Duration(days: daysAhead - 1));
+
+    // Try batch FFI for default cycle
+    List<Map<String, dynamic>>? batch;
+    if (shiftCycle.length == ShiftCycleConfig.cycleLength) {
+      final teamId = (teamPhaseOffset ~/ teamPhaseStepFor()) + 1;
+      batch = ffiGetShiftInfoRange(
+        startDate: today,
+        endDate: endDate,
+        teamId: teamId,
+        cycleLength: shiftCycle.length,
+        referenceDate: refDate,
+      );
+    }
+
     final events = <Map<String, dynamic>>[];
 
     for (int offset = 0; offset < daysAhead; offset++) {
@@ -34,12 +48,13 @@ class CalendarService {
           '${date.month.toString().padLeft(2, '0')}-'
           '${date.day.toString().padLeft(2, '0')}';
 
-      final shiftType = getShiftTypeForDate(
-        date,
-        teamPhaseOffset: teamPhaseOffset,
-        customCycle: shiftCycle,
-        referenceDate: refDate,
-      );
+      final shiftType = _shiftTypeFromBatch(batch, offset) ??
+          getShiftTypeForDate(
+            date,
+            teamPhaseOffset: teamPhaseOffset,
+            customCycle: shiftCycle,
+            referenceDate: refDate,
+          );
 
       final alarmTime = alarmSettings.alarms[shiftType];
       if (alarmTime == null) continue;
@@ -54,12 +69,11 @@ class CalendarService {
         alarmTime.hour, alarmTime.minute,
       );
 
-      // Skip past events
       if (triggerAt.isBefore(DateTime.now())) continue;
 
       events.add({
-        'date_key': dateStr,           // original shift date for dedup key
-        'shift_index': shiftType.index, // 0=MORNING, 1=AFTERNOON, 2=REST, 3=NIGHT, 4=STUDY
+        'date_key': dateStr,
+        'shift_index': shiftType.index,
         'event_year': eventDate.year,
         'event_month': eventDate.month,
         'event_day': eventDate.day,
@@ -77,6 +91,18 @@ class CalendarService {
       return result ?? 0;
     } catch (e) {
       return 0;
+    }
+  }
+
+  static ShiftType? _shiftTypeFromBatch(List<Map<String, dynamic>>? batch, int offset) {
+    if (batch == null || offset >= batch.length) return null;
+    switch (batch[offset]['shift_type'] as String?) {
+      case 'morning': return ShiftType.MORNING;
+      case 'afternoon': return ShiftType.AFTERNOON;
+      case 'rest': return ShiftType.REST;
+      case 'night': return ShiftType.NIGHT;
+      case 'study': return ShiftType.STUDY;
+      default: return null;
     }
   }
 

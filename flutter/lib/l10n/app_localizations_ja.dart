@@ -232,6 +232,46 @@ class AppLocalizationsJa extends AppLocalizations {
   String get noLeavePlanFound => '効率的な休暇プランが見つかりません。最大休暇日数を増やしてみてください。';
 
   @override
+  String leaveAnalyzeRange(
+    Object startYear,
+    Object startMonth,
+    Object startDay,
+    Object endYear,
+  ) {
+    return '$startYear年$startMonth月$startDay日 — $endYear年12月31日';
+  }
+
+  @override
+  String leavePlanFormat(Object leaveDays, Object breakDays) {
+    return '$leaveDays日休 → $breakDays日連休';
+  }
+
+  @override
+  String leaveDateRange(
+    Object startMonth,
+    Object startDay,
+    Object endMonth,
+    Object endDay,
+  ) {
+    return '$startMonth月$startDay日 — $endMonth月$endDay日';
+  }
+
+  @override
+  String leaveWithHolidays(Object holidays) {
+    return '$holidays 含む';
+  }
+
+  @override
+  String leaveDayCount(Object days) {
+    return '$days日休';
+  }
+
+  @override
+  String leaveWeekendPlus(Object count) {
+    return '週末+$count';
+  }
+
+  @override
   String get colleagueModeTitle => '同僚モード';
 
   @override
@@ -275,6 +315,36 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get statusToday => '今日';
+
+  @override
+  String fullDateFormat(Object year, Object month, Object day, Object weekday) {
+    return '$year年$month月$day日 $weekday';
+  }
+
+  @override
+  String monthDay(Object month, Object day) {
+    return '$month月$day日';
+  }
+
+  @override
+  String monthDayWeekday(Object month, Object day, Object weekday) {
+    return '$month月$day日 $weekday';
+  }
+
+  @override
+  String shareRenderError(Object error) {
+    return 'レンダリング失敗: $error';
+  }
+
+  @override
+  String shareSubject(Object teamA, Object teamB) {
+    return '$teamA & $teamB 共通休日';
+  }
+
+  @override
+  String dateRangeYearEnd(Object startDate, Object year) {
+    return '$startDate — $year/12/31';
+  }
 
   @override
   String get salaryTitle => 'シフト手当';
@@ -385,6 +455,22 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get addAtLeastOne => '少なくとも1つのシフトを追加してください';
+
+  @override
+  String get slogan => 'ShiftMate · スマートシフト管理';
+
+  @override
+  String analysisRange(Object range) {
+    return '分析範囲：$range';
+  }
+
+  @override
+  String countTimes(Object count) {
+    return '$count 回';
+  }
+
+  @override
+  String get scanToDownload => 'スキャンしてダウンロード';
 
   @override
   String get versionInfo => '倒班アシスト CP v1.0.0';

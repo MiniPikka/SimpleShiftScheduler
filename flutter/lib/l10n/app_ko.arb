@@ -86,6 +86,18 @@
   "leaveOptimizerExplain": "근무표와 공휴일에 기반하여 최적의 휴가 계획을 찾습니다",
   "maxLeave": "최대 휴가: ",
   "noLeavePlanFound": "효율적인 휴가 계획을 찾을 수 없습니다. 최대 휴가 일수를 늘려보세요.",
+  "leaveAnalyzeRange": "{startYear}년 {startMonth}월 {startDay}일 — {endYear}년 12월 31일",
+  "leavePlanFormat": "{leaveDays}일 휴가 → {breakDays}일 연휴",
+  "leaveDateRange": "{startMonth}월 {startDay}일 — {endMonth}월 {endDay}일",
+  "leaveWithHolidays": "{holidays} 포함",
+  "leaveDayCount": "{days}일 휴가",
+  "leaveWeekendPlus": "주말+{count}",
+  "@leaveAnalyzeRange": {"placeholders": {"startYear": {}, "startMonth": {}, "startDay": {}, "endYear": {}}},
+  "@leavePlanFormat": {"placeholders": {"leaveDays": {}, "breakDays": {}}},
+  "@leaveDateRange": {"placeholders": {"startMonth": {}, "startDay": {}, "endMonth": {}, "endDay": {}}},
+  "@leaveWithHolidays": {"placeholders": {"holidays": {}}},
+  "@leaveDayCount": {"placeholders": {"days": {}}},
+  "@leaveWeekendPlus": {"placeholders": {"count": {}}},
 
   "colleagueModeTitle": "동료 모드",
   "iam": "나는",
@@ -100,6 +112,19 @@
   "noCommonRestFound": "분석 범위 내 공동 휴일이 없습니다.",
   "dayCount": "{days}일 후",
   "statusToday": "오늘",
+  "fullDateFormat": "{year}년 {month}월 {day}일 {weekday}",
+  "monthDay": "{month}월 {day}일",
+
+  "@fullDateFormat": {"placeholders": {"year": {}, "month": {}, "day": {}, "weekday": {}}},
+  "monthDayWeekday": "{month}월 {day}일 {weekday}",
+  "shareRenderError": "렌더링 실패: {error}",
+  "shareSubject": "{teamA} & {teamB} 공동 휴일",
+  "dateRangeYearEnd": "{startDate} — {year}/12/31",
+  "@monthDay": {"placeholders": {"month": {}, "day": {}}},
+  "@monthDayWeekday": {"placeholders": {"month": {}, "day": {}, "weekday": {}}},
+  "@shareRenderError": {"placeholders": {"error": {}}},
+  "@shareSubject": {"placeholders": {"teamA": {}, "teamB": {}}},
+  "@dateRangeYearEnd": {"placeholders": {"startDate": {}, "year": {}}},
 
   "salaryTitle": "근무 수당",
   "premiumPerShift": "근무별 수당 (원)",
@@ -137,6 +162,13 @@
   "teamGapLabel": "팀 간격: {days} 일",
   "yuanPerShift": "위안/근무",
   "addAtLeastOne": "최소 하나의 근무를 추가하세요",
+
+  "slogan": "ShiftMate · 스마트 근무 관리",
+  "analysisRange": "분석 범위：{range}",
+  "countTimes": "{count} 회",
+  "scanToDownload": "스캔하여 다운로드",
+  "@analysisRange": {"placeholders": {"range": {}}},
+  "@countTimes": {"placeholders": {"count": {}}},
 
   "versionInfo": "교대 도우미 CP v1.0.0"
 }

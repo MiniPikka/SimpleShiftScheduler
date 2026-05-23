@@ -1,7 +1,9 @@
-// 中国法定节假日数据 — 对应 Android 版 holiday_data.kt
+// 中国法定节假日数据 — 优先走 Rust FFI（holiday-engine crate），失败回退纯 Dart。
 // 2026 年数据来自国务院官方发布。
 // 2027 年数据基于农历推算，标记"[待确认]"。
 // 每年 11-12 月国务院发布下一年安排后更新此文件。
+
+import '../bridge/ffi_bridge.dart';
 
 class HolidayInfo {
   final DateTime date;
@@ -15,8 +17,23 @@ class HolidayInfo {
   });
 }
 
-/// 中国法定节假日 Map（date → info）
+/// 中国法定节假日 Map（date → info）— 优先走 Rust FFI，失败回退纯 Dart。
 Map<DateTime, HolidayInfo> getChinaHolidays() {
+  // Try Rust FFI first
+  final ffiResult = ffiGetHolidays();
+  if (ffiResult != null && ffiResult['holidays'] != null) {
+    final map = <DateTime, HolidayInfo>{};
+    for (final entry in ffiResult['holidays']) {
+      final date = DateTime.parse(entry['date'] as String);
+      map[date] = HolidayInfo(
+        date: date,
+        name: entry['name'] as String?,
+        isHoliday: entry['is_holiday'] as bool,
+      );
+    }
+    return map;
+  }
+
   final holidays = <HolidayInfo>[];
 
   // === 2026 Official Holidays (国办发明电〔2025〕) ===
