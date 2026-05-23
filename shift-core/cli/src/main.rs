@@ -396,7 +396,7 @@ fn team_lbl(id: u32, lang: &str) -> String {
     if lang == "zh" { shift_algorithm::team_name(id) } else { format!("Team {}", id) }
 }
 
-fn month_name_en(m: u32) -> &'static str {
+pub(crate) fn month_name_en(m: u32) -> &'static str {
     match m {
         1 => "Jan", 2 => "Feb", 3 => "Mar", 4 => "Apr", 5 => "May", 6 => "Jun",
         7 => "Jul", 8 => "Aug", 9 => "Sep", 10 => "Oct", 11 => "Nov", 12 => "Dec",
@@ -534,7 +534,7 @@ fn cmd_next_rest(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset:
         } else if days == 0 {
             if lang == "zh" { "明天休息".to_string() } else { "Rest tomorrow".to_string() }
         } else {
-            format!("{}", format!("{}", if lang == "zh" { format!("距休 {} 天", days) } else { format!("{}d until rest", days) }))
+            (if lang == "zh" { format!("距休 {} 天", days) } else { format!("{}d until rest", days) }).to_string().to_string()
         };
         let out = NextRestOutput {
             days_until: if today_is_rest { 0 } else { days },

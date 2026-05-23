@@ -171,6 +171,14 @@ fn shift_tui_color(st: ShiftType) -> Color {
     }
 }
 
+fn month_name_en(m: u32) -> &'static str {
+    match m {
+        1 => "Jan", 2 => "Feb", 3 => "Mar", 4 => "Apr", 5 => "May", 6 => "Jun",
+        7 => "Jul", 8 => "Aug", 9 => "Sep", 10 => "Oct", 11 => "Nov", 12 => "Dec",
+        _ => "???",
+    }
+}
+
 fn draw_today(f: &mut Frame, area: Rect, app: &App) {
     let info = get_shift_info(app.today, &app.config, app.offset);
     let rest = days_until_next_rest(app.today, &app.config, app.offset);
@@ -424,12 +432,5 @@ fn draw_bottom_bar(f: &mut Frame, area: Rect, app: &App) {
         .style(Style::default().bg(Color::DarkGray).fg(Color::White))
         .alignment(Alignment::Center);
     f.render_widget(bar, area);
-}
 
-fn month_name_en(m: u32) -> &'static str {
-    match m {
-        1 => "Jan", 2 => "Feb", 3 => "Mar", 4 => "Apr", 5 => "May", 6 => "Jun",
-        7 => "Jul", 8 => "Aug", 9 => "Sep", 10 => "Oct", 11 => "Nov", 12 => "Dec",
-        _ => "???",
-    }
 }
