@@ -12,19 +12,12 @@ banban tui            →  全屏终端界面，btop/lazygit 风格
 ## Install
 
 ```bash
-# From crates.io
-cargo install shift-cli
-
-# From source
-git clone https://github.com/MiniPikka/SimpleShiftScheduler.git
-cd SimpleShiftScheduler/shift-core
-cargo install --path cli
-
-# Ready
+cargo install shift-cli     # from crates.io
 banban today
 ```
 
-**Arch Linux**: `yay -S shift-cli` (coming soon)
+[![crates.io](https://img.shields.io/crates/v/shift-cli)](https://crates.io/crates/shift-cli)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Quick Start
 

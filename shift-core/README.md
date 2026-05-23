@@ -13,34 +13,27 @@ A worker on a rotating shift schedule (e.g. 42-day cycle, 6 teams) can answer:
 
 ## Crates
 
-| Crate | Purpose | Status |
-|-------|---------|--------|
-| [`shift-algorithm`](crates/shift-algorithm/) | Core scheduling algorithm (date → shift type) | ✅ Stable |
-| [`shift-statistics`](crates/shift-statistics/) | Monthly stats, colleague mode | ✅ Stable |
-| [`holiday-engine`](crates/holiday-engine/) | 2026-2027 Chinese statutory holidays | ✅ Stable |
-| [`leave-optimizer`](crates/leave-optimizer/) | Gap-merging leave strategy optimizer | ✅ Stable |
-| [`export-engine`](crates/export-engine/) | ICS calendar file export | 🏗️ Phase 2 |
+| Crate | crates.io | Purpose |
+|-------|-----------|---------|
+| [`shift-algorithm`](crates/shift-algorithm/) | [![crates.io](https://img.shields.io/crates/v/shift-algorithm)](https://crates.io/crates/shift-algorithm) | Core scheduling algorithm (date → shift type) |
+| [`shift-statistics`](crates/shift-statistics/) | [![crates.io](https://img.shields.io/crates/v/shift-statistics)](https://crates.io/crates/shift-statistics) | Monthly stats, colleague mode |
+| [`holiday-engine`](crates/holiday-engine/) | [![crates.io](https://img.shields.io/crates/v/holiday-engine)](https://crates.io/crates/holiday-engine) | 2026-2027 Chinese statutory holidays |
+| [`leave-optimizer`](crates/leave-optimizer/) | [![crates.io](https://img.shields.io/crates/v/leave-optimizer)](https://crates.io/crates/leave-optimizer) | Gap-merging leave strategy optimizer |
+| [`shift-export`](crates/shift-export/) | [![crates.io](https://img.shields.io/crates/v/shift-export)](https://crates.io/crates/shift-export) | ICS (RFC 5545) calendar file export |
+| [`shift-cli`](cli/) | [![crates.io](https://img.shields.io/crates/v/shift-cli)](https://crates.io/crates/shift-cli) | CLI + TUI — binary `banban` |
 
 ## Quick start
 
 ```bash
-# Build and test
+# Install from crates.io
+cargo install shift-cli
+banban today
+
+# Or build from source
 cd shift-core
 cargo build
-cargo test
-
-# Run the CLI
 cargo run --bin banban -- today
-cargo run --bin banban -- -t 2 calendar
-cargo run --bin banban -- leave -m 3
-cargo run --bin banban -- colleague 1 3
-```
-
-## Install
-
-```bash
-cargo install --path cli --root ~/.local
-~/.local/bin/banban today
+cargo test                       # 111 tests
 ```
 
 ## Documentation
