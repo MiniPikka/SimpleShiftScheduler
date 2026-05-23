@@ -73,6 +73,17 @@ impl ShiftType {
         }
     }
 
+    /// Padded English label (3 chars for alignment).
+    pub fn label_en_padded(&self) -> &'static str {
+        match self {
+            ShiftType::Morning => "AM ",
+            ShiftType::Afternoon => "PM ",
+            ShiftType::Rest => "Off",
+            ShiftType::Night => "NT ",
+            ShiftType::Study => "TR ",
+        }
+    }
+
     /// Full English label.
     pub fn full_label_en(&self) -> &'static str {
         match self {

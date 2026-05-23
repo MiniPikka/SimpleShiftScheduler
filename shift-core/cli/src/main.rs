@@ -383,7 +383,7 @@ fn parse_shift_label(s: &str) -> ShiftType {
 
 /// Short label in current language.
 fn lbl(st: ShiftType, lang: &str) -> &'static str {
-    if lang == "zh" { st.label() } else { st.label_en() }
+    if lang == "zh" { st.label() } else { st.label_en_padded() }
 }
 
 /// Full label in current language.
@@ -624,7 +624,7 @@ fn cmd_calendar(
 
         // Unicode-width-aware header
         let dow = if lang == "zh" { ["日", "一", "二", "三", "四", "五", "六"] } else { ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] };
-        let header_width = if lang == "zh" { 5 } else { 4 };
+        let header_width = 5;
         for d in dow {
             print!("{}", pad_cjk(d, header_width).dimmed());
         }
@@ -638,7 +638,7 @@ fn cmd_calendar(
                 let is_tdy = date == today;
 
                 let label = lbl(info.shift_type, lang);
-                let content = if lang == "zh" { format!("{:2}{}", date.day(), label) } else { format!("{:2} {}", date.day(), label) };
+                let content = format!("{:2}{}", date.day(), label);
                 let cell = pad_cjk(&content, header_width);
 
                 if !is_cur {
