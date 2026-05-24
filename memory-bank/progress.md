@@ -1,3 +1,99 @@
+## 2026-05-25：Flutter Linux Desktop — 全功能迁移 ✅
+
+### 目标达成
+
+将 Flutter 移动端 App 迁移到 Linux 桌面，作为第一公民平台。Rust shift-core 继续作为唯一算法核心，Flutter 负责 UI 和平台集成。`banban` CLI 的已有功能（Waybar、systemd、DBus、通知、shell 补全）不重复实现。
+
+### Phase 0：启用 Linux 桌面 + FFI 构建
+
+- `flutter config --enable-linux-desktop` + `flutter create --platforms=linux .`
+- 生成 `linux/` 目录（13 个文件：CMake + GTK3 runner + 插件注册）
+- `cargo build --release` → `libshift_flutter_bridge.so`（750KB, x86_64 ELF）
+- 窗口标题"倒班助手"，默认大小 960x700，最小 480x400
+
+### Phase 0：平台适配守卫
+
+| 文件 | 变更 |
+|------|------|
+| `calendar_service.dart` | `syncShiftEvents()` / `deleteAllEvents()` 非 Android 直接返回（MethodChannel 无 Linux handler） |
+| `widget_service.dart` | `update()` 非 Android 直接返回（桌面小组件不存在） |
+| `notification_service.dart` | Linux 使用 `LinuxInitializationSettings`（DBus `org.freedesktop.Notifications`） |
+| `main.dart` | `Hive.init()` 在 Linux 上用 `$XDG_DATA_HOME/scheduler_cp`，不用 `~/Documents` |
+| `main.dart` | 权限请求只在 Android/iOS 执行，Linux 跳过 |
+
+### Phase 1：桌面 UI 适配
+
+- **响应式断点**：`spacing.dart` 新增 `desktopBreakpoint = 720`、`desktopContentWidth = 900`
+- **新文件**：`lib/core/utils/responsive.dart` — `isDesktopLayout(context)` + `contentMaxWidth(context)`
+- **AppShell** 改造：`LayoutBuilder` → ≥720px 显示 `NavigationRail` 左侧栏，<720px 显示 `NavigationBar` 底部栏
+- **4 个页面**（home/calendar/profile/alarm_settings）：`maxWidth` 从硬编码 600 → `contentMaxWidth(context)`
+- **键盘快捷键**：Ctrl+1/2/3 切标签、Ctrl+Q 退出、Esc 返回 — 集成在 `AppShell` 中
+
+### Phase 2：Linux 平台集成
+
+- **新文件**：`lib/core/services/linux_calendar_sync.dart`
+  - `sync()` — 通过 FFI `ffiGenerateIcs()` 生成 ICS → 写入 `~/.local/share/banban/shifts.ics`
+  - `openWithDefaultApp()` — `xdg-open` 调用系统默认日历
+  - `isSystemdTimerActive()` — 检查 `banban-ics.timer` 状态
+- **`_performSync()`** 中：设置变更时自动触发 ICS 同步（Linux only）
+- **Profile 页**：新增 Linux 专区 — "Export ICS"、"Open in Calendar"、"Auto-sync status"（FutureBuilder）
+- **通知**：`flutter_local_notifications_linux` 通过 DBus libnotify 工作
+
+### Phase 3：构建与分发
+
+| 脚本 | 功能 |
+|------|------|
+| `build_rust_linux.sh` | 构建 Rust FFI `.so`，可选 `--run` 一键启动 |
+| `build.sh` | 一体化构建：Rust FFI → Flutter Linux → `.so` 自动打包到 bundle |
+| `package.sh` | 生成 `shiftmate-x86_64.tar.gz`（12MB），可选 AppImage（需 linuxdeploy） |
+| `install_linux.sh` | 系统级安装到 `/usr/local`（二进制 + .so + 图标 + .desktop），`--uninstall` 清理 |
+
+- **FFI 加载路径增强**：新增 3 条基于 `Platform.resolvedExecutable` 的路径，覆盖 bundle/AppImage/FHS 安装布局
+- **应用图标**：`linux_icon.png`（256x256 PNG，深色生产风格）
+- **桌面入口**：`shiftmate.desktop`（XDG 规范，`StartupWMClass=scheduler_cp`）
+
+### Bug 修复
+
+- **ICS 导出失败**：Rust FFI 返回的 JSON 中没有 `count` 字段 → `LinuxCalendarSync.sync()` 总是返回 0 → 显示"Check FFI bridge"
+  - 修复：统计 ICS 字符串中 `BEGIN:VEVENT\r\n` 出现次数替代 `result['count']`
+- **Hive 路径错误**：`Hive.initFlutter()` 在 Linux 上使用 `~/Documents/` → 改为 `$XDG_DATA_HOME/scheduler_cp`
+- **clippy 警告**：`serve.rs` 修复 3 处 `manual_range_contains`
+
+### 验证
+
+- `flutter analyze` — 零错误零警告（仅 15 个已有 info lint）
+- `flutter test` — 全部 110 个测试通过
+- `cargo test` — 全部 109 + 7 doctest 通过
+- `cargo clippy --all-targets` — 零警告
+- `./build.sh` → 发布版二进制启动正常，FFI 加载成功，ICS 同步：222 events, 40KB
+
+### 新增/修改文件汇总
+
+| 新增（22 个） | 修改（13 个） |
+|-------------|-------------|
+| `flutter/linux/` — 平台目录（9 个文件） | `flutter/lib/app/routes.dart` |
+| `flutter/lib/core/utils/responsive.dart` | `flutter/lib/main.dart` |
+| `flutter/lib/core/services/linux_calendar_sync.dart` | `flutter/lib/domain/bridge/ffi_bridge.dart` |
+| `flutter/build_rust_linux.sh` | `flutter/lib/core/services/calendar_service.dart` |
+| `flutter/build.sh` | `flutter/lib/core/services/notification_service.dart` |
+| `flutter/package.sh` | `flutter/lib/core/services/widget_service.dart` |
+| `flutter/install_linux.sh` | `flutter/lib/core/theme/spacing.dart` |
+| `flutter/shiftmate.desktop` | `flutter/lib/features/home/home_screen.dart` |
+| `flutter/linux_icon.png` | `flutter/lib/features/calendar/calendar_screen.dart` |
+| | `flutter/lib/features/profile/profile_screen.dart` |
+| | `flutter/lib/features/alarm_settings/alarm_settings_screen.dart` |
+| | `flutter/pubspec.lock` |
+| | `shift-core/cli/src/serve.rs` |
+
+### 下一步
+
+- Phase 4：手动测试（Wayland/X11、KDE/GNOME 行为、CJK 字体、快捷键响应）
+- 修复真机测试发现的问题
+- 更新 memory-bank 文档（architecture.md / implementation-plan.md）
+- 可选：Google Play 上架 / Web 前端 / KDE Plasma Widget
+
+---
+
 ## 2026-05-24：crates.io v0.1.4 + AUR 打包 ✅
 
 - `cargo install shift-cli` → v0.1.4 已发布到 crates.io

@@ -75,13 +75,29 @@ flutter test                   # 110 tests
 flutter build apk --debug
 ```
 
-### 部署到 Android 真机
+### Android 部署
 
 ```bash
 cd flutter
 ./build_rust_android.sh        # Rust → ARM64 .so
 flutter run -d <device_id>     # 或者 ./build_rust_android.sh --run
 ```
+
+### Linux Desktop 部署
+
+```bash
+cd flutter
+./build.sh                     # Rust FFI + Flutter Linux release，.so 自动打包
+./package.sh                   # 生成 tar.gz 分发包
+./install_linux.sh             # 安装到 /usr/local
+```
+
+Linux 桌面版特性：
+- 响应式 UI：`NavigationRail` 侧边栏（≥720px）/ `NavigationBar` 底部栏（<720px）
+- 键盘快捷键：Ctrl+1/2/3 切标签、Ctrl+Q 退出、Esc 返回
+- ICS 自动导出到 `~/.local/share/banban/shifts.ics`
+- 系统通知通过 DBus libnotify
+- `banban` CLI 功能（Waybar、systemd、DBus）不重复实现
 
 ### Architecture
 
