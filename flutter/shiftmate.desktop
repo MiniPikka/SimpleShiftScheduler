@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=倒班助手
+Name[en]=ShiftMate
+Comment=Shift scheduler for shift workers
+Comment[zh_CN]=倒班人群的排班生活助手
+Exec=shiftmate
+Icon=shiftmate
+Terminal=false
+Categories=Office;Calendar;Utility;
+Keywords=shift;schedule;calendar;
+StartupWMClass=scheduler_cp

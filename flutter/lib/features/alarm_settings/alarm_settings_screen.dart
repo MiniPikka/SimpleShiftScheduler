@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/spacing.dart';
+import '../../core/utils/responsive.dart';
 import '../../core/theme/shapes.dart';
 import '../../core/theme/colors.dart';
 import '../../core/utils/l10n.dart';
@@ -21,7 +22,7 @@ class AlarmSettingsScreen extends ConsumerWidget {
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: CpSpacing.maxContentWidth),
+            constraints: BoxConstraints(maxWidth: contentMaxWidth(context)),
             child: ListView(
               padding: const EdgeInsets.all(CpSpacing.md),
               children: [

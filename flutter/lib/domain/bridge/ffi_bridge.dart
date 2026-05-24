@@ -5,7 +5,9 @@
 library;
 
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:ffi/ffi.dart';
 
 // ── Native types ──
@@ -43,18 +45,28 @@ DynamicLibrary? _loadLib() {
   if (_tried) return _lib;
   _tried = true;
 
-  // Order: Android (no path prefix), then Linux test, then Linux release
+  // Executable-relative paths: cover bundled, AppImage, and system install layouts
+  final exeDir = File(Platform.resolvedExecutable).parent.path;
+
   final candidates = [
-    'libshift_flutter_bridge.so',                     // Android / installed system-wide
-    'rust/target/debug/libshift_flutter_bridge.so',   // Linux flutter test
-    'rust/target/release/libshift_flutter_bridge.so', // Linux release
+    'libshift_flutter_bridge.so',                            // Android jniLibs / LD_LIBRARY_PATH
+    'rust/target/debug/libshift_flutter_bridge.so',          // flutter run from flutter/
+    'rust/target/release/libshift_flutter_bridge.so',        // flutter run from flutter/
+    '$exeDir/rust/target/release/libshift_flutter_bridge.so', // bundled (build.sh output)
+    '$exeDir/rust/target/debug/libshift_flutter_bridge.so',   // bundled debug
+    '$exeDir/../lib/libshift_flutter_bridge.so',              // system install (FHS layout)
   ];
 
   for (final name in candidates) {
     try {
       _lib = DynamicLibrary.open(name);
+      debugPrint('FFI: loaded $name');
       return _lib;
     } catch (_) {}
+  }
+  debugPrint('FFI: failed to load libshift_flutter_bridge.so. Tried:');
+  for (final name in candidates) {
+    debugPrint('FFI:   $name');
   }
   return null;
 }
@@ -67,7 +79,8 @@ dynamic _call(String name, List<Object?> args, dynamic Function(DynamicLibrary l
   if (lib == null) return null;
   try {
     return callFn(lib);
-  } catch (_) {
+  } catch (e) {
+    debugPrint('FFI: call $name failed: $e');
     return null;
   }
 }

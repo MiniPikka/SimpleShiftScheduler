@@ -16,4 +16,10 @@ class CpSpacing {
 
   /// 页面内容最大宽度（大屏居中限宽）
   static const double maxContentWidth = 600;
+
+  /// Desktop content width (wider than mobile 600)
+  static const double desktopContentWidth = 900;
+
+  /// Breakpoint: below this width, use mobile layout
+  static const double desktopBreakpoint = 720;
 }

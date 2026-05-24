@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -24,20 +25,27 @@ class NotificationService {
 
     tz_data.initializeTimeZones();
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
-    );
+    InitializationSettings settings;
+    if (Platform.isAndroid) {
+      settings = const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      );
+    } else if (Platform.isIOS) {
+      settings = const InitializationSettings(
+        iOS: DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestBadgePermission: false,
+          requestSoundPermission: false,
+        ),
+      );
+    } else {
+      // Linux: uses DBus org.freedesktop.Notifications
+      settings = const InitializationSettings(
+        linux: LinuxInitializationSettings(defaultActionName: 'Open'),
+      );
+    }
 
-    await _plugin.initialize(
-      settings: const InitializationSettings(
-        android: androidSettings,
-        iOS: iosSettings,
-      ),
-    );
+    await _plugin.initialize(settings: settings);
   }
 
   /// 调度一个班次提醒通知

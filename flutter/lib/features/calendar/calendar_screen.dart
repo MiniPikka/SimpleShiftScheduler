@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
+import '../../core/utils/responsive.dart';
 import '../../core/theme/shapes.dart';
 import '../../core/utils/l10n.dart';
 import '../../domain/models/shift_type.dart';
@@ -59,7 +60,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: CpSpacing.maxContentWidth),
+            constraints: BoxConstraints(maxWidth: contentMaxWidth(context)),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(CpSpacing.sm),
               child: Column(children: [

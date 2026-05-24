@@ -9,6 +9,7 @@ import 'core/theme/theme.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/notification_scheduler.dart';
 import 'core/services/calendar_service.dart';
+import 'core/services/linux_calendar_sync.dart';
 import 'core/services/share_service.dart';
 import 'core/services/supabase_service.dart';
 import 'data/providers.dart';
@@ -21,7 +22,13 @@ import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
+  if (Platform.isLinux) {
+    final dataHome = Platform.environment['XDG_DATA_HOME'] ??
+        '${Platform.environment['HOME']}/.local/share';
+    Hive.init('$dataHome/scheduler_cp');
+  } else {
+    await Hive.initFlutter();
+  }
   await NotificationService.init();
   await SupabaseService.init();
   await cleanupOldShareImages();
@@ -119,6 +126,15 @@ class _NotificationSchedulerState
         referenceDate: settings.referenceDate,
       );
 
+      // Sync ICS file on Linux desktop
+      if (Platform.isLinux) {
+        await LinuxCalendarSync.sync(
+          teamId: teamId,
+          cycleLength: settings.shiftCycle.length,
+          referenceDate: settings.referenceDate,
+        );
+      }
+
       // Sync calendar events (only if any alarm is enabled)
       if (alarmSettings.isAnyEnabled()) {
         final refDateStr =
@@ -155,6 +171,13 @@ class _NotificationSchedulerState
             teamPhaseOffset: phaseOffset,
             referenceDate: settings.referenceDate,
           );
+          if (Platform.isLinux) {
+            await LinuxCalendarSync.sync(
+              teamId: teamId,
+              cycleLength: settings.shiftCycle.length,
+              referenceDate: settings.referenceDate,
+            );
+          }
           if (alarmSettings.isAnyEnabled()) {
             await CalendarService.syncShiftEvents(
               shiftCycle: settings.shiftCycle,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/spacing.dart';
+import '../../core/utils/responsive.dart';
 import '../../core/services/widget_service.dart';
 import '../../core/utils/l10n.dart';
 import '../../domain/models/shift_type.dart';
@@ -120,7 +121,7 @@ class HomeScreen extends ConsumerWidget {
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: CpSpacing.maxContentWidth),
+            constraints: BoxConstraints(maxWidth: contentMaxWidth(context)),
             child: RefreshIndicator(
               onRefresh: () async {
                 ref.read(homeProvider.notifier).refresh();

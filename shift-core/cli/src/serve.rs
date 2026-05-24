@@ -172,7 +172,7 @@ async fn calendar(
 ) -> Result<Json<CalendarResponse>, (StatusCode, Json<ErrorPayload>)> {
     let year: i32 = year_str.parse().map_err(|_| err("Invalid year"))?;
     let month: u32 = month_str.parse().map_err(|_| err("Invalid month"))?;
-    if month < 1 || month > 12 {
+    if !(1..=12).contains(&month) {
         return Err(err("Month must be 1-12"));
     }
 
@@ -248,7 +248,7 @@ async fn colleague(
     State(state): State<Arc<AppState>>,
     Path((team_a, team_b)): Path<(u32, u32)>,
 ) -> Result<Json<ColleagueResponse>, (StatusCode, Json<ErrorPayload>)> {
-    if team_a < 1 || team_a > 6 || team_b < 1 || team_b > 6 {
+    if !(1..=6).contains(&team_a) || !(1..=6).contains(&team_b) {
         return Err(err("Team numbers must be 1-6"));
     }
 

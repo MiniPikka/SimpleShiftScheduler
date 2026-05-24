@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import '../../domain/models/shift_type.dart';
 import '../../domain/models/shift_cycle_config.dart';
@@ -13,6 +14,9 @@ class CalendarService {
   static const _channel = MethodChannel('com.simpleshift.scheduler_cp/calendar');
 
   /// Sync shift events to the system calendar.
+  ///
+  /// Calendar sync is Android-only (native Calendar Provider via MethodChannel).
+  /// On Linux, use ICS export via `LinuxCalendarSync` instead.
   static Future<int> syncShiftEvents({
     required List<ShiftType> shiftCycle,
     required int teamPhaseOffset,
@@ -20,6 +24,7 @@ class CalendarService {
     required String referenceDate,
     int daysAhead = 365,
   }) async {
+    if (!Platform.isAndroid) return 0;
     if (!alarmSettings.isAnyEnabled()) return 0;
 
     final today = DateTime.now();
@@ -108,6 +113,7 @@ class CalendarService {
 
   /// Delete all shift events from the system calendar.
   static Future<void> deleteAllEvents() async {
+    if (!Platform.isAndroid) return;
     try {
       await _channel.invokeMethod('deleteAllEvents');
     } catch (_) {}
