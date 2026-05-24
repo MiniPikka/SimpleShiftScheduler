@@ -1,3 +1,11 @@
+## 2026-05-24：crates.io v0.1.4 + AUR 打包 ✅
+
+- `cargo install shift-cli` → v0.1.4 已发布到 crates.io
+- AUR 包 `banban` 已推送: https://aur.archlinux.org/packages/banban
+- 安装：`yay -S banban` 或 `paru -S banban`
+
+---
+
 ## 2026-05-24：DBus 服务 ✅
 
 - `banban dbus` — 注册 session bus 服务 `com.simpleshift.ShiftDaemon`
