@@ -1,3 +1,46 @@
+## 2026-05-24：DBus 服务 ✅
+
+- `banban dbus` — 注册 session bus 服务 `com.simpleshift.ShiftDaemon`
+- 4 个查询方法（JSON 返回）：
+  - `GetTodayShift()` — 今日班次
+  - `GetShiftForDate(s)` — 指定日期班次
+  - `GetUpcomingRest()` — 距休倒计时
+  - `GetConfig()` — 当前排班配置
+- 跨天自动检测（30s 轮询），发射 `ShiftChanged` / `DayChanged` 信号
+- 依赖 zbus 5（已有），零新增外部依赖
+- CLI 命令总数: 16 → 17
+
+---
+
+## 2026-05-24：Local HTTP API ✅
+
+- `banban serve` — 启动 localhost:11451 HTTP API 服务器（axum + tokio）
+- 端点：
+  - `GET /health` — 健康检查
+  - `GET /shift` — 今日班次
+  - `GET /shift/YYYY-MM-DD` — 指定日期班次
+  - `GET /calendar/YYYY/MM` — 月历
+  - `GET /leave?max_days=N` — 拼假策略
+  - `GET /colleague/A/B` — 同事共同休息日
+- CLI 命令总数: 15 → 16
+- 零新增 crate（直接集成到 CLI 二进制）
+
+---
+
+## 2026-05-24：Shell 自动补全 ✅
+
+- `banban completions <SHELL>` — 生成 bash/zsh/fish 补全脚本
+- 依赖 `clap_complete` 4.5，零额外运行时开销
+- CLI 命令总数: 14 → 15
+- 用法：
+  ```bash
+  banban completions bash | sudo tee /usr/share/bash-completion/completions/banban
+  banban completions zsh > ~/.zsh/completions/_banban
+  banban completions fish > ~/.config/fish/completions/banban.fish
+  ```
+
+---
+
 ## 2026-05-23：v0.1.3 — i18n 完善 + FFI 扩展 + 批量模式 + banban week ✅
 
 ### 版本迭代
@@ -39,9 +82,9 @@
 | Component | Tests |
 |-----------|-------|
 | Rust FFI bridge (shift-flutter-bridge) | 9 |
-| shift-core (5 crates) | 111 |
+| shift-core (5 crates) | 109 |
 | Flutter (Dart) | 110 |
-| **Total** | **230** |
+| **Total** | **228** |
 | Android ARM64 真机 | ✅ 构建+安装+运行成功 |
 
 ## 2026-05-23：v0.1.2 — TUI i18n, crates.io 发布, 全面审查 ✅
@@ -730,7 +773,7 @@ flutter test       # 85/85 passed（+13 新测试）
 SimpleShiftScheduler/
 ├── CLAUDE.md          ← 统一指导文件
 ├── memory-bank/       ← 共享文档
-├── android/           ← Android 原版 (Kotlin + Compose, Phase 1 完成, 162 tests)
+├── android/           ← Android 原版 (Kotlin + Compose, Phase 1 完成, 148 tests)
 └── flutter/           ← Flutter CP 版 (主力开发, 72 tests, 迁移进行中)
 ```
 

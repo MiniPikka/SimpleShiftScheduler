@@ -4,7 +4,7 @@
 
 - **Phase 1（已完成）**：Android 原生版 — Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore
 - **Phase 2（已完成）**：Flutter 移动端 — Riverpod + GoRouter + Freezed + Hive，通过 dart:ffi 调用 Rust
-- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（13 commands）+ ratatui TUI，v0.1.3，edition 2024
+- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（17 commands）+ ratatui TUI，v0.1.3，edition 2024
 
 ---
 
@@ -436,7 +436,7 @@ app/
 
 23. Deprecation cleanup（阶段 24）—— 13 个 Material3 1.2.x deprecation warnings 全部清零，编译零警告
 
-全部规划功能（阶段 1-24）已完成。Kotlin 1.9.24 + Compose BOM 2024.04.00 + Material3 1.2.1。编译零警告。应用功能完整，150 个单元测试全部通过（BUILD SUCCESSFUL）。
+全部规划功能（阶段 1-24）已完成。Kotlin 1.9.24 + Compose BOM 2024.04.00 + Material3 1.2.1。编译零警告。应用功能完整，148 个单元测试全部通过（BUILD SUCCESSFUL）。
 
 阶段 27（多语言支持）：中文（默认）、日本語、한국어、English 四种语言。Android 标准资源限定符方案。新增 `TeamNameMapper`、`HolidayNameMapper`、Context-based `ShiftLabelMapper`。首页 V1-V4 多轨合并为单一 `HomeScreen.kt`。
 
@@ -908,7 +908,7 @@ fn generate_shift_ics(
 ### KDE Plasma Widget
 
 - 语言：QML (Qt Modeling Language)
-- 数据源：DBus 服务 (`com.simpleshift.ShiftDaemon`) 或文件监控 (~/.local/share/shift/current.json)
+- 数据源：DBus 服务 (`com.simpleshift.ShiftDaemon`) 或文件监控 (~/.local/share/banban/current.json)
 - 显示内容：今日班次标签（彩色大字）、班组名、距休倒计时
 - 刷新：系统启动 + 跨天 DBus 信号
 
@@ -955,10 +955,10 @@ shift-core/          ← Rust workspace（主要工作区）
 flutter/             ← Flutter 移动端（保留，Phase 4 接入 Rust FFI）
   └── lib/
 
-~/.config/shift/     ← CLI 配置文件
+~/.config/banban/    ← CLI 配置文件
   └── config.toml
 
-~/.local/share/shift/ ← 数据目录（ICS 输出、缓存等）
+~/.local/share/banban/ ← 数据目录（ICS 输出、缓存等）
   └── my_shift_schedule.ics
 ```
 

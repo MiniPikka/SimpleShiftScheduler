@@ -93,11 +93,11 @@ Run `banban -l en waybar` for English output, or set `--lang zh` for Chinese.
 
 ```
 SimpleShiftScheduler/
-├── shift-core/        ← Rust workspace (111 tests)
+├── shift-core/        ← Rust workspace (109 tests)
 │   ├── crates/        ← algorithm, statistics, holidays, leave-opt, ICS export
-│   └── cli/           ← banban CLI + TUI (12 commands)
+│   └── cli/           ← banban CLI + TUI (17 commands)
 ├── flutter/           ← Flutter 移动端 (110 tests, dart:ffi → Rust)
-├── android/           ← Android 参考实现 (162 tests, archived)
+├── android/           ← Android 参考实现 (148 tests, archived)
 └── memory-bank/       ← 详细设计文档
 ```
 
@@ -129,11 +129,11 @@ SimpleShiftScheduler/
 
 | Component | Tests |
 |-----------|-------|
-| shift-core (Rust) | 111 |
+| shift-core (Rust) | 109 |
 | Flutter FFI bridge | 9 |
 | Flutter (Dart) | 110 |
-| Android (reference) | 162 |
-| **Total** | **392** |
+| Android (reference) | 148 |
+| **Total** | **376** |
 
 ```bash
 cd shift-core && cargo test        # Rust

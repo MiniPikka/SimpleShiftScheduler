@@ -16,7 +16,7 @@ SimpleShiftScheduler/          ← git repo root
 
 - **shift-core (Rust)**：主力开发目标。6 个 crate：shift-algorithm, shift-statistics, holiday-engine, leave-optimizer, shift-export, shift-cli。CLI 工具 `banban`。
 - **Flutter 移动端**：Android/iOS UI。Domain 层已通过 dart:ffi 接入 Rust，纯 Dart 保留为 fallback。
-- **Android 原版**：参考实现，162 tests，不再活跃开发。算法已验证。
+- **Android 原版**：参考实现，148 tests，不再活跃开发。算法已验证。
 
 ---
 
@@ -27,7 +27,7 @@ SimpleShiftScheduler/          ← git repo root
 ```bash
 cd shift-core
 cargo build                    # 编译所有 crate + CLI
-cargo test                     # 全部测试 (111 tests)
+cargo test                     # 全部测试 (109 tests)
 cargo test --doc               # 文档示例测试
 cargo doc --no-deps --open     # 生成并打开 API 文档
 cargo clippy --all-targets     # Lint 检查
@@ -115,7 +115,7 @@ lib/domain/bridge/
 ```bash
 cd android
 ./gradlew assembleDebug
-./gradlew testDebugUnitTest    # 162 tests
+./gradlew testDebugUnitTest    # 148 tests
 ```
 
 **状态**：参考实现。算法已验证正确，不再活跃开发。domain 层代码已全部迁移到 Rust。

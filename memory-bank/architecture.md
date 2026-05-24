@@ -2,9 +2,9 @@
 
 ## 0. 项目三阶段概述
 
-- **Phase 1（已完成）**：Android 原生版 — Kotlin + Jetpack Compose + MVVM。162 tests，不再活跃开发。算法已验证。
+- **Phase 1（已完成）**：Android 原生版 — Kotlin + Jetpack Compose + MVVM。148 tests，不再活跃开发。算法已验证。
 - **Phase 2（已完成）**：Flutter 移动端 — Riverpod + GoRouter + dart:ffi → Rust。110 tests，Android/iOS 双平台。
-- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（13 commands）+ TUI。算法唯一来源，Flutter 通过 FFI 调用。230 tests，v0.1.3 已发布到 crates.io。
+- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（17 commands）+ TUI。算法唯一来源，Flutter 通过 FFI 调用。228 tests，v0.1.3 已发布到 crates.io。
 
 ---
 
@@ -23,14 +23,19 @@
 │ ├── StateNotifier / AsyncNotifier       │
 │ └── ConsumerWidget / HookConsumerWidget │
 ├──────────────────────────────────────────┤
-│ Domain Layer (Pure Dart)                │
+│ Domain Layer (Dart → FFI → Rust)        │
 │ ├── models/ (Freezed data classes)      │
-│ ├── algorithms/ (shift/leave/colleague) │
-│ └── 零平台依赖、零 UI 依赖               │
+│ ├── algorithms/ (FFI 优先, Dart fallback)│
+│ └── bridge/ffi_bridge.dart (JSON over C) │
+├──────────────────────────────────────────┤
+│ Rust shift-core (算法唯一来源)            │
+│ ├── shift-algorithm / shift-statistics  │
+│ ├── holiday-engine / leave-optimizer    │
+│ └── shift-export                        │
 ├──────────────────────────────────────────┤
 │ Data Layer                              │
 │ ├── repositories/ (抽象接口)             │
-│ ├── datasources/ (Hive/Isar 实现)       │
+│ ├── datasources/ (Hive 实现)            │
 │ └── services/ (通知/分享/权限)           │
 └──────────────────────────────────────────┘
 ```
@@ -41,9 +46,9 @@
 
 UI：Flutter Widget + 页面状态 + 动画。Domain：排班算法、拼假算法、日期计算、统计逻辑——全部纯函数化。保证 Android / iOS / Web / Desktop 行为完全一致。
 
-### A.2.2 Domain 纯函数化
+### A.2.2 Domain 纯函数化 + FFI 优先
 
-所有核心逻辑无平台依赖、无 UI 依赖、无生命周期依赖。从 Android 版 Java/Kotlin domain 层直接翻译为 Dart 纯函数。
+所有核心逻辑无平台依赖、无 UI 依赖、无生命周期依赖。算法唯一来源是 Rust shift-core。Flutter 端通过 dart:ffi（JSON over C）调用 Rust，Dart 纯函数保留为 FFI 不可用时的 fallback。10 个 FFI 函数覆盖 shift_calculator、shift_metrics、colleague_mode、leave_optimizer、holiday_data、ICS 导出。
 
 ### A.2.3 平台能力抽象
 
@@ -124,31 +129,35 @@ lib/
 
 ## A.4 从 Android 版到 CP 版的迁移映射
 
-| Android 版 | CP 版 |
-|-----------|-------|
-| `domain/model/ShiftType.kt` | `domain/models/shift_type.dart` (Freezed) |
-| `domain/shift_calculator.kt` | `domain/algorithms/shift_calculator.dart` |
-| `domain/leave_optimizer.kt` | `domain/algorithms/leave_optimizer.dart` |
-| `domain/colleague_mode.kt` | `domain/algorithms/colleague_mode.dart` |
-| `domain/salary_calculator.kt` | `domain/algorithms/salary_calculator.dart` |
-| `domain/holiday_data.kt` | `domain/algorithms/holiday_data.dart` |
-| `viewmodel/HomeViewModel.kt` | `features/home/home_notifier.dart` (Riverpod) |
-| `data/repository/SettingsRepository.kt` | `data/repositories/settings_repository.dart` |
-| `ui/theme/` (Compose) | `core/theme/` (Flutter ThemeData) |
-| `ui/home/NewHomeScreenV3.kt` | `features/home/home_screen.dart` |
-| Jetpack Glance Widget | `home_widget` plugin |
-| Calendar Provider (Android) | `flutter_local_notifications` |
+Dart 初版实现全部迁移后，算法进一步提取至 Rust shift-core。Flutter 端现通过 dart:ffi 优先调用 Rust，Dart 为 fallback。
+
+| Android 版 | CP 版 (Dart) | Rust FFI 覆盖 |
+|-----------|-------------|--------------|
+| `domain/model/ShiftType.kt` | `domain/models/shift_type.dart` (Freezed) | — (数据模型) |
+| `domain/shift_calculator.kt` | `domain/algorithms/shift_calculator.dart` | ✅ `shift_get_shift_info` |
+| `domain/leave_optimizer.kt` | `domain/algorithms/leave_optimizer.dart` | ✅ `shift_get_best_leave_plans` |
+| `domain/colleague_mode.kt` | `domain/algorithms/colleague_mode.dart` | ✅ `shift_get_common_rest_days` |
+| `domain/salary_calculator.kt` | `domain/algorithms/salary_calculator.dart` | ✅ `shift_get_monthly_stats` |
+| `domain/holiday_data.kt` | `domain/algorithms/holiday_data.dart` | ✅ `shift_get_holidays` |
+| `viewmodel/HomeViewModel.kt` | `features/home/home_notifier.dart` (Riverpod) | — (UI 层) |
+| `data/repository/SettingsRepository.kt` | `data/repositories/settings_repository.dart` | — (纯 Dart) |
+| `ui/theme/` (Compose) | `core/theme/` (Flutter ThemeData) | — (UI 层) |
+| `ui/home/NewHomeScreenV3.kt` | `features/home/home_screen.dart` | — (UI 层) |
+| Jetpack Glance Widget | `home_widget` plugin | — (平台层) |
+| Calendar Provider (Android) | `flutter_local_notifications` + ICS | ✅ `shift_generate_ics` |
 | DataStore Preferences | Hive / Isar |
 
 ## A.5 CP 版本阶段规划
 
-| 阶段 | 内容 | 关键产出 |
-|------|------|---------|
-| **阶段 1** | Flutter 骨架 | Design Token + GoRouter + 首页 |
-| **阶段 2** | 核心功能迁移 | 倒班算法 + 日历 + 拼假神器 + 同事模式 |
-| **阶段 3** | 平台能力 | 通知 + 分享长图 + Widget + 多语言 |
-| **阶段 4** | 产品化 | Supabase 集成 + Auth + 数据同步 |
-| **阶段 5** | 增长 | ASO + 分享裂变 + 应用商店上架 |
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| **阶段 1** | Flutter 骨架 | ✅ 已完成 |
+| **阶段 2** | 核心功能迁移（Dart 初版 → Rust FFI 重构） | ✅ 已完成 |
+| **阶段 3** | 平台能力（通知/分享/Widget/多语言） | ✅ 已完成 |
+| **阶段 4** | 产品化（Supabase/云同步） | 🔮 后期（非当前优先） |
+| **阶段 5** | 增长（ASO/应用商店） | 🔮 后期 |
+
+> **演进说明**：阶段 2 最初将 Kotlin 直接翻译为 Dart 纯函数。2026-05-22 架构转型后，算法全部迁移至 Rust shift-core，Flutter 端通过 dart:ffi 调用 Rust，Dart 保留为 fallback。阶段 4-5 在 Rust 生态战略中重新定位。
 
 ## A.6 CP 版日历日程集成（新增）
 
@@ -2074,8 +2083,8 @@ Glance 编译为 RemoteViews，不支持 `androidx.compose.ui.graphics.Color` �
         │ Flutter App  │       │  Linux CLI   │       │ ICS/CalDAV   │
         │ (Mobile UI)  │       │  (Rust+clap) │       │  Calendar    │
         │              │       │              │       │              │
-        │ flutter_rust │       │ shift today  │       │ .ics export  │
-        │ _bridge FFI  │       │ shift stats  │       │ CalDAV sync  │
+        │ flutter_rust │       │ banban today │       │ .ics export  │
+        │ _bridge FFI  │       │ banban stats │       │ CalDAV sync  │
         └──────┬───────┘       └──────┬───────┘       └──────┬───────┘
                │                      │                      │
                ▼                      ▼                      ▼
@@ -2098,7 +2107,7 @@ ICS (RFC 5545) 是日历数据交换的通用标准。一个 `.ics` 文件可被
 
 ### C.2.3 CLI 优先于 GUI
 
-CLI 工具（`shift today`、`shift stats`、`shift export --ics`）易测试、易自动化、零 UI 维护成本、Linux 用户天然喜欢。GUI（Flutter App / Plasma Widget）在核心 Domain 稳定后再做。
+CLI 工具（`banban today`、`banban stats`、`banban export --ics`）易测试、易自动化、零 UI 维护成本、Linux 用户天然喜欢。GUI（Flutter App / Plasma Widget）在核心 Domain 稳定后再做。
 
 ### C.2.4 本地优先
 
@@ -2266,22 +2275,22 @@ shift-core/cli/                  ← CLI binary crate
     └── main.rs                  ← clap derive parsing
 
 Commands:
-  shift today          → 输出今日班次、周期进度、距休天数
-  shift next-rest      → 输出距下次休息的详细倒计时
-  shift calendar       → 输出当月日历（ANSI 颜色、类 btop 风格）
-  shift stats          → 输出月度统计（早/中/休/夜/学次数）
-  shift leave          → 输出最佳拼假方案 Top 5
-  shift colleague A B  → 输出班组 A 与 B 的共同休息日
-  shift export --ics   → 导出 .ics 文件到 ~/.local/share/shift/
-  shift export --caldav→ 同步到 CalDAV 服务器（需配置文件）
-  shift config          → 管理配置文件（~/.config/shift/config.toml）
+  banban today          → 输出今日班次、周期进度、距休天数
+  banban next-rest      → 输出距下次休息的详细倒计时
+  banban calendar       → 输出当月日历（ANSI 颜色、类 btop 风格）
+  banban stats          → 输出月度统计（早/中/休/夜/学次数）
+  banban leave          → 输出最佳拼假方案 Top 5
+  banban colleague A B  → 输出班组 A 与 B 的共同休息日
+  banban export --ics   → 导出 .ics 文件到 ~/.local/share/banban/
+  banban export --caldav→ 同步到 CalDAV 服务器（需配置文件）
+  banban config          → 管理配置文件（~/.config/banban/config.toml）
 ```
 
 ### 配置文件格式
 
 ```toml
-# ~/.config/shift/config.toml
-[shift]
+# ~/.config/banban/config.toml
+[banban]
 cycle_length = 42
 reference_date = "2025-12-15"
 default_team = 1
@@ -2293,7 +2302,7 @@ afternoon = "14:00"
 night = "22:00"
 
 [caldav]
-url = "https://nextcloud.example.com/remote.php/dav/calendars/user/shift"
+url = "https://nextcloud.example.com/remote.php/dav/calendars/user/banban"
 username = "user"
 password_cmd = "pass show nextcloud"  # 不存明文密码
 ```
@@ -2332,7 +2341,7 @@ com.simpleshift.ShiftDaemon（Rust + zbus）
 ### Local API（Phase 6）
 
 ```
-localhost:11451/shift        → JSON: today's shift info
+localhost:11451/banban       → JSON: today's shift info
 localhost:11451/calendar     → JSON: this month's calendar
 localhost:11451/statistics   → JSON: monthly stats
 localhost:11451/leave        → JSON: best leave plans

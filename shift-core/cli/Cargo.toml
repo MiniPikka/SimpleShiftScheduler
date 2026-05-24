@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "CLI + TUI for rotating shift schedules. Check today's shift, plan leave, find common rest days, export ICS calendar files, desktop notifications, systemd timer. Configurable via ~/.config/banban/config.toml — define your own cycle: 12 commands. --lang zh for Chinese."
+description = "CLI + TUI for rotating shift schedules. Check today's shift, plan leave, find common rest days, export ICS calendar files, desktop notifications, systemd timer, shell completions, local HTTP API, DBus daemon. Configurable via ~/.config/banban/config.toml — define your own cycle: 17 commands. --lang zh for Chinese."
 
 [[bin]]
 name = "banban"
@@ -20,6 +20,7 @@ leave-optimizer = { path = "../crates/leave-optimizer", version = "0.1.0" }
 holiday-engine = { path = "../crates/holiday-engine", version = "0.1.0" }
 shift-export = { path = "../crates/shift-export", version = "0.1.0" }
 clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
 colored = "2.0"
 toml = "0.8"
 dirs = "5.0"
@@ -27,3 +28,6 @@ notify-rust = "4"
 ratatui = "0.29"
 crossterm = "0.28"
 unicode-width = "0.2"
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal"] }
+zbus = { version = "5", default-features = false, features = ["tokio"] }

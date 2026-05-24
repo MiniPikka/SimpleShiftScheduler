@@ -5,10 +5,13 @@
 //! Default: human-readable ANSI-colored output.
 //! With --json: machine-readable JSON.
 
+mod dbus;
+mod serve;
 mod tui;
 
 use chrono::{Datelike, Local, NaiveDate, Timelike};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell};
 use colored::*;
 use unicode_width::UnicodeWidthStr;
 use shift_export::generate_shift_ics;
@@ -189,7 +192,12 @@ impl Default for Config {
                   Custom display labels:\n  \
                   Add [display] section to ~/.config/banban/config.toml:\n  \
                   waybar_morning = \"🌅 早\"     # Waybar text for morning\n  \
-                  See: banban config"
+                  See: banban config\n  \
+                  \n  \
+                  Shell completions:\n  \
+                  banban completions bash | sudo tee /usr/share/bash-completion/completions/banban\n  \
+                  banban completions zsh > ~/.zsh/completions/_banban\n  \
+                  banban completions fish > ~/.config/fish/completions/banban.fish"
 )]
 struct Cli {
     /// JSON output (machine-readable). Default: human-readable colored text
@@ -274,6 +282,15 @@ enum Commands {
     Tui,
     /// Generate sample config file with custom cycle documentation
     Config,
+    /// Generate shell completions for bash/zsh/fish
+    Completions {
+        /// Target shell
+        shell: Shell,
+    },
+    /// Start local HTTP API server (localhost:11451)
+    Serve,
+    /// Start DBus daemon (session bus, com.simpleshift.ShiftDaemon)
+    Dbus,
 }
 
 // ── JSON output types ──
@@ -480,6 +497,17 @@ fn main() {
         }
         Commands::Week => cmd_week(&cli, today, &cycle_config, offset, team_id),
         Commands::Config => cmd_config(),
+        Commands::Completions { shell } => cmd_completions(shell),
+        Commands::Serve => {
+            let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+            rt.block_on(serve::run(cycle_config, team_id, offset));
+        }
+        Commands::Dbus => {
+            let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+            if let Err(e) = rt.block_on(dbus::run(cycle_config, team_id, offset)) {
+                eprintln!("DBus error: {e}");
+            }
+        }
     }
 }
 
@@ -1353,6 +1381,12 @@ waybar_study = "📚 学"
         println!("编辑这个文件来定义你自己的排班表，然后运行:");
         println!("  banban today");
     }
+}
+
+fn cmd_completions(shell: Shell) {
+    let mut cmd = Cli::command();
+    let name = cmd.get_name().to_string();
+    generate(shell, &mut cmd, &name, &mut std::io::stdout());
 }
 
 // ── Helpers ──

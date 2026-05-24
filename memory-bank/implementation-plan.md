@@ -1,17 +1,20 @@
 # 倒班助手 App 实施计划
 
-## 0. 项目双阶段概述
+## 0. 项目三阶段概述
 
-- **Phase 1（已完成）**：Android 原生版 — 阶段 1-27 全部完成，162 个单元测试全部通过。详见 Part B。
-- **Phase 2（规划中）**：CP（Cross Platform）版 — Flutter + Riverpod + GoRouter。详见 Part A。
+- **Phase 1（已完成）**：Android 原生版 — 阶段 1-27 全部完成，148 个单元测试全部通过。详见 Part B。
+- **Phase 2（已完成）**：CP（Cross Platform）版 — Flutter + Riverpod + GoRouter + dart:ffi → Rust。详见 Part A。
+- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI + TUI。详见 Part C。
 
 ---
 
 # Part A：CP（Cross Platform）版实施计划
 
+> **状态说明**：Phase 2 Flutter CP 版的阶段 1-3 已全部完成。阶段 2 的 Domain 算法最初从 Kotlin 翻译为 Dart 纯函数，后在 Phase 3 Rust 架构转型中全部升级为 Rust FFI 调用（Dart 保留为 fallback）。以下为原始实施计划的记录，已标注实际演进。
+
 ## A.1 总体策略
 
-CP 版采用 5 阶段渐进式实施。Domain 算法从 Android 版直接翻译（纯函数、零平台依赖），UI 使用 Flutter 全新构建。
+CP 版采用 5 阶段渐进式实施。Domain 算法最初从 Android 版直接翻译为 Dart 纯函数，后升级为 Rust FFI 优先架构（dart:ffi + JSON over C）。UI 使用 Flutter 全新构建。
 
 ---
 
@@ -126,17 +129,17 @@ final router = GoRouter(
 
 ### Step 2.2：Domain 算法迁移
 
-新建 `lib/domain/algorithms/`，纯 Dart 函数：
+新建 `lib/domain/algorithms/`。原始计划将 Kotlin 直接翻译为纯 Dart 函数。实际演进：Dart 初版实现后，算法全部迁移至 Rust shift-core（Phase 3），Flutter 端现通过 dart:ffi 优先调用 Rust，Dart 保留为 fallback。
 
-| 文件 | 对应 Android 版 | 复杂度 |
+| 文件 | 对应 Android 版 | 当前状态 |
 |------|----------------|--------|
-| `shift_calculator.dart` | `shift_calculator.kt` | 低（~50 行） |
-| `calendar_generator.dart` | `calendar_generator.kt` | 低（~40 行） |
-| `shift_metrics.dart` | `shift_metrics.kt` | 低（~60 行） |
-| `holiday_data.dart` | `holiday_data.kt` | 中（~110 行数据） |
-| `leave_optimizer.dart` | `leave_optimizer.kt` | 高（~170 行） |
-| `colleague_mode.dart` | `colleague_mode.kt` | 低（~40 行） |
-| `salary_calculator.dart` | `salary_calculator.kt` | 低（~50 行） |
+| `shift_calculator.dart` | `shift_calculator.kt` | ✅ FFI 覆盖 |
+| `calendar_generator.dart` | `calendar_generator.kt` | ✅ 批量 FFI |
+| `shift_metrics.dart` | `shift_metrics.kt` | ✅ FFI 覆盖 |
+| `holiday_data.dart` | `holiday_data.kt` | ✅ FFI 覆盖（消除双重数据） |
+| `leave_optimizer.dart` | `leave_optimizer.kt` | ✅ FFI 覆盖 |
+| `colleague_mode.dart` | `colleague_mode.kt` | ✅ FFI 覆盖 |
+| `salary_calculator.dart` | `salary_calculator.kt` | ✅ FFI 覆盖 |
 
 ### Step 2.3：数据层
 
@@ -159,19 +162,19 @@ final router = GoRouter(
 
 ### Step 2.5：Domain 单元测试
 
-新建 `test/domain/algorithms/`：
+Flutter 端 Dart 测试（110 tests，覆盖 UI + Domain fallback）与 Rust shift-core 测试（109 tests，算法唯一验证源）共存。Rust 测试是算法正确性的权威验证。
 
-| 测试文件 | 用例数（从 Android 版迁移） |
-|---------|--------------------------|
-| `shift_calculator_test.dart` | ~15 |
-| `calendar_generator_test.dart` | ~5 |
-| `shift_metrics_test.dart` | ~15 |
-| `leave_optimizer_test.dart` | ~17 |
-| `colleague_mode_test.dart` | ~8 |
-| `salary_calculator_test.dart` | ~8 |
-| `holiday_data_test.dart` | ~6 |
+| Dart 测试文件 | Rust 对应 crate |
+|---------|-----------------|
+| `shift_calculator_test.dart` | `shift-algorithm` (27 tests) |
+| `calendar_generator_test.dart` | `shift-algorithm` |
+| `shift_metrics_test.dart` | `shift-statistics` (18 tests) |
+| `leave_optimizer_test.dart` | `leave-optimizer` (14 tests) |
+| `colleague_mode_test.dart` | `shift-statistics` |
+| `salary_calculator_test.dart` | `shift-statistics` |
+| `holiday_data_test.dart` | `holiday-engine` (12 tests) |
 
-**验证**：`flutter test` 全部通过，Domain 算法行为与 Android 版一致。
+**验证**：`cargo test` + `flutter test` 全部通过。
 
 ---
 
@@ -205,9 +208,9 @@ final router = GoRouter(
 
 ---
 
-## A.5 阶段 4：产品化
+## A.5 阶段 4：产品化（后期，非当前优先）
 
-**目标**：数据同步、云备份、登录、用户系统。
+**目标**：数据同步、云备份、登录、用户系统。当前优先 Rust 生态（ICS/CLI/Linux 集成），Supabase 云同步延后。
 
 ### Step 4.1：Supabase 集成
 
@@ -223,9 +226,9 @@ final router = GoRouter(
 
 ---
 
-## A.6 阶段 5：增长阶段
+## A.6 阶段 5：增长阶段（后期）
 
-**目标**：社交传播、应用商店上架。
+**目标**：社交传播、应用商店上架。当前优先 crates.io / AUR 分发，移动应用商店延后。
 
 - 分享裂变优化（QR 码落地页 + App Store 链接）
 - ASO（应用商店优化）
@@ -3957,7 +3960,7 @@ NewHomeScreenV3
 
 1. **每阶段有可运行产出**：不是"搭架子"，每个阶段结束都有可用的东西
 2. **Domain 一次性从 Kotlin/Dart 迁移到 Rust**：不再三语言同步
-3. **Android 162 tests 作为验收标准**：Rust 实现必须通过相同用例
+3. **Android 148 tests 作为验收标准**：Rust 实现必须通过相同用例
 4. **先做对 Linux 用户价值最高的**：ICS → CLI → Widget
 5. **Flutter App 保留但不再扩展**：等 Rust Domain 稳定后再接入
 
@@ -3967,22 +3970,22 @@ NewHomeScreenV3
 
 | 阶段 | 名称 | 时间估计 | 核心交付 | 验证方式 |
 |------|------|---------|---------|---------|
-| **Phase 1** | Rust Core Domain | 2-3 周 | `shift-core` workspace，5 crates | `cargo test` 全部通过，与 Android 162 tests 等价 |
-| **Phase 2** | ICS/CalDAV Export | 1-2 周 | `banban export --ics` | Thunderbird 导入验证通过 |
-| **Phase 3** | CLI Companion | 1-2 周 | `banban` 命令：today/stats/leave/colleague/export | 终端可用（✅已完成） |
+| **Phase 1** | Rust Core Domain | ✅ 已完成 | `shift-core` workspace，5 crates | `cargo test` 全部通过，与 Android 148 tests 等价 |
+| **Phase 2** | ICS/CalDAV Export | ✅ 已完成 | `banban export --ics` | Thunderbird 导入验证通过 |
+| **Phase 3** | CLI Companion | ✅ 已完成 | `banban` 15 命令：today/stats/leave/colleague/export/completions | 终端可用 |
 | **Phase 4** | Flutter Mobile (Rust FFI) | 2-3 周 | Flutter App 接入 flutter_rust_bridge | `flutter test` + `cargo test` 全通过 |
 | **Phase 5** | Linux Companion | 2-3 周 | Plasma Widget + Waybar + DBus | KDE 桌面可用 |
 | **Phase 6** | Advanced Ecosystem | 持续 | TUI + Local API + 打包分发 | crates.io/AUR/KDE Store |
 
 ---
 
-## C.2 Phase 1：Rust Core Domain（当前阶段）⚡
+## C.2 Phase 1：Rust Core Domain ✅
 
 **目标**：将 Android/Kotlin 和 Flutter/Dart 中的所有 Domain 算法提取到 Rust workspace，成为项目唯一算法源。
 
 **前置条件**：
 - Rust 工具链已安装（`rustc` + `cargo`）
-- Android 版 162 tests 作为验收参考
+- Android 版 148 tests 作为验收参考
 
 ### Step 1.1：创建 Cargo workspace
 
@@ -3996,7 +3999,7 @@ cargo new --lib crates/shift-algorithm
 cargo new --lib crates/shift-statistics
 cargo new --lib crates/leave-optimizer
 cargo new --lib crates/holiday-engine
-cargo new --lib crates/export-engine
+cargo new --lib crates/shift-export
 ```
 
 **workspace Cargo.toml**：
@@ -4008,7 +4011,7 @@ members = [
     "crates/shift-statistics",
     "crates/leave-optimizer",
     "crates/holiday-engine",
-    "crates/export-engine",
+    "crates/shift-export",
 ]
 
 [workspace.dependencies]
@@ -4323,7 +4326,7 @@ shift-core/
     └── integration_test.rs  # 端到端测试：从日期到统计到拼假
 ```
 
-**验证**：`cargo test` 全部通过。与 Android 162 tests 的已知输出做交叉验证——同一输入必须产生同一输出。
+**验证**：`cargo test` 全部通过。与 Android 148 tests 的已知输出做交叉验证——同一输入必须产生同一输出。
 
 ### Phase 1 完成标准
 
@@ -4335,13 +4338,13 @@ shift-core/
 
 ---
 
-## C.3 Phase 2：ICS/CalDAV Export（预计 1-2 周）
+## C.3 Phase 2：ICS/CalDAV Export ✅
 
 **目标**：第一个真正的 Linux 集成——生成标准 ICS 文件，可被 Thunderbird/Nextcloud 导入。
 
-**前置条件**：Phase 1 完成（shift-algorithm + export-engine crate 骨架存在）。
+**前置条件**：Phase 1 完成（shift-algorithm + shift-export crate）。
 
-### Step 2.1：实现 export-engine crate 核心
+### Step 2.1：实现 shift-export crate 核心
 
 ```rust
 // ics.rs
@@ -4373,10 +4376,10 @@ pub fn write_ics_to_file(config: &IcsExportConfig, path: &Path) -> std::io::Resu
 
 ### Step 2.2：实现 CLI export 子命令
 
-在 `shift` CLI（Phase 3 将完善）中先实现 export：
+在 `banban` CLI 中实现 export：
 
 ```rust
-// 临时 CLI binary（Phase 2 验证用）
+// CLI binary export 子命令
 fn main() {
     let config = load_config_or_default();
     let today = Local::now().date_naive();
@@ -4418,7 +4421,7 @@ fn main() {
 
 ### Phase 2 完成标准
 
-- [ ] `shift export --ics` 生成有效的 `.ics` 文件
+- [ ] `banban export --ics` 生成有效的 `.ics` 文件
 - [ ] Thunderbird 导入成功，日程+提醒+RRULE 正确
 - [ ] Nextcloud Calendar 导入成功
 - [ ] 夜班跨日显示正确
@@ -4446,7 +4449,7 @@ shift-algorithm = { path = "../crates/shift-algorithm" }
 shift-statistics = { path = "../crates/shift-statistics" }
 leave-optimizer = { path = "../crates/leave-optimizer" }
 holiday-engine = { path = "../crates/holiday-engine" }
-export-engine = { path = "../crates/export-engine" }
+shift-export = { path = "../crates/shift-export" }
 clap = { version = "4.5", features = ["derive"] }
 chrono = "0.4"
 serde_json = "1.0"
@@ -4530,8 +4533,8 @@ enum ConfigAction {
 ### Step 3.3：配置文件管理
 
 ```toml
-# ~/.config/shift/config.toml
-[shift]
+# ~/.config/banban/config.toml
+[banban]
 cycle_length = 42
 reference_date = "2025-12-15"
 default_team = 1
@@ -4549,19 +4552,19 @@ password_cmd = ""
 ```
 
 **实现**：
-- `shift config init` → 创建 `~/.config/shift/config.toml`
-- `shift config show` → 打印当前配置
-- `shift config set default_team 3` → 修改单个配置项
+- `banban config init` → 创建 `~/.config/banban/config.toml`
+- `banban config show` → 打印当前配置
+- `banban config set default_team 3` → 修改单个配置项
 - 配置缺失时使用硬编码默认值（42天、日期2025-12-15、班组1）
 
 ### Step 3.4：输出格式化
 
 **人类可读模式（默认）**：
 ```
-$ shift today
+$ banban today
 🟠 早班 · 一值 · 第 12/42 天 · 距休 3 天
 
-$ shift stats
+$ banban stats
         2026年5月 · 一值
 ┌────────┬──┬──┬──┬──┬──┐
 │ 班次   │早│中│休│夜│学│
@@ -4570,7 +4573,7 @@ $ shift stats
 └────────┴──┴──┴──┴──┴──┘
 本月上班：23 天
 
-$ shift leave
+$ banban leave
 🏖️  最佳拼假方案 Top 5（2026-05-22 ~ 12-31）
 ┌────┬────────┬────────┬──────────────────┬────────┐
 │ #  │请假天数│连休天数│ 日期范围          │ 效率   │
@@ -4586,7 +4589,7 @@ $ shift leave
 
 **JSON 模式**：
 ```
-$ shift today --json
+$ banban today --json
 {"date":"2026-05-22","shift_type":"morning","team":"一值","day_of_cycle":12,"total_days":42,"days_until_rest":3}
 ```
 
@@ -4607,12 +4610,12 @@ shift completions fish > ~/.config/fish/completions/shift.fish
 
 ### Phase 3 完成标准
 
-- [ ] `shift today` / `shift stats` / `shift leave` / `shift colleague` / `shift export --ics` 全部可用
+- [ ] `banban today` / `banban stats` / `banban leave` / `banban colleague` / `banban export --ics` 全部可用
 - [ ] `--json` 输出可被 `jq` 解析
-- [ ] `shift config` 管理配置文件
-- [ ] Shell 自动补全可用（bash/zsh/fish）
+- [ ] `banban config` 管理配置文件
+- [x] Shell 自动补全可用（bash/zsh/fish）
 - [ ] `cargo build --release` 生成单二进制文件
-- [ ] Waybar 模块可用（`shift waybar` 输出正确 JSON）
+- [ ] Waybar 模块可用（`banban waybar` 输出正确 JSON）
 
 ---
 
@@ -4818,13 +4821,13 @@ Item {
 }
 ```
 
-数据源通过执行 `shift waybar` 或 DBus 调用来获取。
+数据源通过执行 `banban waybar` 或 DBus 调用来获取。
 
 ### Step 5.3：Waybar 模块
 
 已集成在 CLI 中（Phase 3 Step 3.4）：
 ```bash
-shift waybar  →  {"text": "🌙 夜", "class": "night", "tooltip": "距休2天 · 一值"}
+banban waybar  →  {"text": "🌙 夜", "class": "night", "tooltip": "距休2天 · 一值"}
 ```
 
 Waybar 配置：
@@ -4832,7 +4835,7 @@ Waybar 配置：
 // ~/.config/waybar/config.json
 {
     "custom/shift": {
-        "exec": "shift waybar",
+        "exec": "banban waybar",
         "interval": 3600,
         "return-type": "json",
         "format": "{}"
@@ -4884,7 +4887,7 @@ WantedBy=default.target
 **技术**：`ratatui` crate
 
 ```bash
-shift tui   # 打开全屏 TUI，btop 风格
+banban tui   # 打开全屏 TUI，btop 风格
 ```
 
 交互式界面（键盘导航）：
@@ -4934,7 +4937,7 @@ cargo publish -p shift-algorithm
 cargo publish -p shift-statistics
 cargo publish -p leave-optimizer
 cargo publish -p holiday-engine
-cargo publish -p export-engine
+cargo publish -p shift-export
 cargo install shift-cli
 ```
 
@@ -4949,7 +4952,7 @@ cargo install shift-cli
 # ~/.local/bin/shift-notify.sh
 # cron: 0 6 * * * /home/user/.local/bin/shift-notify.sh
 
-RESULT=$(shift today --json)
+RESULT=$(banban today --json)
 SHIFT=$(echo "$RESULT" | jq -r '.shift_type')
 DAYS=$(echo "$RESULT" | jq -r '.days_until_rest')
 
@@ -4958,7 +4961,7 @@ notify-send "倒班助手" "今日: ${SHIFT} · 距休: ${DAYS}天" --icon=calen
 
 ### Phase 6 完成标准
 
-- [ ] TUI 可用（`shift tui`）
+- [ ] TUI 可用（`banban tui`）
 - [ ] Local API 可用（`curl localhost:11451/shift`）
 - [ ] AUR 包可用（`yay -S shift-cli`）
 - [ ] crates.io 发布
@@ -4994,7 +4997,7 @@ notify-send "倒班助手" "今日: ${SHIFT} · 距休: ${DAYS}天" --icon=calen
 
 ### P2（下一步）
 
-**6. 实现 `export-engine` — ICS 文件导出**
+**6. 实现 `shift-export` — ICS 文件导出**
 
 ```bash
 banban export --ics

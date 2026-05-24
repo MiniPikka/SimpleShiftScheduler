@@ -7,11 +7,11 @@
 
 ### Phase 1：Android 原生版（已完成，不再活跃开发）
 
-Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore。162 tests。算法已验证正确。
+Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore。148 tests。算法已验证正确。
 
-### Phase 2：CP（Cross Platform）版（规划中）
+### Phase 2：CP（Cross Platform）版（已完成）
 
-目标平台：Android / iOS / Web（后期）/ Desktop（后期）。Flutter + Riverpod + GoRouter + Freezed。统一 Design System，算法中心化，UI 可重构。
+目标平台：Android / iOS。Flutter + Riverpod + GoRouter + Freezed + Hive。110 tests。所有领域算法已通过 dart:ffi 接入 Rust shift-core，Dart 为 fallback。
 
 ---
 
@@ -899,8 +899,8 @@ Linux 用户天然喜欢命令行。`banban today` 比打开 App 查看快得多
   └───────────┘        └─────────────┘        └─────────────┘
         │                      │                      │
         ▼                      ▼                      ▼
-  Flutter App           shift CLI              ICS/CalDAV
-  (Android/iOS)         shift waybar           自动兼容：
+  Flutter App           banban CLI             ICS/CalDAV
+  (Android/iOS)         banban waybar          自动兼容：
   Widget + 通知          Plasma Widget          Thunderbird
   flutter_rust_bridge   DBus service           GNOME Calendar
   移动端最佳体验         Local API             Nextcloud
@@ -913,7 +913,7 @@ Linux 用户天然喜欢命令行。`banban today` 比打开 App 查看快得多
 | 层 | 用户群体 | 核心需求 | 交付形态 |
 |------|---------|---------|---------|
 | **协议层** | 所有用户 | 日历自动显示排班 | ICS 文件 / CalDAV |
-| **CLI 层** | Linux 工程师 | 快速查询、自动化 | `shift` 命令 |
+| **CLI 层** | Linux 工程师 | 快速查询、自动化 | `banban` 命令 |
 | **桌面层** | Linux Desktop 用户 | 抬眼看到班次 | Plasma Widget / Waybar |
 | **移动层** | 普通用户 | 完整 App 体验 | Flutter App |
 | **API 层** | 脚本/第三方 | 数据消费 | DBus / localhost HTTP |
@@ -926,7 +926,7 @@ Linux 用户天然喜欢命令行。`banban today` 比打开 App 查看快得多
 
 **使用方式**：
 ```bash
-shift export --ics --output ~/my_shift_schedule.ics
+banban export --ics --output ~/my_shift_schedule.ics
 # 然后在 Thunderbird/KDE Calendar/Nextcloud 中导入此文件
 ```
 
@@ -1025,7 +1025,7 @@ com.simpleshift.ShiftDaemon
 
 **端点设计**：
 ```
-GET  /shift              → {"today": {...}, "tomorrow": {...}}
+GET  /banban             → {"today": {...}, "tomorrow": {...}}
 GET  /shift/2026-06-01   → {"date": "...", "shift_type": "...", ...}
 GET  /calendar/2026/05    → {"days": [...], "stats": {...}}
 GET  /leave?max_days=5    → {"strategies": [...]}
@@ -1082,7 +1082,7 @@ GET  /health               → {"status": "ok", "version": "1.0.0"}
 ### 关键增长渠道
 
 1. **ICS 文件分发**：任何人都可以下载一个 `.ics` 文件导入自己的日历——这本身就是获取用户的方式
-2. **crates.io**：Rust 社区发现 `shift` CLI → 安装试用
+2. **crates.io**：Rust 社区发现 `banban` CLI → 安装试用
 3. **AUR（Arch User Repository）**：Arch Linux 用户 `yay -S shift-cli`
 4. **KDE Store**：Plasma Widget 分发
 5. **应用商店**（保留）：Google Play + App Store（移动端）
