@@ -17,6 +17,5 @@
         "Version": "1.0.0",
         "Website": "https://github.com/MiniPikka/SimpleShiftScheduler"
     },
-    "X-Plasma-API-Minimum-Version": "6.0",
-    "X-Plasma-NotificationAreaCategory": "SystemServices"
+    "X-Plasma-API-Minimum-Version": "6.0"
 }
