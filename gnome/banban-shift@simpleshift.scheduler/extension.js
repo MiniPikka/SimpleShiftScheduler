@@ -39,17 +39,36 @@ function weekdayZh(dateStr) {
     return WEEKDAY_ZH[d.getDay()] || '';
 }
 
-// ── Async command execution ──────────────────────────────────────
-// GNOME Shell's PATH is minimal — use absolute path to banban.
+// ── Banban path resolution ──────────────────────────────────────
 
-const BANBAN_BIN = GLib.find_program_in_path('banban')
-    || GLib.get_home_dir() + '/.cargo/bin/banban';
+function findBanban() {
+    // Try PATH first, then common install locations.
+    // Done at runtime (not module level) to avoid import-time crashes.
+    try {
+        const inPath = GLib.find_program_in_path('banban');
+        if (inPath) return inPath;
+    } catch (e) {}
+    const home = GLib.get_home_dir();
+    const paths = [
+        home + '/.cargo/bin/banban',
+        '/usr/local/bin/banban',
+        '/usr/bin/banban',
+    ];
+    for (const p of paths) {
+        const f = Gio.File.new_for_path(p);
+        if (f.query_exists(null)) return p;
+    }
+    return 'banban'; // last resort: hope it's in PATH
+}
+
+// ── Async command execution ──────────────────────────────────────
 
 function execBanban(args) {
+    const bin = findBanban();
     return new Promise((resolve, reject) => {
         try {
             const proc = Gio.Subprocess.new(
-                [BANBAN_BIN, ...args],
+                [bin, ...args],
                 Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
             );
             proc.communicate_utf8_async(null, null, (p, res) => {
@@ -74,10 +93,11 @@ function execBanban(args) {
 
 const BanbanIndicator = GObject.registerClass(
 class BanbanIndicator extends PanelMenu.Button {
-    _init(uuid) {
+    _init(uuid, refreshCb) {
         super._init(0.0, 'Banban Shift', false);
 
         this._uuid = uuid;
+        this._refreshCb = refreshCb;
         this._shiftData = null;
         this._weekData = null;
         this._restData = null;
@@ -92,11 +112,15 @@ class BanbanIndicator extends PanelMenu.Button {
         });
         this.add_child(this._buttonLabel);
 
-        // Build popup when menu is opened
-        this.menu.connect('open-state-changed', (menu, isOpen) => {
-            if (isOpen) {
-                this._rebuildPopup();
-            }
+        // Add a placeholder so menu has content (needed for click to open)
+        const placeholder = new PopupMenu.PopupMenuItem('⏳ Loading...');
+        placeholder.setSensitive(false);
+        this.menu.addMenuItem(placeholder);
+
+        // Explicit click handler — safety net for menu open
+        this.connect('button-press-event', () => {
+            this.menu.toggle();
+            return Clutter.EVENT_STOP;
         });
     }
 
@@ -112,19 +136,14 @@ class BanbanIndicator extends PanelMenu.Button {
 
     _updatePanelLabel() {
         if (this._error && !this._shiftData) {
-            this._buttonLabel.set_text('⚠️ ?');
-            this._buttonLabel.set_style('color: #EF4444;');
-            return;
-        }
-        if (this._loading) {
+            this._buttonLabel.set_text('⚠️?');
+        } else if (this._loading) {
             this._buttonLabel.set_text('⏳');
-            return;
-        }
-        if (this._shiftData) {
+        } else if (this._shiftData) {
             const d = shiftDisplay(this._shiftData.shift_type);
-            this._buttonLabel.set_text(`${d.emoji} ${d.label}`);
-            this._buttonLabel.set_style(`color: ${d.color};`);
+            this._buttonLabel.set_text(`${d.emoji}${d.label}`);
         }
+        this._rebuildPopup();
     }
 
     _rebuildPopup() {
@@ -219,7 +238,7 @@ class BanbanIndicator extends PanelMenu.Button {
     _addRefreshFooter(menu) {
         const refreshItem = new PopupMenu.PopupMenuItem('🔄 刷新');
         refreshItem.connect('activate', () => {
-            this.emit('refresh-requested');
+            if (this._refreshCb) this._refreshCb();
         });
         menu.addMenuItem(refreshItem);
     }
@@ -232,10 +251,11 @@ export default class BanbanExtension extends Extension {
         this._indicator = null;
         this._timeoutId = null;
 
-        this._indicator = new BanbanIndicator(this.uuid);
-        this._indicator.connect('refresh-requested', () => this._refresh());
+        this._indicator = new BanbanIndicator(this.uuid, () => this._refresh());
 
         Main.panel.addToStatusArea(this.uuid, this._indicator);
+
+        log('[banban] extension enabled');
 
         // Periodic refresh every 60 seconds
         this._timeoutId = GLib.timeout_add_seconds(

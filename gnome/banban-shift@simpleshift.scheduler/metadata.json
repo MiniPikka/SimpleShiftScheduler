@@ -2,7 +2,7 @@
     "name": "ShiftMate — Shift Scheduler",
     "description": "Display your rotating shift schedule from banban CLI in the top bar. Shows today's shift, 7-day week preview, days until rest, and consecutive work days. Requires banban CLI installed.",
     "uuid": "banban-shift@simpleshift.scheduler",
-    "shell-version": ["45", "46", "47"],
+    "shell-version": ["45", "46", "47", "48", "49", "50"],
     "url": "https://github.com/MiniPikka/SimpleShiftScheduler",
     "version-name": "1.0.0",
     "gettext-domain": "banban-shift@simpleshift.scheduler"
