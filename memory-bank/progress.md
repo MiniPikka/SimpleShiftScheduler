@@ -1,8 +1,52 @@
-## 2026-06-01：Desktop Integration — KDE Plasma 6 Plasmoid ✅ + GNOME Shell Extension
+## 2026-06-01～02：Desktop Integration — GNOME Shell Extension ✅ + KDE Plasma 6 Plasmoid
 
 ### 决策背景
 
-Flutter Linux Desktop（2026-05-25）是完整 App 窗口的"暴力移植"，不适合桌面日常使用场景。决定转向原生 Desktop Widgets 策略。KDE Plasmoid 在 Plasma 6.6.5 真机面板验证通过。
+Flutter Linux Desktop（2026-05-25）是完整 App 窗口的"暴力移植"，不适合桌面日常使用场景。决定转向原生 Desktop Widgets 策略。
+
+### GNOME Shell 50 Extension ✅（已验证）
+
+- 面板显示：🟠早（emoji + 短标签）
+- 点击弹出菜单：今日班次详情 + 距休/连续上班 + 7 天周预览 + 刷新按钮
+- 60s 定时刷新，`Gio.Subprocess` 异步调用 banban CLI
+- GNOME 50 真机验证通过
+
+GNOME 50 踩坑：
+1. `GObject.registerClass` 不自动创建自定义信号 → 改用回调函数传参
+2. PanelMenu.Button 菜单为空时不弹出 → 构造时预填占位项
+3. `shell-version` 需显式包含 "50"
+4. Wayland 下 `gnome-extensions disable/enable` 不重载 JS 代码 → 需注销重登
+
+### KDE Plasma 6 Plasmoid（面板显示 ✅，弹窗 ⚠️）
+
+- 面板显示：🟠早（emoji + 短标签）+ 悬停 tooltip
+- 数据获取：`XMLHttpRequest` → `banban serve` HTTP API（localhost:11451）
+- 5min 定时刷新，server_down 错误提示
+
+Plasma 6.6 弹窗踩坑：
+1. `PlasmaCore.Units`/`Theme` 在 plasmoidviewer 中不可用 → 改用 `Kirigami`
+2. `X-Plasma-NotificationAreaCategory` 导致点击行为异常 → 移除
+3. `plasmoid.expanded` 在面板模式下不工作（Plasma 6.6 已知限制）
+4. `QtQuick.Controls.Popup` 高度被面板裁剪（300% 4K 缩放下更明显）
+5. `Component`/`Loader`/`contentItem` 等间接方式导致内容不渲染
+6. 最终方案：内联 `Popup`（PlasmoidItem 直系子元素），`width:500 height:600`
+
+⚠️ 当前弹窗显示为空白宽条——内容渲染待解决。面板显示和 tooltip 正常。
+
+### banban CLI 改进
+
+- 新增 `GET /week` HTTP 端点（serve.rs +52行）
+- systemd user service：`banban-serve.service`（开机自启 HTTP API）
+
+### systemd 集成
+
+```ini
+# ~/.config/systemd/user/banban-serve.service
+[Service]
+Type=simple
+ExecStart=/home/zxl/.cargo/bin/banban serve
+Restart=on-failure
+```
 
 ### 架构演进
 
