@@ -1,0 +1,64 @@
+Categories:
+  - Calendar
+  - Productivity
+License: MIT
+AuthorName: MiniPikka
+AuthorEmail: ''
+SourceCode: https://github.com/MiniPikka/SimpleShiftScheduler
+IssueTracker: https://github.com/MiniPikka/SimpleShiftScheduler/issues
+WebSite: https://github.com/MiniPikka/SimpleShiftScheduler
+
+AutoName: 班伴 - 倒班排班助手
+Summary: 轮班工作者的排班日历、统计与拼假助手
+Description: |
+  班伴（ShiftMate）是一款专为轮班/倒班工作者设计的排班助手。
+
+  核心功能：
+  - 排班日历：一眼查看今天和未来的班次（早班、中班、晚班、休息）
+  - 月度统计：上班天数、各班次分布、连续上班天数、距下次休息
+  - 智能拼假：根据法定节假日自动计算最优拼假方案，最大化假期
+  - 日历导出：将排班同步到系统日历，支持 ICS 格式
+  - 桌面小组件：Android 主屏小组件显示今日班次
+  - 多团队支持：六种倒班模式（一值～六值），自定义排班周期
+
+  ShiftMate is a shift scheduling assistant designed for shift workers.
+
+  Key features:
+  - Shift calendar: view today's and future shifts at a glance
+  - Monthly statistics: work days, shift distribution, consecutive work days
+  - Smart leave optimizer: maximize holidays around public holidays
+  - Calendar export: sync shifts to system calendar (ICS format)
+  - Home screen widget: shows today's shift on Android
+  - Multi-team support: 6 shift patterns with customizable cycles
+
+RepoType: git
+Repo: https://github.com/MiniPikka/SimpleShiftScheduler.git
+
+Builds:
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: app-v1.0.0
+    subdir: flutter
+    submodules: true
+    sudo:
+      - apt-get update
+      - apt-get install -y rustc cargo
+    init:
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+      - export PATH="$HOME/.cargo/bin:$PATH" && rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+      - export PATH="$HOME/.cargo/bin:$PATH" && cargo install cargo-ndk
+    prebuild:
+      - export PATH="$HOME/.cargo/bin:$PATH" && cd rust && cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../android/app/src/main/jniLibs build --release
+    build:
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+      - $$flutter$$/bin/flutter build apk --release --no-pub
+    output: build/app/outputs/flutter-apk/app-release.apk
+    srclibs:
+      - flutter@3.44.0
+    rm:
+      - .pub-cache
+      - build
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^app-v

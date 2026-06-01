@@ -267,6 +267,59 @@ async fn colleague(
     }))
 }
 
+// ── Week endpoint ──
+
+#[derive(Serialize)]
+struct WeekResponse {
+    team: String,
+    start_date: String,
+    end_date: String,
+    total_days: u32,
+    days: Vec<WeekDayResponse>,
+}
+
+#[derive(Serialize)]
+struct WeekDayResponse {
+    date: String,
+    weekday: String,
+    shift_type: String,
+    shift_label: String,
+    shift_label_zh: String,
+    day_of_cycle: u32,
+    is_today: bool,
+    is_rest: bool,
+}
+
+async fn week(
+    State(state): State<Arc<AppState>>,
+) -> Json<WeekResponse> {
+    let today = Local::now().date_naive();
+    let end = today + chrono::Duration::days(6);
+    let days: Vec<WeekDayResponse> = (0..7)
+        .map(|d| {
+            let date = today + chrono::Duration::days(d);
+            let info = get_shift_info(date, &state.cycle_config, state.offset);
+            WeekDayResponse {
+                date: date.to_string(),
+                weekday: date.format("%A").to_string(),
+                shift_type: format!("{:?}", info.shift_type),
+                shift_label: shift_label(info.shift_type).into(),
+                shift_label_zh: shift_label_zh(info.shift_type).into(),
+                day_of_cycle: info.day_of_cycle,
+                is_today: d == 0,
+                is_rest: info.shift_type.is_rest(),
+            }
+        })
+        .collect();
+    Json(WeekResponse {
+        team: team_label(state.team),
+        start_date: today.to_string(),
+        end_date: end.to_string(),
+        total_days: state.cycle_config.cycle_length,
+        days,
+    })
+}
+
 // ── Server entry point ──
 
 pub async fn run(cycle_config: ShiftCycleConfig, team: u32, offset: u32) {
@@ -276,6 +329,7 @@ pub async fn run(cycle_config: ShiftCycleConfig, team: u32, offset: u32) {
         .route("/health", get(health))
         .route("/shift", get(today_shift))
         .route("/shift/{date}", get(shift_for_date))
+        .route("/week", get(week))
         .route("/calendar/{year}/{month}", get(calendar))
         .route("/leave", get(leave))
         .route("/colleague/{team_a}/{team_b}", get(colleague))
@@ -286,6 +340,7 @@ pub async fn run(cycle_config: ShiftCycleConfig, team: u32, offset: u32) {
     println!("  GET /health                  health check");
     println!("  GET /shift                   today's shift");
     println!("  GET /shift/YYYY-MM-DD        shift for a date");
+    println!("  GET /week                    7-day week view");
     println!("  GET /calendar/YYYY/MM        monthly calendar");
     println!("  GET /leave?max_days=5        leave strategies");
     println!("  GET /colleague/1/3           common rest days");

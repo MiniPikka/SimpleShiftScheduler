@@ -1,0 +1,23 @@
+班伴（ShiftMate）是一款专为轮班/倒班工作者设计的排班助手。
+
+核心功能：
+- 排班日历：一眼查看今天和未来的班次（早班、中班、晚班、休息）
+- 月度统计：上班天数、各班次分布、连续上班天数、距下次休息
+- 智能拼假：根据法定节假日自动计算最优拼假方案，最大化假期
+- 日历导出：将排班同步到系统日历，支持 ICS 格式
+- 桌面小组件：Android 主屏小组件显示今日班次
+- 多团队支持：六种倒班模式（一值～六值），自定义排班周期
+
+支持平台：Android、Linux Desktop
+
+ShiftMate is a shift scheduling assistant designed for shift workers.
+
+Key features:
+- Shift calendar: view today's and future shifts at a glance
+- Monthly statistics: work days, shift distribution, consecutive work days
+- Smart leave optimizer: maximize holidays around public holidays
+- Calendar export: sync shifts to system calendar (ICS format)
+- Home screen widget: shows today's shift on Android
+- Multi-team support: 6 shift patterns with customizable cycles
+
+Supported platforms: Android, Linux Desktop

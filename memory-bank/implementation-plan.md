@@ -4995,21 +4995,33 @@ notify-send "倒班助手" "今日: ${SHIFT} · 距休: ${DAYS}天" --icon=calen
 | P3.8 | ✅ | CLI 全部子命令（`banban`，today/stats/leave/colleague/calendar/next-rest/waybar） |
 | P3.8 | ✅ | `banban` 命名解决 bash 内置 `shift` 冲突 |
 
-### P2（下一步）
+### P2（已完成）
 
-**6. 实现 `shift-export` — ICS 文件导出**
+**6. 实现 `shift-export` — ICS 文件导出** ✅
+**7. Thunderbird 导入测试** ✅
+**8. Flutter Linux Desktop** ✅（2026-05-25）
+**9. Desktop Widgets — KDE Plasma 6 + GNOME Shell 45+** ✅（2026-06-01）
 
-```bash
-banban export --ics
-# 生成的 .ics 文件导入 Thunderbird 验证
-```
+### Desktop Widgets 实施细节（2026-06-01）
 
-**7. Thunderbird 导入测试** — 第一个 Linux 集成里程碑 🎯
+两个原生桌面 Widget 替代 Flutter Linux Desktop 作为日常面板信息入口。
+
+| Step | 内容 | 关键决策 |
+|------|------|---------|
+| D1 | GNOME Shell 45+ Extension | PanelMenu.Button + Gio.Subprocess 异步 + 60s 刷新 |
+| D2 | KDE Plasma 6 Plasmoid | Plasma5Support.DataSource executable engine + 5min 刷新 |
+| D3 | 文档更新 | CLAUDE.md + architecture.md + progress.md |
+
+**核心原则**：
+- 零新 Rust 代码——直接调用已有 `banban --json` CLI
+- QML/JS 只做展示，不包含排班算法
+- 内联 emoji 映射表（🟠早 🔵中 🟢休 🟣夜 🟡学）
+- 错误状态：CLI 缺失/配置缺失/解析失败 各有友好提示
+- Flutter App 保留作为复杂功能入口
 
 ### P3（后续）
 
-**9. `flutter_rust_bridge` 集成验证**
-**10. Plasma Widget 原型**
+**10. `flutter_rust_bridge` 集成验证**
 
 ---
 

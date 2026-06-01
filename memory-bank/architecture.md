@@ -2401,3 +2401,136 @@ Flutter domain/algorithms/ 逐步替换为 FFI 调用
 Rust CLI + ICS export + Plasma Widget
 与 Flutter App 并行独立开发
 ```
+
+---
+
+# Part C：Desktop Integration Architecture（2026-06-01）
+
+## C.1 设计决策
+
+Flutter Linux Desktop（2026-05-25）是完整 App 窗口，但不适合桌面日常使用（"看一眼今天什么班"）。Desktop Widgets 策略：
+
+- **KDE Plasma 6 Plasmoid**（QML + XMLHttpRequest）—— 面板小程序，通过 HTTP 调用 `banban serve` API
+- **GNOME Shell 45+ Extension**（JS ES modules + Gio.Subprocess）—— 顶栏指示器
+- **零算法重复**：所有数据来自 banban HTTP API 或 CLI JSON 输出
+- **与 Flutter App 互补**：Widget 负责日常速览，Flutter App 负责复杂功能
+
+## C.2 整体架构
+
+```
+┌─────────────────────────┐   ┌──────────────────────────┐
+│ KDE Plasma 6 Plasmoid   │   │ GNOME Shell 45+ Ext      │
+│ (QML ~290 lines)        │   │ (JS ES modules ~250 lines)│
+│                         │   │                          │
+│ XMLHttpRequest (async)  │   │ Gio.Subprocess           │
+│ → localhost:11451/shift │   │ communicate_utf8_async   │
+│ → localhost:11451/week  │   │ → banban --json today    │
+└───────────┬─────────────┘   └────────────┬─────────────┘
+            │                              │
+            ▼                              ▼
+    ┌──────────────────────────────────────────────┐
+    │      banban serve (HTTP API, localhost:11451)│
+    │      banban CLI (Rust binary, --json)        │
+    │  GET /shift  /shift/{date}  /week            │
+    │  GET /calendar  /leave  /colleague  /health  │
+    └──────────────────────┬───────────────────────┘
+                           │
+                           ▼
+    ┌──────────────────────────────────────────────┐
+    │         shift-core (Rust library)            │
+    │  shift-algorithm | shift-statistics          │
+    │  holiday-engine  | leave-optimizer           │
+    │  shift-export                                │
+    └──────────────────────────────────────────────┘
+```
+
+**KDE Plasmoid 选择 HTTP 而非 subprocess 的原因**：
+1. plasmashell 的 PATH 不包含 `~/.cargo/bin`，且 `~/.config/plasma-workspace/env/` 脚本在 systemd-boot 模式下不生效
+2. Plasma5Support.DataSource 的 "executable" engine 按空格拆分参数直接传 argv（不经过 shell），无法使用 `sh -c` 包装
+3. HTTP 方案零 PATH 依赖、零参数传递问题、零兼容层依赖
+
+**GNOME Extension 使用 subprocess 的原因**：
+1. Gio.Subprocess 接受 `['banban', '--json', '--lang', 'zh', 'today']` 数组形式传参，无参数拆分问题
+2. GNOME Shell 的 GLib 环境变量展开正确，不依赖 PATH
+
+## C.3 systemd 集成
+
+`banban serve` 通过 systemd user service 管理：
+
+```ini
+# ~/.config/systemd/user/banban-serve.service
+[Service]
+Type=simple
+ExecStart=/home/zxl/.cargo/bin/banban serve
+Restart=on-failure
+RestartSec=5
+```
+
+`install.sh` 自动创建并 enable 此服务，实现开机自启。
+
+### 显示映射
+
+两个 Widget 各自内联 emoji + 颜色映射表，不依赖 CLI 的 `--lang` 输出标签：
+
+| shift_type | emoji | 短标签 | 颜色 |
+|-----------|-------|--------|------|
+| morning | 🟠 | 早 | #FFB347 |
+| afternoon | 🔵 | 中 | #4DA3FF |
+| rest | 🟢 | 休 | #35D07F |
+| night | 🟣 | 夜 | #7C5CFF |
+| study | 🟡 | 学 | #F2D94E |
+
+### 刷新策略
+
+| Widget | 间隔 | 机制 | 理由 |
+|--------|------|------|------|
+| GNOME Extension | 60s | `GLib.timeout_add_seconds` | GNOME Shell 24/7 运行，需及时响应跨天 |
+| KDE Plasmoid | 5min | QML `Timer` | QML 刷新开销更大，5 分钟足够 |
+
+### 数据获取
+
+三个 CLI 调用链式执行（today → week + next-rest 并发）：
+1. `banban --json --lang zh today` — 必须成功，否则显示错误
+2. `banban --json --lang zh week` — 非关键，失败不影响 today 显示
+3. `banban --json --lang zh next-rest` — 非关键，可从 today 数据 fallback
+
+## C.4 文件结构
+
+```
+plasma/
+├── banban-shift@simpleshift.scheduler/
+│   ├── metadata.json              ← KPlugin Id: com.simpleshift.banban
+│   ├── contents/ui/main.qml       ← PlasmoidItem + compact/full representations
+│   └── install.sh                 ← kpackagetool6 or manual copy
+
+gnome/
+├── banban-shift@simpleshift.scheduler/
+│   ├── metadata.json              ← UUID: banban-shift@simpleshift.scheduler
+│   ├── extension.js               ← PanelMenu.Button + Gio.Subprocess + PopupMenu
+│   ├── stylesheet.css             ← panel + popup styling
+│   └── install.sh                 ← symlink to ~/.local/share/gnome-shell/extensions/
+```
+
+## C.5 错误处理
+
+两个 Widget 共享 4 状态模型：
+
+| 状态 | panel 显示 | popup 内容 | 触发条件 |
+|------|-----------|-----------|---------|
+| LOADING | ⏳ | 加载中... | 初始加载或刷新中 |
+| DATA_OK | emoji + 标签 | 完整班次信息 | banban 成功返回 |
+| CLI_MISSING | ⚠️? | 安装指引 | banban 不在 PATH |
+| CONFIG_MISSING | ⚠️? | 配置指引 | ~/.config/banban/config.toml 不存在/无效 |
+
+## C.6 与 Flutter Linux Desktop 的关系
+
+Flutter Linux Desktop App **保留但不作为主力桌面入口**：
+- 复杂功能入口：日历浏览、拼假神器、同事模式仍需完整 UI
+- ICS 导出 + 系统通知继续工作
+- 日常"看一眼"场景由 Desktop Widgets 承担
+
+## C.7 未来方向
+
+- **跨天自动检测**：当前靠定时刷新，未来可通过 DBus `DayChanged` 信号触发即时更新
+- **Waybar 特殊样式**：已有 `banban waybar` JSON 输出，CSS class 可自定义
+- **点击 Widget 打开 Flutter App**：popup 中可添加"打开完整 App"按钮

@@ -11,7 +11,6 @@ import 'core/services/notification_scheduler.dart';
 import 'core/services/calendar_service.dart';
 import 'core/services/linux_calendar_sync.dart';
 import 'core/services/share_service.dart';
-import 'core/services/supabase_service.dart';
 import 'data/providers.dart';
 import 'domain/models/runtime_shift_settings.dart';
 
@@ -30,7 +29,6 @@ void main() async {
     await Hive.initFlutter();
   }
   await NotificationService.init();
-  await SupabaseService.init();
   await cleanupOldShareImages();
   await _requestPermissions();
   runApp(const ProviderScope(child: SchedulerApp()));

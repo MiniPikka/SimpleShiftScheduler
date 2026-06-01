@@ -1,0 +1,42 @@
+/* Panel button label */
+.banban-panel-label {
+    font-size: 13px;
+    font-weight: bold;
+    padding: 0 6px;
+}
+
+/* Popup menu items */
+.banban-today-shift {
+    font-size: 16px;
+    font-weight: bold;
+    padding: 4px 0;
+}
+
+.banban-detail-row {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    padding: 2px 0;
+}
+
+.banban-section-header {
+    font-size: 10px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 0;
+}
+
+.banban-week-day {
+    font-size: 12px;
+}
+
+.banban-week-today {
+    font-weight: bold;
+    color: #FACC15;
+}
+
+.banban-error {
+    color: #EF4444;
+    font-size: 12px;
+}

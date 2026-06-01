@@ -1,0 +1,9 @@
+Initial release of BanBan (ShiftMate).
+
+- Core shift scheduling algorithm with 6 team patterns
+- Monthly shift statistics and consecutive work day tracking
+- Smart leave optimizer for public holidays
+- ICS calendar export
+- Android home screen widget
+- Multi-language support (Chinese, English)
+- Linux desktop support with responsive UI

@@ -11,11 +11,14 @@ SimpleShiftScheduler/          ← git repo root
 ├── memory-bank/               ← detailed docs (architecture, design, progress, plans)
 ├── shift-core/                ← Rust workspace — the single source of truth for all algorithms
 ├── android/                   ← Android 原版 (Kotlin + Compose, 参考实现, 不再活跃开发)
-└── flutter/                   ← Flutter 移动端 (通过 dart:ffi 调用 Rust)
+├── flutter/                   ← Flutter 移动端 (通过 dart:ffi 调用 Rust) + Linux Desktop
+├── plasma/                    ← KDE Plasma 6 面板小程序 (QML, 调用 banban CLI)
+└── gnome/                     ← GNOME Shell 45+ 顶栏扩展 (JS, 调用 banban CLI)
 ```
 
 - **shift-core (Rust)**：主力开发目标。6 个 crate：shift-algorithm, shift-statistics, holiday-engine, leave-optimizer, shift-export, shift-cli。CLI 工具 `banban`。
-- **Flutter 移动端**：Android/iOS UI。Domain 层已通过 dart:ffi 接入 Rust，纯 Dart 保留为 fallback。
+- **Flutter 移动端**：Android/iOS UI + Linux Desktop 完整功能 App。Domain 层已通过 dart:ffi 接入 Rust，纯 Dart 保留为 fallback。
+- **Desktop Widgets**：KDE Plasma 6 Plasmoid + GNOME Shell 45+ Extension。零算法重复——直接调用 `banban --json` CLI。日常面板信息展示首选。
 - **Android 原版**：参考实现，148 tests，不再活跃开发。算法已验证。
 
 ---
@@ -124,6 +127,42 @@ lib/domain/bridge/
 
 ---
 
+## Desktop Widgets (`plasma/` + `gnome/`)
+
+### 设计原则
+
+- **零算法重复**：Plasmoid 和 Extension 只做展示，通过 HTTP API 或 CLI 获取数据
+- **KDE Plasmoid**：XMLHttpRequest → `banban serve` HTTP API（localhost:11451），零 subprocess
+- **GNOME Extension**：Gio.Subprocess → `banban --json` CLI（GNOME 无 Plasma 的 PATH/参数问题）
+- **轻量**：QML ~290 行 / JS ~250 行，无框架依赖，纯原生平台 API
+- **共享约定**：emoji 映射（🟠早 🔵中 🟢休 🟣夜 🟡学）、刷新周期（GNOME 60s / Plasma 5min）
+
+### KDE Plasma 6 Plasmoid
+
+```bash
+cd plasma
+./banban-shift@simpleshift.scheduler/install.sh    # 安装到 ~/.local/share/plasma/plasmoids/
+plasmoidviewer --applet com.simpleshift.banban     # 开发测试（需 plasma-sdk）
+kpackagetool6 --remove com.simpleshift.banban      # 卸载
+```
+
+### GNOME Shell Extension
+
+```bash
+cd gnome
+./banban-shift@simpleshift.scheduler/install.sh    # 安装到 ~/.local/share/gnome-shell/extensions/
+gnome-extensions enable banban-shift@simpleshift.scheduler
+journalctl -f -o cat /usr/bin/gnome-shell | grep banban  # 调试日志
+```
+
+### 关键规则
+
+- Widget 代码中不得包含排班计算逻辑——所有数据来自 `banban --json` CLI
+- 修改 CLI 的 `--json` 输出格式后需同步更新 QML 和 JS 中的 JSON 解析字段
+- 新增 CLI 功能如需在 Widget 中展示，先在 QML/JS 中加数据结构，然后加 UI
+
+---
+
 ## Android 原版 (`android/`)
 
 ### Build & Test
@@ -159,3 +198,4 @@ cd android
 3. 完成后：更新 `memory-bank/progress.md`，如有架构变化更新 `memory-bank/architecture.md`
 4. Rust 代码改动后必跑：`cargo test && cargo clippy --all-targets && cargo doc --no-deps`
 5. Flutter 代码改动后必跑：`flutter test && flutter analyze`
+6. Desktop Widget 改动：无需构建步骤（QML/JS 即时生效），手动测试用 `plasmoidviewer` 或检查 GNOME Shell 日志

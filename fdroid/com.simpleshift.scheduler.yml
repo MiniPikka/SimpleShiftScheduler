@@ -1,0 +1,55 @@
+Categories:
+  - Time
+  - Calendar
+License: MIT
+AuthorName: MiniPikka
+SourceCode: https://github.com/MiniPikka/SimpleShiftScheduler
+IssueTracker: https://github.com/MiniPikka/SimpleShiftScheduler/issues
+Changelog: https://github.com/MiniPikka/SimpleShiftScheduler/releases
+
+AutoName: BanBan (ShiftMate)
+Summary: Shift scheduling assistant for shift workers
+Description: |-
+  A shift scheduling assistant for shift workers with shift calendar,
+  monthly statistics, smart leave optimizer, and calendar export.
+
+RepoType: git
+Repo: https://github.com/MiniPikka/SimpleShiftScheduler
+
+Builds:
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: v1.0.0
+    sudo:
+      - apt-get update
+      - apt-get install -y openjdk-17-jdk-headless rustc cargo
+      - cargo install cargo-ndk
+    output: build/app/outputs/apk/release/app-release-unsigned.apk
+    srclibs:
+      - flutter@3.32.0
+    rm:
+      - android/app/proguard-rules.pro
+    prebuild:
+      - sed -i -e '/proguardFiles/d' android/app/build.gradle.kts
+      - export ANDROID_NDK_HOME=$$NDK$$
+      - cd rust && $$cargo-ndk$$/bin/cargo-ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release && cd ..
+    build:
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+      - $$flutter$$/bin/flutter build apk --release
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v.*$
+UpdateCheckData: pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1
+
+# NOTE: This is a template. Before submitting to F-Droid:
+# 1. Verify the commit hash for each version
+# 2. Pin the correct Flutter version in srclibs
+# 3. Test with `fdroid build` locally if possible
+# 4. Submit this file to https://gitlab.com/fdroid/fdroiddata via MR
+#
+# The Rust FFI build requires cargo-ndk and Android NDK.
+# F-Droid build servers may need special configuration for this.
+# Consider opening an issue on fdroiddata to discuss the build setup.

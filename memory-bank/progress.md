@@ -1,3 +1,121 @@
+## 2026-06-01：Desktop Integration — KDE Plasma 6 Plasmoid ✅ + GNOME Shell Extension
+
+### 决策背景
+
+Flutter Linux Desktop（2026-05-25）是完整 App 窗口的"暴力移植"，不适合桌面日常使用场景。决定转向原生 Desktop Widgets 策略。KDE Plasmoid 在 Plasma 6.6.5 真机面板验证通过。
+
+### 架构演进
+
+初版尝试 Plasma5Support.DataSource（executable engine）subprocess 方案，遇到三类根本问题后改为 HTTP：
+1. plasmashell 的 PATH 不包含 `~/.cargo/bin`，导致 banban 找不到
+2. DataEngine 按空格拆分参数直接传 argv（不经过 shell），无法使用 `sh -c` 包装
+3. `PlasmaCore.Units`/`Theme` 在 Plasma 6.6 中不可用，需改用 `Kirigami`
+
+**最终架构**：QML `XMLHttpRequest` → `banban serve` HTTP API（localhost:11451）。零 subprocess、零 PATH 依赖、零 DataEngine 兼容层。
+
+### banban CLI 改进
+
+新增 `GET /week` 端点（`serve.rs` +52行）— 返回今日起 7 天周视图：
+```json
+{"team":"一值","days":[{"date":"2026-06-01","shift_type":"Morning","shift_label_zh":"早",...}]}
+```
+HTTP API 现共 7 个端点：/health /shift /shift/{date} /week /calendar /leave /colleague
+
+### systemd 集成
+
+新增 `banban-serve.service`（systemd user unit）— 开机自启 HTTP API 服务器。
+`install.sh` 自动创建、enable、start。
+
+### KDE Plasma 6 Plasmoid（✅ 已验证）
+
+| 文件 | 用途 |
+|------|------|
+| `metadata.json` | KPackageStructure: Plasma/Applet, Id: com.simpleshift.banban |
+| `contents/ui/main.qml` | XMLHttpRequest → localhost:11451/shift + /week, Kirigami UI |
+| `install.sh` | 安装 plasmoid + systemd 服务 |
+
+- 数据层：两个并行 XMLHttpRequest（/shift + /week），5 秒超时，自动重试
+- UI：PlasmoidItem + compactRepresentation（emoji + 标签）+ fullRepresentation（头卡片 + 统计行 + 7 天周预览）
+- 错误处理：server_down → "banban API 服务未启动" + systemctl 指引，transient → 5 秒自动重试最多 3 次
+- 刷新：Timer 5 分钟
+
+### GNOME Shell 45+ Extension
+
+| 文件 | 用途 |
+|------|------|
+| `metadata.json` | UUID: banban-shift@simpleshift.scheduler, shell-version: [45,46,47] |
+| `extension.js` | PanelMenu.Button + Gio.Subprocess + PopupMenu |
+| `stylesheet.css` | 面板标签 + 弹出菜单样式 |
+
+- 仍用 subprocess 方式（GNOME Shell 的 `Gio.Subprocess` 支持完整 argv 传递，无 Plasma 的 PATH/拆分问题）
+- 60s 定时刷新
+
+### 新增/修改文件汇总
+
+| 新增（11 个） | 修改（5 个） |
+|-------------|-------------|
+| `plasma/.../metadata.json` | `CLAUDE.md` |
+| `plasma/.../contents/ui/main.qml` | `memory-bank/architecture.md` |
+| `plasma/.../contents/code/banban_wrapper.sh` | `memory-bank/progress.md` |
+| `plasma/.../install.sh` | `memory-bank/implementation-plan.md` |
+| `plasma/README.md` | `shift-core/cli/src/serve.rs` (+/week) |
+| `gnome/.../metadata.json` | |
+| `gnome/.../extension.js` | |
+| `gnome/.../stylesheet.css` | |
+| `gnome/.../install.sh` | |
+| `gnome/README.md` | |
+
+### 验证
+
+- `plasmoidviewer -a` — 零 QML 错误，server 停/启状态切换正确
+- Plasma 6.6.5 真机面板 — compact 显示🟠早，tooltip 正常，popup 展开正常
+- `cargo test` — 109 + 7 doctest 全部通过
+- `cargo clippy` — 零警告
+- GNOME Extension：代码语法正确，待 GNOME 环境真机测试
+
+---
+
+## 2026-05-29：F-Droid 准备 + GitHub Releases CI
+
+### 变更
+
+- **移除 `supabase_flutter`**：死代码 stub，所有方法 throw UnimplementedError，零功能影响
+  - 删除 `lib/core/services/supabase_service.dart`
+  - `main.dart` 移除 import + init() 调用
+  - `pubspec.yaml` 移除依赖
+- **F-Droid fastlane 元数据**：`fastlane/metadata/android/en-US/`（title、description、changelog）
+- **GitHub Actions 自动发布**：`.github/workflows/release.yml`
+  - 触发：push tag `v*`
+  - 构建链：Rust toolchain + cargo-ndk → FFI bridge (all ABIs) → Flutter APK
+  - 发布：`softprops/action-gh-release@v2`，附带 APK + 自动生成 changelog
+  - 签名：debug key（deferred，加了 release signing 注释）
+- **F-Droid 元数据模板**：`fdroid/com.simpleshift.scheduler.yml`
+
+### 发布工作流
+
+1. 编辑 `pubspec.yaml` version（如 `1.3.0+3`）
+2. commit → `git tag v1.3.0` → `git push && git push --tags`
+3. CI 自动构建 + 创建 GitHub Release
+
+### 待办
+
+- 生成 release keystore，配置 GitHub Secrets 实现正式签名
+- 提交 F-Droid MR 到 fdroiddata 仓库 — metadata 已就绪: `metadata/com.simpleshift.scheduler_cp.yml`
+- 真机截图已就绪 ✅: `fastlane/metadata/android/en-US/images/phoneScreenshots/1-6.png`
+- Tag 已创建 ✅: `app-v1.0.0`
+- Push tag 并提交 MR 到 fdroiddata（`git push origin app-v1.0.0`）
+- 添加 512x512 PNG icon 到 `fastlane/metadata/android/en-US/images/icon.png`
+
+### Tag 命名规范
+
+采用前缀区分产品：
+- `app-vX.Y.Z` — Flutter APK 发布（F-Droid + GitHub Release）
+- `cli-vX.Y.Z` — banban CLI 发布（crates.io + AUR）
+- `v1.0` `v1.1.0` `v1.2.0` — Android 原版（历史，保留不动）
+- `v0.1.x` — banban CLI 早期（历史，保留不动）
+
+---
+
 ## 2026-05-25：Flutter Linux Desktop — 全功能迁移 ✅
 
 ### 目标达成
