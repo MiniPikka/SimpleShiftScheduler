@@ -8,6 +8,7 @@ banban leave -m 3     →  🏖️  请 2 天 → 连休 15 天 (中秋+国庆�
 banban export --ics   →  生成 ICS 日历文件，导入 Thunderbird
 banban waybar         →  {"text":"🌙 夜","class":"night","tooltip":"..."}  Waybar JSON
 banban tui            →  全屏终端界面，btop/lazygit 风格
+banban serve          →  HTTP API 服务器 (localhost:11451)
 ```
 
 ## Install
@@ -19,6 +20,12 @@ banban today
 
 [![crates.io](https://img.shields.io/crates/v/shift-cli)](https://crates.io/crates/shift-cli)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+### Arch Linux (AUR)
+
+```bash
+yay -S banban
+```
 
 ## Quick Start
 
@@ -33,26 +40,55 @@ banban colleague 1 3            # 一值和三值哪天能一起休
 banban waybar                   # Waybar 状态栏输出 (--lang 切换语言)
 banban export --ics --open      # 导出日历并打开 Thunderbird
 banban tui                      # 全屏交互界面
+banban serve                    # 启动 HTTP API 服务器
 banban install                  # 安装 systemd 每日定时提醒
 ```
 
 ## Features
 
-| 功能 | CLI | TUI | Flutter | ICS |
-|------|-----|-----|---------|-----|
-| 今日班次 + 距休倒计时 | `banban today` | ✅ | ✅ | — |
-| 明日班次 | `banban tomorrow` | ✅ | ✅ | — |
-| 周视图 | `banban week` | ✅ | — | — |
-| 月历（彩色 ANSI/CJK 对齐） | `banban calendar` | ✅ | ✅ | ✅ |
-| 月度统计 | `banban stats` | ✅ | ✅ | — |
-| 拼假神器 | `banban leave -m 3` | ✅ + - | ✅ | — |
-| 同事模式 | `banban colleague 1 3` | ✅ ←→↑↓ | ✅ | — |
-| ICS 日历导出 | `banban export --ics` | — | — | ✅ |
-| 全屏 TUI | `banban tui` | ✅ | — | — |
-| 桌面通知 | `banban notify` | — | — | — |
-| systemd 定时器 | `banban install` | — | — | — |
-| Waybar 状态栏 | `banban waybar` | — | — | — |
-| 桌面 Widget | — | — | ✅ | — |
+| 功能 | CLI | TUI | Flutter | ICS | Desktop Widget |
+|------|-----|-----|---------|-----|----------------|
+| 今日班次 + 距休倒计时 | `banban today` | ✅ | ✅ | — | ✅ |
+| 明日班次 | `banban tomorrow` | ✅ | ✅ | — | — |
+| 周视图 | `banban week` | ✅ | — | — | ✅ |
+| 月历（彩色 ANSI/CJK 对齐） | `banban calendar` | ✅ | ✅ | ✅ | — |
+| 月度统计 | `banban stats` | ✅ | ✅ | — | — |
+| 拼假神器 | `banban leave -m 3` | ✅ + - | ✅ | — | — |
+| 同事模式 | `banban colleague 1 3` | ✅ ←→↑↓ | ✅ | — | — |
+| ICS 日历导出 | `banban export --ics` | — | — | ✅ | — |
+| 全屏 TUI | `banban tui` | ✅ | — | — | — |
+| 桌面通知 | `banban notify` | — | — | — | — |
+| systemd 定时器 | `banban install` | — | — | — | — |
+| Waybar 状态栏 | `banban waybar` | — | — | — | — |
+| 桌面 Widget | — | — | ✅ | — | ✅ |
+
+## Desktop Widgets
+
+原生桌面 Widget，零算法重复——直接调用 `banban` CLI 或 `banban serve` HTTP API。
+
+### KDE Plasma 6 Panel Widget
+
+```bash
+cd plasma
+./install.sh    # 安装 plasmoid + systemd 服务
+# 右键面板 → 添加部件 → 搜索 "ShiftMate"
+```
+
+- 🟠早 🔵中 🟢休 🟣夜 🟡学 — 彩色 emoji 面板显示
+- 点击展开：今日详情 + 距休/连续上班 + 7 天周预览
+- 悬停 tooltip：班组、周期进度、距休天数
+- 5 分钟自动刷新，`banban serve` HTTP API 通信
+
+### GNOME Shell 45+ Extension
+
+```bash
+cd gnome
+./install.sh    # 安装扩展
+gnome-extensions enable banban-shift@simpleshift.scheduler
+```
+
+- 面板 emoji + 短标签，点击弹出菜单
+- 60 秒自动刷新，`Gio.Subprocess` 异步调用 CLI
 
 ## Waybar Integration
 
@@ -76,32 +112,30 @@ Style with CSS (`~/.config/waybar/style.css`):
 #custom-banban.study { color: #F2D94E; }
 ```
 
-Customize display labels in `~/.config/banban/config.toml`:
-
-```toml
-[display]
-waybar_morning = "🌅 早"
-waybar_afternoon = "☀️ 中"
-waybar_rest = "🌿 休"
-waybar_night = "🌙 夜"
-waybar_study = "📚 学"
-```
-
-Run `banban -l en waybar` for English output, or set `--lang zh` for Chinese.
-
 ## Architecture
 
 ```
 SimpleShiftScheduler/
-├── shift-core/        ← Rust workspace (109 tests)
+├── shift-core/        ← Rust workspace (109 tests, 6 crates)
 │   ├── crates/        ← algorithm, statistics, holidays, leave-opt, ICS export
-│   └── cli/           ← banban CLI + TUI (17 commands)
-├── flutter/           ← Flutter 移动端 (110 tests, dart:ffi → Rust)
+│   └── cli/           ← banban CLI + TUI + HTTP serve
+├── flutter/           ← Flutter 移动端 + Linux Desktop (110 tests, dart:ffi → Rust)
+├── plasma/            ← KDE Plasma 6 面板小部件 (QML, HTTP API)
+├── gnome/             ← GNOME Shell 45+ 顶栏扩展 (JS, subprocess CLI)
 ├── android/           ← Android 参考实现 (148 tests, archived)
 └── memory-bank/       ← 详细设计文档
 ```
 
-**Rust is the single source of truth.** All platforms (CLI, TUI, Flutter, ICS export) call the same Rust crates.
+**Rust is the single source of truth.** All platforms call the same Rust crates.
+
+| 消费方 | 通信方式 | 刷新间隔 |
+|--------|---------|---------|
+| CLI / TUI | 直接调用 Rust | — |
+| Flutter (FFI) | `dart:ffi` JSON over C | — |
+| Flutter (Dart fallback) | 纯 Dart 实现 | — |
+| KDE Plasmoid | `XMLHttpRequest` → `banban serve` HTTP API | 5 min |
+| GNOME Extension | `Gio.Subprocess` → `banban --json` CLI | 60 s |
+| Waybar | `banban waybar` JSON stdout | 用户配置 |
 
 ## Algorithm
 
@@ -118,12 +152,14 @@ SimpleShiftScheduler/
 
 | Layer | Technology |
 |-------|-----------|
-| Core Domain | Rust (5 crates) |
+| Core Domain | Rust (6 crates) |
 | CLI + TUI | Rust + clap + ratatui + crossterm |
+| HTTP API | Rust + axum + tokio |
 | Calendar Export | ICS RFC 5545 (hand-rolled) |
-| Notifications | notify-rust + DBus + systemd |
 | Mobile UI | Flutter + Riverpod + GoRouter |
 | FFI Bridge | dart:ffi (JSON over C) |
+| KDE Widget | QML + PlasmaExtras + XMLHttpRequest |
+| GNOME Widget | GJS + PanelMenu.Button + Gio.Subprocess |
 
 ## Test Summary
 

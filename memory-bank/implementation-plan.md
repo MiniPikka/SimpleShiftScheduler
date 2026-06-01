@@ -5009,19 +5009,54 @@ notify-send "倒班助手" "今日: ${SHIFT} · 距休: ${DAYS}天" --icon=calen
 | Step | 内容 | 关键决策 |
 |------|------|---------|
 | D1 | GNOME Shell 45+ Extension | PanelMenu.Button + Gio.Subprocess 异步 + 60s 刷新 |
-| D2 | KDE Plasma 6 Plasmoid | Plasma5Support.DataSource executable engine + 5min 刷新 |
+| D2 | KDE Plasma 6 Plasmoid | XMLHttpRequest → `banban serve` HTTP API + 5min 刷新 |
 | D3 | 文档更新 | CLAUDE.md + architecture.md + progress.md |
+| D4 | KDE 弹窗修复 ✅（2026-06-02） | QtQuick.Controls.Popup → PlasmoidItem expanded + PlasmaExtras.Representation |
 
 **核心原则**：
-- 零新 Rust 代码——直接调用已有 `banban --json` CLI
+- 零新 Rust 代码——直接调用已有 `banban --json` CLI（GNOME）或 `banban serve` HTTP API（KDE）
 - QML/JS 只做展示，不包含排班算法
 - 内联 emoji 映射表（🟠早 🔵中 🟢休 🟣夜 🟡学）
 - 错误状态：CLI 缺失/配置缺失/解析失败 各有友好提示
 - Flutter App 保留作为复杂功能入口
 
+**10. Desktop Widgets 商店上架** 🔲
+
+### 上架计划（待执行）
+
+| 商店 | 目标插件 | 账号要求 | 打包格式 |
+|------|---------|---------|---------|
+| [KDE Store](https://store.kde.org) | KDE Plasma 6 Plasmoid | KDE Identity | `.plasmoid`（zip 改扩展名） |
+| [extensions.gnome.org](https://extensions.gnome.org) | GNOME Shell Extension | GNOME GitLab | `.zip` |
+| [Pling](https://www.pling.com) | 两者均可 | 独立账号 | 同上 |
+| AUR | banban CLI | AUR 账号 | PKGBUILD |
+
+**两个商店都需要的准备工作**：
+- 截图（1920×1080）：面板 compact 效果 + 弹出 popup 效果
+- LICENSE 文件（MIT）
+- 中英文双语描述 + 依赖说明（banban CLI / banban serve）
+- 自定义图标（可选，替代系统默认 clock 图标）
+- CHANGELOG
+
+**KDE Store 专属要求**：
+- `metadata.json` 已就绪（Plasma/Applet, Id: com.simpleshift.banban, Version: 1.0.0）
+- 需 KDE Identity 账号 → identity.kde.org 注册
+- 打包：`cd plasma/banban-shift@simpleshift.scheduler && zip -r ../banban-shift.plasmoid .`
+
+**GNOME Extensions 专属要求**：
+- `metadata.json` 已就绪（UUID, shell-version: 45-50）
+- 需 GNOME GitLab 账号 → gitlab.gnome.org 注册 → extensions.gnome.org 授权
+- 推荐关联 GitLab repo 实现自动更新
+- 打包：`cd gnome/banban-shift@simpleshift.scheduler && zip -r ../banban-shift.zip . -x "install.sh"`
+- shell-version 需持续更新（GNOME 51+ 发布时）
+
+**首次使用引导**（建议在上架前完成）：
+- KDE: popup 中检测 server_down 时显示安装步骤
+- GNOME: 扩展菜单中检测 CLI 未安装时显示安装步骤
+
 ### P3（后续）
 
-**10. `flutter_rust_bridge` 集成验证**
+**11. `flutter_rust_bridge` 集成验证**
 
 ---
 

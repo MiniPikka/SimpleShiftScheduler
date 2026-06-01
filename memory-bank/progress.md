@@ -255,8 +255,11 @@ HTTP API 现共 7 个端点：/health /shift /shift/{date} /week /calendar /leav
 
 - Phase 4：手动测试（Wayland/X11、KDE/GNOME 行为、CJK 字体、快捷键响应）
 - 修复真机测试发现的问题
-- 更新 memory-bank 文档（architecture.md / implementation-plan.md）
-- 可选：Google Play 上架 / Web 前端 / KDE Plasma Widget
+- **Desktop Widget 商店上架**：KDE Store + extensions.gnome.org + Pling（详见 implementation-plan.md C.9 step 10）
+  - 准备：截图、LICENSE、中英文描述、首次使用引导
+  - KDE：KDE Identity 账号 → store.kde.org 上传 .plasmoid
+  - GNOME：GNOME GitLab 账号 → extensions.gnome.org 上传 .zip
+- 可选：Google Play 上架 / Web 前端
 
 ---
 
