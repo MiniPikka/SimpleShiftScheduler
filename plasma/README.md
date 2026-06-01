@@ -55,4 +55,14 @@ kpackagetool6 --remove com.simpleshift.banban
 
 ## Architecture
 
-The plasmoid calls `banban --json --lang zh today|week|next-rest` via `Plasma5Support.DataSource` (executable engine). Zero business logic duplication — all shift calculation is in the Rust shift-core library. QML handles only display.
+The plasmoid fetches shift data via HTTP from `banban serve` (localhost:11451). Zero subprocess calls — pure QML `XMLHttpRequest`. Zero business logic duplication — all shift calculation is in the Rust shift-core library. QML handles only display.
+
+```
+PlasmoidItem (QML)
+  ├─ compactRepresentation: emoji + label in panel
+  ├─ fullRepresentation: PlasmaExtras.Representation popup
+  │    └─ XMLHttpRequest → localhost:11451/shift + /week
+  └─ Tooltip: team, cycle progress, rest countdown
+```
+
+The `banban serve` HTTP API is managed as a systemd user service, installed automatically by `install.sh`.

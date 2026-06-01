@@ -17,21 +17,25 @@ GNOME 50 踩坑：
 3. `shell-version` 需显式包含 "50"
 4. Wayland 下 `gnome-extensions disable/enable` 不重载 JS 代码 → 需注销重登
 
-### KDE Plasma 6 Plasmoid（面板显示 ✅，弹窗 ⚠️）
+### KDE Plasma 6 Plasmoid（✅ 全功能正常）
 
-- 面板显示：🟠早（emoji + 短标签）+ 悬停 tooltip
+- 面板显示：🟠早（emoji + 短标签）+ 悬停 tooltip + 手型光标
+- 点击弹出：`PlasmaExtras.Representation` 标准弹窗（头卡片 + 统计行 + 7 天周预览 + 刷新按钮）
 - 数据获取：`XMLHttpRequest` → `banban serve` HTTP API（localhost:11451）
-- 5min 定时刷新，server_down 错误提示
+- 5min 定时刷新（静默刷新不闪 UI），server_down 错误提示 + 自动重试
 
-Plasma 6.6 弹窗踩坑：
-1. `PlasmaCore.Units`/`Theme` 在 plasmoidviewer 中不可用 → 改用 `Kirigami`
-2. `X-Plasma-NotificationAreaCategory` 导致点击行为异常 → 移除
-3. `plasmoid.expanded` 在面板模式下不工作（Plasma 6.6 已知限制）
-4. `QtQuick.Controls.Popup` 高度被面板裁剪（300% 4K 缩放下更明显）
-5. `Component`/`Loader`/`contentItem` 等间接方式导致内容不渲染
-6. 最终方案：内联 `Popup`（PlasmoidItem 直系子元素），`width:500 height:600`
+弹窗问题解决（2026-06-02）：
+- 根因：之前用 `QtQuick.Controls.Popup`，与 Plasma 6 面板 popup 系统不兼容，内容不渲染
+- 方案：参考 KDE 官方 plasmoid（vault、systemmonitor），改用 `PlasmoidItem` 内建 `expanded` + `fullRepresentation` 机制
+- 关键：`compactRepresentation` 中 `onClicked: root.expanded = !root.expanded`，无需手动管理 Popup 生命周期
 
-⚠️ 当前弹窗显示为空白宽条——内容渲染待解决。面板显示和 tooltip 正常。
+后续修复的 bug：
+1. `PlasmaComponents` → `PlasmaComponents3`（Plasma 6 命名规范）
+2. `state` 属性名遮蔽 QML 保留字 → 改为 `fetchState`
+3. 面板图标无鼠标手势 → 加 `cursorShape: Qt.PointingHandCursor`
+4. 每次刷新闪 "加载中..." → 只在首次加载时显示，静默刷新保持数据可见
+5. HTTP 400 错误只显示 "HTTP 400" → 解析响应 body 展示服务端错误信息
+6. 清理死代码 `banban_wrapper.sh`（旧 subprocess 方案遗留）
 
 ### banban CLI 改进
 
@@ -96,11 +100,11 @@ HTTP API 现共 7 个端点：/health /shift /shift/{date} /week /calendar /leav
 
 ### 新增/修改文件汇总
 
-| 新增（11 个） | 修改（5 个） |
+| 新增（10 个） | 修改（5 个） |
 |-------------|-------------|
 | `plasma/.../metadata.json` | `CLAUDE.md` |
 | `plasma/.../contents/ui/main.qml` | `memory-bank/architecture.md` |
-| `plasma/.../contents/code/banban_wrapper.sh` | `memory-bank/progress.md` |
+| `plasma/README.md` | `memory-bank/progress.md` |
 | `plasma/.../install.sh` | `memory-bank/implementation-plan.md` |
 | `plasma/README.md` | `shift-core/cli/src/serve.rs` (+/week) |
 | `gnome/.../metadata.json` | |
@@ -112,7 +116,7 @@ HTTP API 现共 7 个端点：/health /shift /shift/{date} /week /calendar /leav
 ### 验证
 
 - `plasmoidviewer -a` — 零 QML 错误，server 停/启状态切换正确
-- Plasma 6.6.5 真机面板 — compact 显示🟠早，tooltip 正常，popup 展开正常
+- Plasma 6.6.5 真机面板 — compact 显示🟠早，tooltip 正常，**弹窗内容完整渲染**（头卡片 + 统计 + 7 天周预览）
 - `cargo test` — 109 + 7 doctest 全部通过
 - `cargo clippy` — 零警告
 - GNOME Extension：代码语法正确，待 GNOME 环境真机测试
