@@ -117,10 +117,10 @@ class BanbanIndicator extends PanelMenu.Button {
         placeholder.setSensitive(false);
         this.menu.addMenuItem(placeholder);
 
-        // Explicit click handler — safety net for menu open
+        // Explicit click handler — safety net for menu open on GNOME 50
         this.connect('button-press-event', () => {
             this.menu.toggle();
-            return Clutter.EVENT_STOP;
+            return Clutter.EVENT_STOP !== undefined ? Clutter.EVENT_STOP : true;
         });
     }
 
