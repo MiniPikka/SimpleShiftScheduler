@@ -40,12 +40,16 @@ function weekdayZh(dateStr) {
 }
 
 // ── Async command execution ──────────────────────────────────────
+// GNOME Shell's PATH is minimal — use absolute path to banban.
+
+const BANBAN_BIN = GLib.find_program_in_path('banban')
+    || GLib.get_home_dir() + '/.cargo/bin/banban';
 
 function execBanban(args) {
     return new Promise((resolve, reject) => {
         try {
             const proc = Gio.Subprocess.new(
-                ['banban', ...args],
+                [BANBAN_BIN, ...args],
                 Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
             );
             proc.communicate_utf8_async(null, null, (p, res) => {
