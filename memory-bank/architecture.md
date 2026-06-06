@@ -4,7 +4,7 @@
 
 - **Phase 1（已完成）**：Android 原生版 — Kotlin + Jetpack Compose + MVVM。148 tests，不再活跃开发。算法已验证。
 - **Phase 2（已完成）**：Flutter 移动端 — Riverpod + GoRouter + dart:ffi → Rust。110 tests，Android/iOS 双平台。
-- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（17 commands）+ TUI。算法唯一来源，Flutter 通过 FFI 调用。228 tests，v0.1.3 已发布到 crates.io。
+- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（17 commands）+ TUI。算法唯一来源，Flutter 通过 FFI 调用。228 tests，v0.1.4 已发布到 crates.io。
 
 ---
 
@@ -19,8 +19,8 @@
 │ ├── core/theme/ (Design Token)          │
 │ └── app/ (GoRouter + MaterialApp)       │
 ├──────────────────────────────────────────┤
-│ State Management (Riverpod)             │
-│ ├── StateNotifier / AsyncNotifier       │
+│ State Management (Riverpod 3.x)         │
+│ ├── Notifier / AsyncNotifier            │
 │ └── ConsumerWidget / HookConsumerWidget │
 ├──────────────────────────────────────────┤
 │ Domain Layer (Dart → FFI → Rust)        │
@@ -82,7 +82,7 @@ lib/
  │    ├── home/
  │    │    ├── home_screen.dart
  │    │    ├── widgets/          # HeroCard, StatsGrid, ToolsRow
- │    │    └── home_notifier.dart (Riverpod)
+ │    │    └── home_state.dart (Riverpod)
  │    ├── calendar/
  │    │    ├── calendar_screen.dart
  │    │    └── calendar_notifier.dart
@@ -139,11 +139,11 @@ Dart 初版实现全部迁移后，算法进一步提取至 Rust shift-core。Fl
 | `domain/colleague_mode.kt` | `domain/algorithms/colleague_mode.dart` | ✅ `shift_get_common_rest_days` |
 | `domain/salary_calculator.kt` | `domain/algorithms/salary_calculator.dart` | ✅ `shift_get_monthly_stats` |
 | `domain/holiday_data.kt` | `domain/algorithms/holiday_data.dart` | ✅ `shift_get_holidays` |
-| `viewmodel/HomeViewModel.kt` | `features/home/home_notifier.dart` (Riverpod) | — (UI 层) |
+| `viewmodel/HomeViewModel.kt` | `features/home/home_state.dart` (Riverpod) | — (UI 层) |
 | `data/repository/SettingsRepository.kt` | `data/repositories/settings_repository.dart` | — (纯 Dart) |
 | `ui/theme/` (Compose) | `core/theme/` (Flutter ThemeData) | — (UI 层) |
 | `ui/home/NewHomeScreenV3.kt` | `features/home/home_screen.dart` | — (UI 层) |
-| Jetpack Glance Widget | `home_widget` plugin | — (平台层) |
+| RemoteViews Widget | Desktop Widgets (KDE/GNOME) | — (平台层) |
 | Calendar Provider (Android) | `flutter_local_notifications` + ICS | ✅ `shift_generate_ics` |
 | DataStore Preferences | Hive / Isar |
 
@@ -266,7 +266,7 @@ Flutter Dart (home_screen.dart)
 ### 数据流
 
 ```
-SalaryConfigNotifier (Riverpod StateNotifier)
+SalaryConfigNotifier (Riverpod Notifier)
   ├── 构造时从 Hive salary_config Box 加载
   ├── updatePremium(type, value) → 即时写入 Hive
   └── salaryConfigProvider → UI ConsumerWidget 订阅
@@ -295,7 +295,7 @@ SalaryPredictorScreen
 ### 数据流
 
 ```
-ShiftRuleNotifier (Riverpod StateNotifier)
+ShiftRuleNotifier (Riverpod Notifier)
   ├── 构造时 loadSettings() 初始化状态
   ├── addShift/removeShift/setCycleLength → isDirty=true
   └── save() → 构建 RuntimeShiftSettings
@@ -338,7 +338,7 @@ ShiftRuleScreen
 - `HolidayNameMapper.toLocalizedName(chineseName, context)` — 节假日名本地化
 - Domain 层 `computeWidgetShiftData()` 接受 `shiftLabelResolver` / `teamNameResolver` 函数参数，保持纯函数
 - `Team` 数据类仅存 `id`，移除硬编码 `name` 字段
-- Widget 字符串在 `provideGlance()` 中通过 `context.getString()` 预解析
+- Widget 字符串在 `ShiftWidgetProvider` 中通过 `context.getString()` 预解析（RemoteViews，非 Glance）
 - `CalendarEventManager` 日历日程标题使用 `R.string.calendar_event_*` 资源
 
 ### 首页架构简化
@@ -349,7 +349,7 @@ ShiftRuleScreen
 - 阶段 1-15：全部功能（项目骨架、数据模型、核心算法、首页 UI、测试、日历页、班组切换 + 月度统计、设置页、日历提醒、代码加固、桌面 Widget）
 - 阶段 16：首页精品化升级（NewHomeScreen + 组件化 UI）
 - 2026-05-14a：日历独立路由（NavHost 三路由）、TodayShiftCard 横向重设计、Widget 美化（距休 + 简化进度）
-- 阶段 17：V2 UI 设计系统（Design Token + 深色主题 + 底部导航栏 + Profile 页 + 牛马指数）
+- 阶段 17：V2 UI 设计系统（Design Token + 深色主题 + 底部导航栏 + Profile 页 + 劳逸比）
 - 阶段 18：倒班规则编辑器重设计（两步向导 + referenceDate 贯穿全栈）
 - 阶段 19：拼假神器（请假优化器）
 - 阶段 20：同事模式（社交裂变）
@@ -841,9 +841,11 @@ data class CalendarEventIds(
 
 ## 9. 阶段 15 架构更新：桌面小组件（已完成）
 
-2026-05-13 规划桌面 Widget 功能，使用 Jetpack Glance 实现 Compose 式 Widget 开发。
+2026-05-13 规划桌面 Widget 功能。
 
-### 技术选型：Jetpack Glance
+> **注意**：Glance 方案因编译时 `LocalContext.current` 内联失败已弃用，改用 RemoteViews XML。以下为原始技术选型记录。
+
+### 技术选型：Jetpack Glance（已弃用 → RemoteViews）
 
 Glance 提供 Compose 式 API 开发 AppWidget，底层编译为 RemoteViews，保证系统兼容性。相比传统 RemoteViews XML 方式，Glance 与项目现有 Compose 代码风格一致，学习成本低。
 
@@ -1057,7 +1059,7 @@ Scaffold(bottomBar = NavigationBar { ... })
 `app/src/main/java/com/simpleshift/scheduler/ui/home/components/` 新增 5 个 V2 组件：
 
 - `V2GreetingHeader.kt` — 时段问候 + 班组名 + 提醒时间
-- `V2TodayShiftCard.kt` — 240dp 横向主卡：72dp 圆形徽章 + 牛马指数（≤40绿/41-70黄/>70红）+ `LinearProgressIndicator`
+- `V2TodayShiftCard.kt` — 240dp 横向主卡：72dp 圆形徽章 + 劳逸比（≤40绿/41-70黄/>70红）+ `LinearProgressIndicator`
 - `V2StatsGrid.kt` — 三宫格指标卡片
 - `V2QuickActionsRow.kt` — `FilledTonalButton` 三个快捷操作
 - `V2MotivationFooter.kt` — 随机励志文案
@@ -1069,7 +1071,7 @@ Scaffold(bottomBar = NavigationBar { ... })
 ```kotlin
 val shiftTimeRange: String?        // 今日班次的提醒时间（来自 AlarmSettings），格式 "HH:MM"
 val monthlyShiftTypeCount: Int     // 今日班次类型在本月出现天数
-val workIntensity: Int             // 牛马指数 = monthlyWorkDays * 100 / today.dayOfMonth
+val workIntensity: Int             // 劳逸比 = monthlyWorkDays * 100 / today.dayOfMonth
 ```
 
 `HomeViewModel.updateAlarmSettings()` 接收 `AlarmSettings` 并触发 `refreshToday()` 重新计算。
@@ -2206,7 +2208,7 @@ shift-core/                    ← Cargo workspace root
 Flutter (Dart)                      Rust
 ───────────────                     ────
 features/home/
-  home_notifier.dart ──FFI──► shift_algorithm::get_shift_info()
+  home_state.dart ──FFI──► shift_algorithm::get_shift_info()
   home_screen.dart    ◄──FFI── ShiftInfo { date, day_of_cycle, shift_type }
 
 features/leave_optimizer/

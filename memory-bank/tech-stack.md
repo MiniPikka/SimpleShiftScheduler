@@ -4,7 +4,7 @@
 
 - **Phase 1（已完成）**：Android 原生版 — Kotlin + Jetpack Compose + MVVM + StateFlow + DataStore
 - **Phase 2（已完成）**：Flutter 移动端 — Riverpod + GoRouter + Freezed + Hive，通过 dart:ffi 调用 Rust
-- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（17 commands）+ ratatui TUI，v0.1.3，edition 2024
+- **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（17 commands）+ ratatui TUI，v0.1.4，edition 2024
 
 ---
 
@@ -61,7 +61,7 @@ Claude、ChatGPT、Gemini 对 Flutter 支持远强于 Kotlin Multiplatform、Sli
 
 ### A.4.2 状态管理：Riverpod
 
-相比 Provider / Bloc / GetX，Riverpod 更现代、类型安全、测试友好、生命周期清晰。UI 使用 ConsumerWidget / HookConsumerWidget，业务逻辑使用 StateNotifier / AsyncNotifier。
+相比 Provider / Bloc / GetX，Riverpod 更现代、类型安全、测试友好、生命周期清晰。UI 使用 ConsumerWidget / HookConsumerWidget，业务逻辑使用 Notifier / AsyncNotifier（Riverpod 3.x，已从 StateNotifier 迁移）。
 
 ### A.4.3 路由：GoRouter
 
@@ -303,7 +303,7 @@ app/
  │
  ├── calendar/                # Calendar Provider 日程管理
  │
- ├── widget/                  # Glance AppWidget
+ ├── widget/                  # RemoteViews AppWidget
  │
  ├── data/
  │    ├── repository/         # DataStore 持久化仓储
@@ -425,7 +425,7 @@ app/
 12. 日历独立路由（2026-05-14，已完成）—— 日历从首页拆分为独立导航页面，Scaffold + TopAppBar + TeamDropdown
 13. TodayShiftCard 重设计（2026-05-14，已完成）—— 横向布局 + 进度条 + 圆形班次徽章 + 距休标识
 14. Widget 美化（2026-05-14，已完成）—— 对齐首页卡片风格，简化设计，新增距休信息
-15. V2 完整 UI 设计系统（阶段 17，已完成）—— Design Token 系统 + Dark Productivity Design + 底部导航（首页/日历/我的）+ 牛马指数 + Profile 页
+15. V2 完整 UI 设计系统（阶段 17，已完成）—— Design Token 系统 + Dark Productivity Design + 底部导航（首页/日历/我的）+ 劳逸比 + Profile 页
 16. 倒班规则编辑器重设计（阶段 18，已完成）—— 两步向导式规则编辑（按钮构建序列 + 日期保存）+ 规则/提醒拆分为独立页面
 17. 首页精简 —— 移除与底部导航重复的 `TeamDropdown` / `QuickActionsRow`
 18. 拼假神器（阶段 19）—— 结合倒班表 + 法定节假日，自动分析最佳请假方案（差异化功能）
@@ -450,7 +450,7 @@ app/
   * 无第三方 i18n 库依赖
   * Compose 中用 `stringResource(R.string.xxx)`
   * 非 Compose 代码中用 `context.getString(R.string.xxx)`
-  * Widget 在 `provideGlance()` 中预解析字符串
+  * Widget 在 `ShiftWidgetProvider` 中预解析字符串（RemoteViews）
 
 ### i18n 工具层
 
@@ -463,14 +463,16 @@ app/
 
 * Domain 层保持纯函数，通过 resolver 函数参数传入显示字符串
 * `Team` 数据类仅存储 `id`，不含 `name`
-* Widget 字符串预解析（Glance 不支持 `stringResource()`）
+* Widget 字符串预解析（RemoteViews 不支持 `stringResource()`）
 * 测试不断言特定语言的字符串值，改为检查非空/结构正确
 
 ---
 
 ## 10. 桌面 Widget 技术选型（阶段 15）
 
-### 框架选择
+> **注意**：Glance 方案因编译失败已弃用，改用 RemoteViews XML。Desktop Widgets（KDE/GNOME）通过 `banban` CLI 获取数据。以下为原始选型记录。
+
+### 框架选择（已弃用 → RemoteViews）
 
 * **Jetpack Glance（`androidx.glance:glance-appwidget:1.1.0`）**
   * Google 官方推荐的 Compose 式 AppWidget 框架

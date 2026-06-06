@@ -73,10 +73,22 @@ cargo run --bin banban -- today  # 运行 CLI
 ```bash
 cd flutter
 flutter pub get
-flutter analyze
+flutter analyze                # 0 errors
 flutter test                   # 110 tests
 flutter build apk --debug
 ```
+
+### 技术栈
+
+- Flutter 3.44.0 / Dart 3.12.0
+- Riverpod 3.x（Notifier / AsyncNotifier，非 StateNotifier）
+- GoRouter / Freezed / Hive / flutter_local_notifications
+
+### Release
+
+- Tag 格式：`app-v*`（如 `app-v1.1.0`），触发 GitHub Actions 自动构建
+- 产物：Android APK + Linux tar.gz + KDE plasmoid + GNOME extension
+- Rust crate 发布：`v0.1.x` tag，手动 `cargo publish`
 
 ### Android 部署
 
