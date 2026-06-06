@@ -48,22 +48,17 @@ class ShiftRuleUiState {
 }
 
 final shiftRuleProvider =
-    StateNotifierProvider<ShiftRuleNotifier, ShiftRuleUiState>(
-  (ref) => ShiftRuleNotifier(ref),
+    NotifierProvider<ShiftRuleNotifier, ShiftRuleUiState>(
+  ShiftRuleNotifier.new,
 );
 
-class ShiftRuleNotifier extends StateNotifier<ShiftRuleUiState> {
-  final Ref _ref;
-
-  ShiftRuleNotifier(this._ref) : super(ShiftRuleUiState()) {
-    _load();
-  }
-
-  Future<void> _load() async {
-    final repoAsync = _ref.read(hiveRepoProvider);
-    repoAsync.whenData((repo) async {
-      final settings = await repo.loadSettings();
-      if (mounted) {
+class ShiftRuleNotifier extends Notifier<ShiftRuleUiState> {
+  @override
+  ShiftRuleUiState build() {
+    // Listen for repo availability, then load saved settings
+    ref.listen(hiveRepoProvider, (prev, next) {
+      next.whenData((repo) async {
+        final settings = await repo.loadSettings();
         state = ShiftRuleUiState(
           cycleLength: settings.cycleLength,
           sequence: List.from(settings.shiftCycle),
@@ -71,8 +66,9 @@ class ShiftRuleNotifier extends StateNotifier<ShiftRuleUiState> {
           startDate: settings.referenceDate,
           isLoading: false,
         );
-      }
+      });
     });
+    return ShiftRuleUiState();
   }
 
   void setCycleLength(int n) {
@@ -136,11 +132,11 @@ class ShiftRuleNotifier extends StateNotifier<ShiftRuleUiState> {
       referenceDate: s.startDate,
     );
     // Update the global settingsProvider → triggers home/calendar refresh + calendar resync
-    _ref.read(settingsProvider.notifier).update(settings);
+    ref.read(settingsProvider.notifier).update(settings);
     state = state.copyWith(isDirty: false, isSaved: true);
     // Reset saved indicator after 2 seconds
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) state = state.copyWith(isSaved: false);
+      state = state.copyWith(isSaved: false);
     });
   }
 }

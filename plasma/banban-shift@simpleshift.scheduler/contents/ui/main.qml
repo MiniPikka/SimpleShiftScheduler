@@ -43,6 +43,11 @@ PlasmoidItem {
         var d = new Date(String(ds) + "T00:00:00");
         return wd[isNaN(d.getDay()) ? 0 : d.getDay()];
     }
+    function restStatus() {
+        if (!shiftData) return "";
+        if (shiftData.days_until_rest === 0) return "🎉 今天休息！";
+        return "距休 " + shiftData.days_until_rest + " 天";
+    }
 
     // ── HTTP fetch ──
     function httpGet(url, onOk, onErr) {
@@ -55,7 +60,6 @@ PlasmoidItem {
                 } else if (xhr.status === 0) {
                     onErr("server_down");
                 } else {
-                    // Try to extract server error message from response body
                     var msg = "HTTP " + xhr.status;
                     try {
                         var body = JSON.parse(xhr.responseText);
@@ -93,17 +97,17 @@ PlasmoidItem {
     Timer { id: retryTimer; interval: 5000; repeat: false; onTriggered: fetchAll() }
     Timer { id: refreshTimer; interval: 300000; running: true; repeat: true; triggeredOnStart: true; onTriggered: fetchAll() }
 
-    // ── Tooltip ──
+    // ── Rich Tooltip ──
     toolTipMainText: {
         if (fetchState === "loading") return "加载中...";
-        if (fetchState === "error") return "⚠️ API 错误";
-        if (shiftData) return shiftEmoji(shiftData.shift_type) + " " + shiftData.shift_label_zh + "班";
-        return "ShiftMate";
+        if (fetchState === "error") return "⚠️ 数据获取失败";
+        if (shiftData) return shiftEmoji(shiftData.shift_type) + " " + shiftData.shift_label_zh + "班 · " + shiftData.team;
+        return "班伴 ShiftMate";
     }
     toolTipSubText: {
         if (fetchState === "loading") return "";
         if (fetchState === "error") return errorMsg.split("\n")[0];
-        if (shiftData) return shiftData.team + " | 第 " + shiftData.day_of_cycle + "/" + shiftData.total_days + " 天 | 距休 " + shiftData.days_until_rest + " 天";
+        if (shiftData) return "第" + shiftData.day_of_cycle + "/" + shiftData.total_days + "天  |  " + restStatus() + "  |  连续上班 " + shiftData.consecutive_work_days + "天\n" + shiftData.date;
         return "";
     }
 
@@ -138,19 +142,24 @@ PlasmoidItem {
     }
 
     // ══════════════════════════════════════════════════════════════
-    // Full representation (popup in panel, full widget on desktop)
-    // Uses PlasmaExtras.Representation for standard Plasma 6 look.
+    // Full representation (popup)
     // ══════════════════════════════════════════════════════════════
 
     fullRepresentation: PlasmaExtras.Representation {
         id: fullRep
 
-        Layout.minimumWidth: Kirigami.Units.gridUnit * 20
-        Layout.minimumHeight: Kirigami.Units.gridUnit * 24
-        Layout.preferredWidth: Kirigami.Units.gridUnit * 24
-        Layout.preferredHeight: Kirigami.Units.gridUnit * 30
+        Layout.minimumWidth: Kirigami.Units.gridUnit * 22
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 26
+        Layout.preferredWidth: Kirigami.Units.gridUnit * 26
+        Layout.preferredHeight: Kirigami.Units.gridUnit * 32
 
         collapseMarginsHint: true
+
+        // Dark background for screenshot-friendly look
+        Rectangle {
+            anchors.fill: parent
+            color: "#1B1F26"
+        }
 
         // ── Loading / Error states ──
         PlasmaExtras.PlaceholderMessage {
@@ -186,46 +195,64 @@ PlasmoidItem {
                 id: dataColumn
                 spacing: 0
 
-                // Header card
+                // ── Header card ──
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: headerRow.implicitHeight + Kirigami.Units.largeSpacing * 2
+                    Layout.margins: Kirigami.Units.smallSpacing
                     radius: Kirigami.Units.smallSpacing
-                    color: shiftData ? shiftColor(shiftData.shift_type) : "#999"
-                    opacity: 0.12
+                    color: Kirigami.Theme.backgroundColor
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: shiftData ? shiftColor(shiftData.shift_type) : "#999"
+                        opacity: 0.18
+                    }
 
                     RowLayout {
                         id: headerRow
                         anchors.centerIn: parent
                         spacing: Kirigami.Units.gridUnit
 
-                        PlasmaComponents3.Label {
-                            text: shiftData ? shiftEmoji(shiftData.shift_type) : "⚪"
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 2.5
+                        // Large shift emoji badge
+                        Rectangle {
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 5
+                            Layout.preferredHeight: Kirigami.Units.gridUnit * 5
+                            radius: width / 2
+                            color: shiftData ? shiftColor(shiftData.shift_type) : "#999"
+
+                            PlasmaComponents3.Label {
+                                anchors.centerIn: parent
+                                text: shiftData ? shiftEmoji(shiftData.shift_type) : "⚪"
+                                font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 2.2
+                            }
                         }
                         ColumnLayout {
-                            spacing: 2
+                            spacing: 1
                             PlasmaComponents3.Label {
                                 text: shiftData ? shiftData.shift_label_zh + "班" : ""
-                                font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.8
+                                font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 2.0
                                 font.bold: true
                                 color: shiftData ? shiftColor(shiftData.shift_type) : Kirigami.Theme.textColor
                             }
                             PlasmaComponents3.Label {
                                 text: shiftData ? shiftData.team + " · 第" + shiftData.day_of_cycle + "/" + shiftData.total_days + "天" : ""
-                                font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
-                                opacity: 0.7
+                                font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.95
+                                color: Kirigami.Theme.textColor
+                                opacity: 0.85
                             }
                             PlasmaComponents3.Label {
                                 text: shiftData ? shiftData.date : ""
                                 font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
-                                opacity: 0.6
+                                color: Kirigami.Theme.textColor
+                                opacity: 0.7
                             }
                         }
                     }
                 }
 
-                // Stats row
+                // ── Stats row ──
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.topMargin: Kirigami.Units.largeSpacing
@@ -237,15 +264,16 @@ PlasmoidItem {
                         spacing: 0
                         PlasmaComponents3.Label {
                             text: shiftData ? String(shiftData.days_until_rest) : "—"
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.5
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.6
                             font.bold: true
                             color: shiftData && shiftData.days_until_rest === 0 ? "#35D07F" : Kirigami.Theme.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
                         PlasmaComponents3.Label {
                             text: "距休"
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.7
-                            opacity: 0.5
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.75
+                            color: Kirigami.Theme.textColor
+                            opacity: 0.7
                             Layout.alignment: Qt.AlignHCenter
                         }
                     }
@@ -254,14 +282,16 @@ PlasmoidItem {
                         spacing: 0
                         PlasmaComponents3.Label {
                             text: shiftData ? String(shiftData.consecutive_work_days) : "—"
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.5
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.6
                             font.bold: true
+                            color: Kirigami.Theme.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
                         PlasmaComponents3.Label {
                             text: "连续上班"
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.7
-                            opacity: 0.5
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.75
+                            color: Kirigami.Theme.textColor
+                            opacity: 0.7
                             Layout.alignment: Qt.AlignHCenter
                         }
                     }
@@ -270,14 +300,16 @@ PlasmoidItem {
                         spacing: 0
                         PlasmaComponents3.Label {
                             text: shiftData ? shiftData.day_of_cycle + "/" + shiftData.total_days : "—"
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.5
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.6
                             font.bold: true
+                            color: Kirigami.Theme.textColor
                             Layout.alignment: Qt.AlignHCenter
                         }
                         PlasmaComponents3.Label {
                             text: "周期进度"
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.7
-                            opacity: 0.5
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.75
+                            color: Kirigami.Theme.textColor
+                            opacity: 0.7
                             Layout.alignment: Qt.AlignHCenter
                         }
                     }
@@ -297,7 +329,8 @@ PlasmoidItem {
                     Layout.topMargin: Kirigami.Units.smallSpacing
                     text: "本周排班"
                     font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
-                    opacity: 0.5
+                    color: Kirigami.Theme.textColor
+                    opacity: 0.65
                     horizontalAlignment: Text.AlignHCenter
                 }
 
@@ -314,11 +347,11 @@ PlasmoidItem {
 
                         // Shift type dot
                         Rectangle {
-                            Layout.preferredWidth: Kirigami.Units.gridUnit * 1.8
-                            Layout.preferredHeight: Kirigami.Units.gridUnit * 1.8
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 2
+                            Layout.preferredHeight: Kirigami.Units.gridUnit * 2
                             radius: width / 2
                             color: shiftColor(modelData.shift_type)
-                            opacity: modelData.is_today ? 1.0 : 0.7
+                            opacity: modelData.is_today ? 1.0 : 0.8
 
                             PlasmaComponents3.Label {
                                 anchors.centerIn: parent
@@ -329,7 +362,7 @@ PlasmoidItem {
 
                         PlasmaComponents3.Label {
                             text: shiftLabel(modelData.shift_type)
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.1
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 1.15
                             font.bold: modelData.is_today
                             color: shiftColor(modelData.shift_type)
                             Layout.preferredWidth: Kirigami.Units.gridUnit * 1.5
@@ -338,20 +371,22 @@ PlasmoidItem {
                         PlasmaComponents3.Label {
                             text: weekdayZh(modelData.date)
                             font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
-                            opacity: 0.6
+                            color: Kirigami.Theme.textColor
+                            opacity: 0.75
                             Layout.preferredWidth: Kirigami.Units.gridUnit * 3
                         }
 
                         PlasmaComponents3.Label {
                             text: String(modelData.date).slice(5)
                             font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
-                            opacity: modelData.is_today ? 1.0 : 0.5
+                            color: Kirigami.Theme.textColor
+                            opacity: modelData.is_today ? 1.0 : 0.7
                             font.bold: modelData.is_today
                         }
 
                         PlasmaComponents3.Label {
                             text: modelData.is_today ? "◀ 今天" : ""
-                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.8
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.85
                             color: "#FACC15"
                             font.bold: true
                         }
@@ -378,7 +413,8 @@ PlasmoidItem {
                     visible: fetchState === "ok" && shiftData !== null
                     text: shiftData ? shiftData.date : ""
                     font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.8
-                    opacity: 0.5
+                    color: Kirigami.Theme.textColor
+                    opacity: 0.65
                     Layout.alignment: Qt.AlignRight
                 }
             }

@@ -15,7 +15,7 @@ class AlarmSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final alarmSettings = ref.watch(alarmSettingsProvider);
+    final alarmSettingsAsync = ref.watch(alarmSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.alarmSettings)),
@@ -23,52 +23,56 @@ class AlarmSettingsScreen extends ConsumerWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: contentMaxWidth(context)),
-            child: ListView(
-              padding: const EdgeInsets.all(CpSpacing.md),
-              children: [
-                // 说明卡片
-                Card(
-                  shape: RoundedRectangleBorder(borderRadius: CpShapes.card),
-                  child: Padding(
-                    padding: const EdgeInsets.all(CpSpacing.sm),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.info_outline, size: 20),
-                        const SizedBox(width: CpSpacing.xs),
-                        Expanded(
-                          child: Text(
-                            l10n.alarmSettingsInfo,
-                            style: Theme.of(context).textTheme.bodySmall,
+            child: alarmSettingsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('加载失败: $e')),
+              data: (alarmSettings) => ListView(
+                padding: const EdgeInsets.all(CpSpacing.md),
+                children: [
+                  // 说明卡片
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: CpShapes.card),
+                    child: Padding(
+                      padding: const EdgeInsets.all(CpSpacing.sm),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.info_outline, size: 20),
+                          const SizedBox(width: CpSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              l10n.alarmSettingsInfo,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: CpSpacing.sm),
-                // 提醒设置卡片
-                Card(
-                  shape: RoundedRectangleBorder(borderRadius: CpShapes.card),
-                  child: Padding(
-                    padding: const EdgeInsets.all(CpSpacing.sm),
-                    child: Column(
-                      children: ShiftType.values
-                          .map((type) => _ShiftAlarmRow(
-                                shiftType: type,
-                                alarmTime: alarmSettings.alarms[type],
-                                onEdit: (time) => ref
-                                    .read(alarmSettingsProvider.notifier)
-                                    .updateAlarmTime(type, time),
-                                onRemove: () => ref
-                                    .read(alarmSettingsProvider.notifier)
-                                    .updateAlarmTime(type, null),
-                              ))
-                          .toList(),
+                  const SizedBox(height: CpSpacing.sm),
+                  // 提醒设置卡片
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: CpShapes.card),
+                    child: Padding(
+                      padding: const EdgeInsets.all(CpSpacing.sm),
+                      child: Column(
+                        children: ShiftType.values
+                            .map((type) => _ShiftAlarmRow(
+                                  shiftType: type,
+                                  alarmTime: alarmSettings.alarms[type],
+                                  onEdit: (time) => ref
+                                      .read(alarmSettingsProvider.notifier)
+                                      .updateAlarmTime(type, time),
+                                  onRemove: () => ref
+                                      .read(alarmSettingsProvider.notifier)
+                                      .updateAlarmTime(type, null),
+                                ))
+                            .toList(),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

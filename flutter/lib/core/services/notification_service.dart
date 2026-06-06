@@ -86,7 +86,7 @@ class NotificationService {
       notificationDetails:
           NotificationDetails(android: androidDetails, iOS: iosDetails),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
+      matchDateTimeComponents: null,
     );
   }
 

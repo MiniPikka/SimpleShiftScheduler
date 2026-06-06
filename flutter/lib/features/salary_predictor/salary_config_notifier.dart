@@ -5,25 +5,21 @@ import '../../data/providers.dart';
 
 /// 津贴配置 Provider — 从 Hive 加载 + 自动持久化
 final salaryConfigProvider =
-    StateNotifierProvider<SalaryConfigNotifier, SalaryConfig>(
-  (ref) => SalaryConfigNotifier(ref),
+    NotifierProvider<SalaryConfigNotifier, SalaryConfig>(
+  SalaryConfigNotifier.new,
 );
 
-class SalaryConfigNotifier extends StateNotifier<SalaryConfig> {
-  final Ref _ref;
-
-  SalaryConfigNotifier(this._ref) : super(const SalaryConfig()) {
-    _load();
-  }
-
-  Future<void> _load() async {
-    final repoAsync = _ref.read(hiveRepoProvider);
-    repoAsync.whenData((repo) async {
-      final saved = await repo.loadSalaryConfig();
-      if (mounted) {
+class SalaryConfigNotifier extends Notifier<SalaryConfig> {
+  @override
+  SalaryConfig build() {
+    // Listen for repo availability, then load saved config
+    ref.listen(hiveRepoProvider, (prev, next) {
+      next.whenData((repo) async {
+        final saved = await repo.loadSalaryConfig();
         state = saved;
-      }
+      });
     });
+    return const SalaryConfig();
   }
 
   /// 更新某个班次的津贴金额（立即自动保存）
@@ -32,8 +28,8 @@ class SalaryConfigNotifier extends StateNotifier<SalaryConfig> {
     newPremiums[type] = value;
     state = SalaryConfig(shiftPremiums: newPremiums);
 
-    final repoAsync = _ref.read(hiveRepoProvider);
-    await repoAsync.whenData((repo) async {
+    final repoAsync = ref.read(hiveRepoProvider);
+    repoAsync.whenData((repo) async {
       await repo.saveSalaryConfig(state);
     });
   }

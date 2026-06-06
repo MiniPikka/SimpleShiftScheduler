@@ -144,6 +144,7 @@ cd plasma
 ./banban-shift@simpleshift.scheduler/install.sh    # 安装到 ~/.local/share/plasma/plasmoids/
 plasmoidviewer --applet com.simpleshift.banban     # 开发测试（需 plasma-sdk）
 kpackagetool6 --remove com.simpleshift.banban      # 卸载
+./package.sh                                        # 打包 .plasmoid 用于 KDE Store 提交
 ```
 
 ### GNOME Shell Extension
@@ -153,6 +154,15 @@ cd gnome
 ./banban-shift@simpleshift.scheduler/install.sh    # 安装到 ~/.local/share/gnome-shell/extensions/
 gnome-extensions enable banban-shift@simpleshift.scheduler
 journalctl -f -o cat /usr/bin/gnome-shell | grep banban  # 调试日志
+./package.sh                                        # 打包 .zip 用于 GNOME Extensions 提交
+```
+
+### 商店打包
+
+```bash
+./package-widgets.sh         # 统一打包 KDE + GNOME（输出到各自目录）
+./package-widgets.sh kde     # 仅打包 KDE
+./package-widgets.sh gnome   # 仅打包 GNOME
 ```
 
 ### 关键规则

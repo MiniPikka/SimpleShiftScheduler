@@ -70,19 +70,18 @@ class _NotificationSchedulerState
   Widget build(BuildContext context) {
     ref.watch(hiveRepoProvider);
     ref.watch(alarmSettingsProvider);
-    final settings = ref.watch(settingsProvider);
+    ref.watch(settingsProvider);
 
     ref.listen(alarmSettingsProvider, (prev, next) {
-      _debouncedReschedule(settings);
+      next.whenData((_) {
+        _debouncedReschedule(ref.read(settingsProvider));
+      });
     });
 
     ref.listen(hiveRepoProvider, (prev, next) {
       next.whenData((_) {
-        _debouncedReschedule(
-          ref.read(settingsProvider),
-        );
+        _debouncedReschedule(ref.read(settingsProvider));
       });
-      // Log error but don't block — sync with defaults if Hive fails
       next.whenOrNull(error: (e, _) {
         debugPrint('Hive repo load failed: $e — syncing with defaults');
         _debouncedReschedule(ref.read(settingsProvider));
@@ -109,85 +108,60 @@ class _NotificationSchedulerState
     _isSyncingCalendar = true;
 
     try {
-      final alarmSettings = ref.read(alarmSettingsProvider);
-      final teamId = ref.read(selectedTeamProvider);
-      final phaseOffset = teamPhaseOffsetFor(
-        teamId,
-        customCycle: settings.shiftCycle,
-      );
-
-      // Schedule local notifications
-      scheduleShiftNotifications(
-        alarmSettings: alarmSettings,
-        shiftCycle: settings.shiftCycle,
-        teamPhaseOffset: phaseOffset,
-        referenceDate: settings.referenceDate,
-      );
-
-      // Sync ICS file on Linux desktop
-      if (Platform.isLinux) {
-        await LinuxCalendarSync.sync(
-          teamId: teamId,
-          cycleLength: settings.shiftCycle.length,
-          referenceDate: settings.referenceDate,
-        );
-      }
-
-      // Sync calendar events (only if any alarm is enabled)
-      if (alarmSettings.isAnyEnabled()) {
-        final refDateStr =
-            '${settings.referenceDate.year}-'
-            '${settings.referenceDate.month.toString().padLeft(2, '0')}-'
-            '${settings.referenceDate.day.toString().padLeft(2, '0')}';
-        await CalendarService.syncShiftEvents(
-          shiftCycle: settings.shiftCycle,
-          teamPhaseOffset: phaseOffset,
-          alarmSettings: alarmSettings,
-          referenceDate: refDateStr,
-        );
-      }
+      await _doSync(settings);
     } finally {
       _isSyncingCalendar = false;
-      // If a new reschedule request arrived during sync, re-run
       if (_needsResync) {
-        final teamId = ref.read(selectedTeamProvider);
-        final phaseOffset = teamPhaseOffsetFor(
-          teamId,
-          customCycle: settings.shiftCycle,
-        );
-        final alarmSettings = ref.read(alarmSettingsProvider);
-        final refDateStr =
-            '${settings.referenceDate.year}-'
-            '${settings.referenceDate.month.toString().padLeft(2, '0')}-'
-            '${settings.referenceDate.day.toString().padLeft(2, '0')}';
         _needsResync = false;
         _isSyncingCalendar = true;
         try {
-          scheduleShiftNotifications(
-            alarmSettings: alarmSettings,
-            shiftCycle: settings.shiftCycle,
-            teamPhaseOffset: phaseOffset,
-            referenceDate: settings.referenceDate,
-          );
-          if (Platform.isLinux) {
-            await LinuxCalendarSync.sync(
-              teamId: teamId,
-              cycleLength: settings.shiftCycle.length,
-              referenceDate: settings.referenceDate,
-            );
-          }
-          if (alarmSettings.isAnyEnabled()) {
-            await CalendarService.syncShiftEvents(
-              shiftCycle: settings.shiftCycle,
-              teamPhaseOffset: phaseOffset,
-              alarmSettings: alarmSettings,
-              referenceDate: refDateStr,
-            );
-          }
+          await _doSync(settings);
         } finally {
           _isSyncingCalendar = false;
         }
       }
+    }
+  }
+
+  Future<void> _doSync(RuntimeShiftSettings settings) async {
+    final alarmSettings = ref.read(alarmSettingsProvider).value;
+    if (alarmSettings == null) return;
+
+    final teamId = ref.read(selectedTeamProvider);
+    final phaseOffset = teamPhaseOffsetFor(
+      teamId,
+      customCycle: settings.shiftCycle,
+    );
+
+    // Schedule local notifications
+    scheduleShiftNotifications(
+      alarmSettings: alarmSettings,
+      shiftCycle: settings.shiftCycle,
+      teamPhaseOffset: phaseOffset,
+      referenceDate: settings.referenceDate,
+    );
+
+    // Sync ICS file on Linux desktop
+    if (Platform.isLinux) {
+      await LinuxCalendarSync.sync(
+        teamId: teamId,
+        cycleLength: settings.shiftCycle.length,
+        referenceDate: settings.referenceDate,
+      );
+    }
+
+    // Sync calendar events (only if any alarm is enabled)
+    if (alarmSettings.isAnyEnabled()) {
+      final refDateStr =
+          '${settings.referenceDate.year}-'
+          '${settings.referenceDate.month.toString().padLeft(2, '0')}-'
+          '${settings.referenceDate.day.toString().padLeft(2, '0')}';
+      await CalendarService.syncShiftEvents(
+        shiftCycle: settings.shiftCycle,
+        teamPhaseOffset: phaseOffset,
+        alarmSettings: alarmSettings,
+        referenceDate: refDateStr,
+      );
     }
   }
 }

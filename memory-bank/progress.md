@@ -1,3 +1,109 @@
+## 2026-06-06：Flutter Bug 修复 + 工具链全面升级
+
+### Bug 修复：提醒设置加载失败 ✅
+
+**根因**：`AlarmSettingsNotifier` 使用 `StateNotifier` + `FutureProvider.whenData` 存在竞态。App 启动时 `hiveRepoProvider` 尚未解析（`AsyncLoading`），`whenData` 对 `AsyncLoading` 是空操作，导致 Hive 中保存的提醒设置永远无法加载——所有提醒静默丢失。
+
+**三个 Bug 及修复：**
+
+| Bug | 文件 | 根因 | 修复 |
+|-----|------|------|------|
+| 设置加载失败 | `alarm_settings_notifier.dart` | `whenData` 对 `AsyncLoading` 空操作 | 改为 `AsyncNotifier`，`await ref.read(hiveRepoProvider.future)` 确保 repo 就绪 |
+| updateAlarmTime 竞态 | 同上 | 同一竞态导致保存静默失败 | 缓存 `_repo` 引用 + state 先更新 UI 再持久化 |
+| 通知每天重复 | `notification_service.dart:89` | `matchDateTimeComponents: DateTimeComponents.time` | 改为 `null` |
+
+**连带修复：**
+- `main.dart`：`_performSync` 提取 `_doSync` 消除重复代码；`AsyncValue.valueOrNull` → `.value`
+- `home_state.dart`：`_ref.read(alarmSettingsProvider).valueOrNull` → `.value` + null-safe
+- `alarm_settings_screen.dart`：适配 `AsyncNotifierProvider`，处理 loading/error 三态
+
+**验证**：110/110 测试通过，真机验证提醒设置持久化正常。
+
+### 工具链全面升级 ✅
+
+**Flutter/Dart**：3.44.0 / 3.12.0（已是最新 stable）
+
+**Riverpod 2.x → 3.x 迁移（核心变更）：**
+
+| 变更 | 说明 |
+|------|------|
+| `StateNotifierProvider` → `NotifierProvider` | 4 个 provider 全部迁移 |
+| `StateNotifier` → `Notifier` | `Ref _ref` 构造注入 → 继承 `ref`；构造函数 → `build()` |
+| `StateProvider` → `NotifierProvider` | `selectedTeamProvider` |
+| `.valueOrNull` → `.value` | Riverpod 3.x `AsyncValue.value` 返回 `ValueT?` |
+| `mounted` 移除 | Notifier 无 `mounted`，延迟回调改为无条件执行 |
+| `await whenData` bug 修复 | `salary_config_notifier.dart` 移除对 `AsyncValue` 的错误 `await` |
+
+**依赖版本变更：**
+
+| 包 | 旧 | 新 |
+|----|----|----|
+| `flutter_riverpod` | 2.6.1 | **3.3.1** |
+| `freezed_annotation` | 2.4.4 | **3.1.0** |
+| `freezed` | 2.5.8 | **3.2.5** |
+| `go_router` | 17.2.3 | 17.3.0 |
+| `json_annotation` | 4.9.0 | 4.12.0 |
+| `json_serializable` | 6.9.5 | 6.14.0 |
+| `build_runner` | 2.5.4 | 2.15.0 |
+| `permission_handler` | 11.4.0 | **12.0.3** |
+| Dart SDK constraint | `^3.10.7` | `^3.12.0` |
+
+**移除未使用依赖**：`riverpod_annotation`、`riverpod_generator`（从未使用代码生成）
+
+**改动文件汇总：**
+
+| 文件 | 改动 |
+|------|------|
+| `pubspec.yaml` | SDK + 全部依赖版本升级，移除未使用依赖 |
+| `lib/features/home/alarm_settings_notifier.dart` | 重写：`StateNotifier` → `AsyncNotifier` |
+| `lib/features/home/home_state.dart` | 迁移 3 个 provider 到 `Notifier` API |
+| `lib/features/settings/shift_rule_notifier.dart` | 迁移到 `Notifier` API |
+| `lib/features/salary_predictor/salary_config_notifier.dart` | 迁移到 `Notifier` API + 修复 await bug |
+| `lib/core/services/notification_service.dart` | `matchDateTimeComponents` → `null` |
+| `lib/features/alarm_settings/alarm_settings_screen.dart` | 适配 `AsyncNotifierProvider` |
+| `lib/main.dart` | 适配 `AsyncValue` API + `_doSync` 消除重复 |
+
+**验证**：`flutter analyze` 零新增 issues，`flutter test` 110/110 通过，真机安装验证正常。
+
+---
+
+## 2026-06-02：Desktop Widgets 商店上架准备
+
+### KDE Store + GNOME Extensions 提交材料准备 ✅
+
+两个 Desktop Widget 的商店提交材料全部准备就绪。
+
+**新增文件汇总：**
+
+| 文件 | 用途 |
+|------|------|
+| `plasma/banban-shift@simpleshift.scheduler/LICENSE` | MIT 许可证 |
+| `plasma/banban-shift@simpleshift.scheduler/CHANGELOG.md` | 版本历史 (v1.0.0) |
+| `plasma/package.sh` | KDE 打包脚本 → `banban-shift.plasmoid` (8KB) |
+| `plasma/STORE_DESCRIPTION.md` | KDE Store 中英文描述 |
+| `plasma/SUBMISSION_CHECKLIST.md` | KDE 提交清单 |
+| `gnome/banban-shift@simpleshift.scheduler/LICENSE` | MIT 许可证 |
+| `gnome/banban-shift@simpleshift.scheduler/CHANGELOG.md` | 版本历史 (v1.0.0) |
+| `gnome/banban-shift@simpleshift.scheduler/STORE_DESCRIPTION.md` | GNOME Extensions 中英文描述 |
+| `gnome/package.sh` | GNOME 打包脚本 → `banban-shift.zip` (8KB) |
+| `gnome/SUBMISSION_CHECKLIST.md` | GNOME 提交清单 |
+| `package-widgets.sh` | 统一打包脚本 (KDE + GNOME) |
+
+**打包验证：**
+
+```bash
+./package-widgets.sh
+# KDE:   plasma/banban-shift.plasmoid (8KB, 6 files)
+# GNOME: gnome/banban-shift.zip (8KB, 6 files)
+```
+
+**待用户操作：**
+1. 截图（1920×1080）：面板 compact 视图 + 弹出 popup 视图
+2. KDE Store：注册 identity.kde.org → 上传 .plasmoid
+3. GNOME Extensions：注册 gitlab.gnome.org → 上传 .zip
+
+---
+
 ## 2026-06-01～02：Desktop Integration — GNOME Shell Extension ✅ + KDE Plasma 6 Plasmoid
 
 ### 决策背景

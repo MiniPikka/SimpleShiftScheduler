@@ -60,30 +60,44 @@ double workloadRatio(int workDays, int monthDays) {
 
 // ── Providers ──
 
-final settingsProvider = StateNotifierProvider<SettingsNotifier, RuntimeShiftSettings>(
-  (ref) => SettingsNotifier(ref),
+final settingsProvider =
+    NotifierProvider<SettingsNotifier, RuntimeShiftSettings>(
+  SettingsNotifier.new,
 );
 
-final selectedTeamProvider = StateProvider<int>((ref) {
-  final settings = ref.watch(settingsProvider);
-  return settings.defaultTeamId;
-});
+final selectedTeamProvider =
+    NotifierProvider<SelectedTeamNotifier, int>(SelectedTeamNotifier.new);
 
-final homeProvider = StateNotifierProvider<HomeNotifier, HomeState>(
-  (ref) => HomeNotifier(ref),
+final homeProvider = NotifierProvider<HomeNotifier, HomeState>(
+  HomeNotifier.new,
 );
 
-class HomeNotifier extends StateNotifier<HomeState> {
-  final Ref _ref;
+class SelectedTeamNotifier extends Notifier<int> {
+  @override
+  int build() {
+    final settings = ref.watch(settingsProvider);
+    return settings.defaultTeamId;
+  }
 
-  HomeNotifier(this._ref) : super(const HomeState()) {
-    refresh();
+  @override
+  set state(int value) => super.state = value;
+}
+
+class HomeNotifier extends Notifier<HomeState> {
+  @override
+  HomeState build() {
+    // Auto-refresh when settings or team change
+    ref.listen(settingsProvider, (_, _) => Future.microtask(refresh));
+    ref.listen(selectedTeamProvider, (_, _) => Future.microtask(refresh));
+    // Initial refresh after first frame
+    Future.microtask(refresh);
+    return const HomeState();
   }
 
   void refresh() {
     final now = DateTime.now();
-    final settings = _ref.read(settingsProvider);
-    final teamId = _ref.read(selectedTeamProvider);
+    final settings = ref.read(settingsProvider);
+    final teamId = ref.read(selectedTeamProvider);
 
     final cycle = settings.isValid ? settings.shiftCycle : null;
     final refDate = settings.isValid ? settings.referenceDate : null;
@@ -118,8 +132,8 @@ class HomeNotifier extends StateNotifier<HomeState> {
     final totalDays = cycle?.length ?? 42;
 
     // 今日班次对应的提醒时间
-    final alarmSettings = _ref.read(alarmSettingsProvider);
-    final alarmTimeOfShift = alarmSettings.alarms[shiftInfo.shiftType];
+    final alarmSettings = ref.read(alarmSettingsProvider).value;
+    final alarmTimeOfShift = alarmSettings?.alarms[shiftInfo.shiftType];
     final alarmTimeStr = alarmTimeOfShift?.serialize();
 
     state = state.copyWith(
@@ -135,32 +149,29 @@ class HomeNotifier extends StateNotifier<HomeState> {
   }
 
   void selectTeam(int teamId) {
-    _ref.read(selectedTeamProvider.notifier).state = teamId;
-    refresh();
+    ref.read(selectedTeamProvider.notifier).state = teamId;
   }
 }
 
 /// 设置 Notifier：从 Hive 加载 + 自动持久化
-class SettingsNotifier extends StateNotifier<RuntimeShiftSettings> {
-  final Ref _ref;
-
-  SettingsNotifier(this._ref) : super(RuntimeShiftSettings()) {
-    _load();
-  }
-
-  Future<void> _load() async {
-    final repoAsync = _ref.read(hiveRepoProvider);
-    repoAsync.whenData((repo) async {
-      final saved = await repo.loadSettings();
-      if (mounted && saved.isValid) {
-        state = saved;
-      }
+class SettingsNotifier extends Notifier<RuntimeShiftSettings> {
+  @override
+  RuntimeShiftSettings build() {
+    // Listen for repo availability, then load saved settings
+    ref.listen(hiveRepoProvider, (prev, next) {
+      next.whenData((repo) async {
+        final saved = await repo.loadSettings();
+        if (saved.isValid) {
+          state = saved;
+        }
+      });
     });
+    return RuntimeShiftSettings();
   }
 
   Future<void> update(RuntimeShiftSettings newSettings) async {
     state = newSettings;
-    final repoAsync = _ref.read(hiveRepoProvider);
+    final repoAsync = ref.read(hiveRepoProvider);
     repoAsync.whenData((repo) {
       repo.saveSettings(newSettings);
     });
