@@ -1,16 +1,16 @@
-name: Build & Release Android APK
+name: Build & Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'app-v*'
 
 jobs:
-  build:
+  build-android:
+    name: Android APK
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - uses: actions/checkout@v4
 
@@ -46,9 +46,133 @@ jobs:
         working-directory: flutter
         run: flutter build apk --release
 
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: flutter/build/app/outputs/flutter-apk/app-release.apk
+
+  build-linux:
+    name: Linux x86_64
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev
+
+      - name: Build Rust FFI bridge (release)
+        working-directory: flutter/rust
+        run: cargo build --release
+
+      - name: Flutter pub get
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: Build Flutter Linux desktop
+        working-directory: flutter
+        run: flutter build linux --release
+
+      - name: Bundle Rust .so into Flutter build
+        run: |
+          BUNDLE=flutter/build/linux/x64/release/bundle
+          mkdir -p "$BUNDLE/rust/target/release"
+          cp flutter/rust/target/release/libshift_flutter_bridge.so "$BUNDLE/rust/target/release/"
+
       - name: Extract version from tag
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+        run: echo "VERSION=${GITHUB_REF#refs/tags/app-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Package tar.gz
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          BUNDLE=flutter/build/linux/x64/release/bundle
+          PKG_DIR="shiftmate-${VERSION}-x86_64"
+          mkdir -p "$PKG_DIR"
+          cp -r "$BUNDLE"/* "$PKG_DIR/"
+
+          # Launcher script
+          cat > "$PKG_DIR/shiftmate" << 'EOF'
+          #!/bin/bash
+          DIR="$(cd "$(dirname "$0")" && pwd)"
+          exec "$DIR/scheduler_cp" "$@"
+          EOF
+          chmod +x "$PKG_DIR/shiftmate"
+
+          # .desktop file
+          if [ -f flutter/shiftmate.desktop ]; then
+            cp flutter/shiftmate.desktop "$PKG_DIR/"
+          fi
+
+          # Icon
+          if [ -f flutter/linux_icon.png ]; then
+            cp flutter/linux_icon.png "$PKG_DIR/"
+          fi
+
+          tar czf "shiftmate-${VERSION}-linux-x86_64.tar.gz" "$PKG_DIR"
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-tarball
+          path: shiftmate-*-linux-x86_64.tar.gz
+
+  package-widgets:
+    name: Desktop Widgets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package KDE Plasmoid
+        run: |
+          cd plasma
+          cd banban-shift@simpleshift.scheduler
+          zip -r ../banban-shift.plasmoid . -x "*.git*" -x "install.sh"
+
+      - name: Package GNOME Extension
+        run: |
+          cd gnome
+          cd banban-shift@simpleshift.scheduler
+          zip -r ../banban-shift.zip . -x "*.git*" -x "install.sh"
+
+      - name: Upload widget artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-widgets
+          path: |
+            plasma/banban-shift.plasmoid
+            gnome/banban-shift.zip
+
+  release:
+    name: Create Release
+    needs: [build-android, build-linux, package-widgets]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/app-v}" >> "$GITHUB_OUTPUT"
 
       - name: Generate changelog
         id: changelog
@@ -59,19 +183,31 @@ jobs:
           else
             CHANGELOG=$(git log --pretty=format:"- %s" --no-merges -20)
           fi
-          # Write to file for multi-line support
-          echo "$CHANGELOG" > /tmp/changelog.md
+          cat > /tmp/changelog.md << EOF
+          # ShiftMate v${{ steps.version.outputs.VERSION }}
+
+          ## Downloads
+
+          | 平台 | 文件 | 说明 |
+          |------|------|------|
+          | Android | \`shiftmate-*.apk\` | Android 安装包 |
+          | Linux | \`shiftmate-*-linux-x86_64.tar.gz\` | 解压后运行 \`./shiftmate\` |
+          | KDE Plasma 6 | \`banban-shift.plasmoid\` | 系统面板小组件 |
+          | GNOME Shell 45+ | \`banban-shift.zip\` | 顶栏扩展 |
+
+          ## Changes
+
+          $CHANGELOG
+          EOF
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: v${{ steps.version.outputs.VERSION }}
+          name: ShiftMate v${{ steps.version.outputs.VERSION }}
           body_path: /tmp/changelog.md
-          files: flutter/build/app/outputs/flutter-apk/app-release.apk
+          files: |
+            artifacts/android-apk/app-release.apk
+            artifacts/linux-tarball/shiftmate-*-linux-x86_64.tar.gz
+            artifacts/desktop-widgets/plasma/banban-shift.plasmoid
+            artifacts/desktop-widgets/gnome/banban-shift.zip
           generate_release_notes: false
-
-# NOTE: The APK is signed with the debug key. For production signing:
-# 1. Generate a keystore: keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000
-# 2. Add keystore as GitHub secret (base64 encoded)
-# 3. Create android/key.properties from secrets
-# 4. Update flutter/android/app/build.gradle.kts to use release signing config
