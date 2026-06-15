@@ -1,0 +1,28 @@
+{
+  "string": [
+    { "name": "app_name", "value": "ShiftMate" },
+    { "name": "tab_home", "value": "Home" },
+    { "name": "tab_calendar", "value": "Calendar" },
+    { "name": "tab_profile", "value": "Profile" },
+    { "name": "shift_morning", "value": "Morning" },
+    { "name": "shift_afternoon", "value": "Afternoon" },
+    { "name": "shift_rest", "value": "Rest" },
+    { "name": "shift_night", "value": "Night" },
+    { "name": "shift_study", "value": "Study" },
+    { "name": "shift_morning_short", "value": "M" },
+    { "name": "shift_afternoon_short", "value": "A" },
+    { "name": "shift_rest_short", "value": "R" },
+    { "name": "shift_night_short", "value": "N" },
+    { "name": "shift_study_short", "value": "S" },
+    { "name": "team_name_1", "value": "Team A" },
+    { "name": "team_name_2", "value": "Team B" },
+    { "name": "team_name_3", "value": "Team C" },
+    { "name": "team_name_4", "value": "Team D" },
+    { "name": "team_name_5", "value": "Team E" },
+    { "name": "team_name_6", "value": "Team F" },
+    { "name": "greeting_morning", "value": "Good Morning" },
+    { "name": "greeting_afternoon", "value": "Good Afternoon" },
+    { "name": "greeting_evening", "value": "Good Evening" },
+    { "name": "greeting_late_night", "value": "Late Night" }
+  ]
+}

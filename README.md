@@ -46,21 +46,24 @@ banban install                  # 安装 systemd 每日定时提醒
 
 ## Features
 
-| 功能 | CLI | TUI | Flutter | ICS | Desktop Widget |
-|------|-----|-----|---------|-----|----------------|
-| 今日班次 + 距休倒计时 | `banban today` | ✅ | ✅ | — | ✅ |
-| 明日班次 | `banban tomorrow` | ✅ | ✅ | — | — |
-| 周视图 | `banban week` | ✅ | — | — | ✅ |
-| 月历（彩色 ANSI/CJK 对齐） | `banban calendar` | ✅ | ✅ | ✅ | — |
-| 月度统计 | `banban stats` | ✅ | ✅ | — | — |
-| 拼假神器 | `banban leave -m 3` | ✅ + - | ✅ | — | — |
-| 同事模式 | `banban colleague 1 3` | ✅ ←→↑↓ | ✅ | — | — |
-| ICS 日历导出 | `banban export --ics` | — | — | ✅ | — |
-| 全屏 TUI | `banban tui` | ✅ | — | — | — |
-| 桌面通知 | `banban notify` | — | — | — | — |
-| systemd 定时器 | `banban install` | — | — | — | — |
-| Waybar 状态栏 | `banban waybar` | — | — | — | — |
-| 桌面 Widget | — | — | ✅ | — | ✅ |
+| 功能 | CLI | TUI | Flutter | HarmonyOS | ICS | Desktop Widget |
+|------|-----|-----|---------|-----------|-----|----------------|
+| 今日班次 + 距休倒计时 | `banban today` | ✅ | ✅ | ✅ | — | ✅ |
+| 明日班次 | `banban tomorrow` | ✅ | ✅ | ✅ | — | — |
+| 周视图 | `banban week` | ✅ | — | — | — | ✅ |
+| 月历（彩色 ANSI/CJK 对齐） | `banban calendar` | ✅ | ✅ | ✅ | ✅ | — |
+| 月度统计 | `banban stats` | ✅ | ✅ | ✅ | — | — |
+| 拼假神器 | `banban leave -m 3` | ✅ + - | ✅ | ✅ | — | — |
+| 同事模式 | `banban colleague 1 3` | ✅ ←→↑↓ | ✅ | ✅ | — | — |
+| 倒班津贴 | — | — | ✅ | ✅ | — | — |
+| 提醒设置 | — | — | ✅ | ✅ | — | — |
+| 倒班规则自定义 | — | — | ✅ | ✅ | — | — |
+| ICS 日历导出 | `banban export --ics` | — | — | — | ✅ | — |
+| 全屏 TUI | `banban tui` | ✅ | — | — | — | — |
+| 桌面通知 | `banban notify` | — | — | — | — | — |
+| systemd 定时器 | `banban install` | — | — | — | — | — |
+| Waybar 状态栏 | `banban waybar` | — | — | — | — | — |
+| 桌面 Widget | — | — | ✅ | — | — | ✅ |
 
 ## Desktop Widgets
 
@@ -120,6 +123,7 @@ SimpleShiftScheduler/
 │   ├── crates/        ← algorithm, statistics, holidays, leave-opt, ICS export
 │   └── cli/           ← banban CLI + TUI + HTTP serve
 ├── flutter/           ← Flutter 移动端 + Linux Desktop (110 tests, dart:ffi → Rust)
+├── harmony/           ← HarmonyOS 原生版 (ArkTS + ArkUI, 纯 ArkTS 算法)
 ├── plasma/            ← KDE Plasma 6 面板小部件 (QML, HTTP API)
 ├── gnome/             ← GNOME Shell 45+ 顶栏扩展 (JS, subprocess CLI)
 ├── android/           ← Android 参考实现 (148 tests, archived)
@@ -133,6 +137,7 @@ SimpleShiftScheduler/
 | CLI / TUI | 直接调用 Rust | — |
 | Flutter (FFI) | `dart:ffi` JSON over C | — |
 | Flutter (Dart fallback) | 纯 Dart 实现 | — |
+| HarmonyOS | 纯 ArkTS 算法实现 | — |
 | KDE Plasmoid | `XMLHttpRequest` → `banban serve` HTTP API | 5 min |
 | GNOME Extension | `Gio.Subprocess` → `banban --json` CLI | 60 s |
 | Waybar | `banban waybar` JSON stdout | 用户配置 |
@@ -157,6 +162,7 @@ SimpleShiftScheduler/
 | HTTP API | Rust + axum + tokio |
 | Calendar Export | ICS RFC 5545 (hand-rolled) |
 | Mobile UI | Flutter + Riverpod + GoRouter |
+| HarmonyOS UI | ArkTS + ArkUI (Stage Model) |
 | FFI Bridge | dart:ffi (JSON over C) |
 | KDE Widget | QML + PlasmaExtras + XMLHttpRequest |
 | GNOME Widget | GJS + PanelMenu.Button + Gio.Subprocess |

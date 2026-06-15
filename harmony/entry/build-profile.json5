@@ -1,0 +1,33 @@
+{
+  "apiType": "stageMode",
+  "buildOption": {
+    "arkOptions": {
+      "runtimeOnly": {
+        "sources": [],
+        "packages": []
+      }
+    },
+    "externalNativeOptions": {
+      "path": "",
+      "arguments": "",
+      "cppFlags": ""
+    }
+  },
+  "buildOptionSet": [
+    {
+      "name": "release",
+      "arkOptions": {
+        "obfuscation": {
+          "ruleOptions": {
+            "enable": true
+          }
+        }
+      }
+    }
+  ],
+  "targets": [
+    {
+      "name": "default"
+    }
+  ]
+}

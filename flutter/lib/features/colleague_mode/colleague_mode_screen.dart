@@ -7,6 +7,7 @@ import '../../core/theme/shapes.dart';
 import '../../core/utils/l10n.dart';
 import '../../core/services/share_service.dart';
 import '../../domain/algorithms/colleague_mode.dart';
+import '../../domain/models/common_rest_result.dart';
 import '../home/home_state.dart';
 import 'share_card_data.dart';
 import 'share_card_layout.dart';
@@ -83,7 +84,9 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
               top: 0,
               child: RepaintBoundary(
                 key: _shareKey,
-                child: ShareCardLayout(data: _shareData!),
+                child: SingleChildScrollView(
+                  child: ShareCardLayout(data: _shareData!),
+                ),
               ),
             ),
           // 正常内容（上层，遮住分享长图）
@@ -227,7 +230,7 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
     );
   }
 
-  Future<void> _shareImage(result, l10n, DateTime today) async {
+  Future<void> _shareImage(CommonRestResult result, dynamic l10n, DateTime today) async {
     if (_isSharing) return;
 
     final nextDate = result.nextCommonRestDate;
@@ -262,7 +265,7 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
       // 3. 离屏渲染
       ui.Image image;
       try {
-        image = await renderToImage(_shareKey, pixelRatio: 1.0);
+        image = await renderToImage(_shareKey, pixelRatio: 2.0);
       } catch (e) {
         throw Exception(l10n.shareRenderError('$e'));
       }

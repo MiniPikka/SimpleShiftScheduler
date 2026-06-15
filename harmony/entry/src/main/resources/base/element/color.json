@@ -1,0 +1,18 @@
+{
+  "color": [
+    { "name": "start_window_background", "value": "#0B0D10" },
+    { "name": "primary_bg", "value": "#0B0D10" },
+    { "name": "secondary_surface", "value": "#15181D" },
+    { "name": "card_surface", "value": "#1B1F26" },
+    { "name": "text_primary", "value": "#F5F7FA" },
+    { "name": "text_secondary", "value": "#9CA3AF" },
+    { "name": "text_tertiary", "value": "#6B7280" },
+    { "name": "accent_gold", "value": "#FACC15" },
+    { "name": "shift_morning", "value": "#FFB347" },
+    { "name": "shift_afternoon", "value": "#4DA3FF" },
+    { "name": "shift_rest", "value": "#35D07F" },
+    { "name": "shift_night", "value": "#7C5CFF" },
+    { "name": "shift_study", "value": "#F2D94E" },
+    { "name": "divider", "value": "#2A2E35" }
+  ]
+}

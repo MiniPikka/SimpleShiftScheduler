@@ -1,0 +1,8 @@
+{
+  "modelVersion": "5.0.0",
+  "description": "班伴 ShiftMate - HarmonyOS Edition",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.19"
+  }
+}

@@ -4,11 +4,10 @@ import '../../core/services/share_service.dart';
 import '../../core/utils/l10n.dart';
 import 'share_card_data.dart';
 
-/// 同事模式分享长图布局 — 对应 Android 版 ShareCardLayout
+/// 同事模式分享长图布局
 ///
-/// 1080×1920px 逻辑尺寸，pixelRatio=1.0 离屏渲染。
-/// 深色主题，信息密度高，适合社交传播。
-
+/// 深色主题，大字体，高对比度，适合社交传播。
+/// 内容区用 SingleChildScrollView 包裹，RepaintBoundary 自动撑高。
 class ShareCardLayout extends StatelessWidget {
   final ShareCardData data;
   const ShareCardLayout({super.key, required this.data});
@@ -27,7 +26,6 @@ class ShareCardLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 使用固定宽度 SizedBox + SingleChildScrollView 来容纳内容
     final l10n = context.l10n;
     return SizedBox(
       width: _cardWidth,
@@ -35,23 +33,43 @@ class ShareCardLayout extends StatelessWidget {
         color: _bg,
         padding: const EdgeInsets.all(_padding),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(l10n.appTitle, style: const TextStyle(fontSize: 20, color: _textSecondary)),
-            const SizedBox(height: 36),
-            Text(l10n.nextCommonRest, style: const TextStyle(fontSize: 24, color: _textSecondary)),
-            const SizedBox(height: 24),
+            // 品牌标题
+            Text(
+              l10n.appTitle,
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: _textSecondary),
+            ),
+            const SizedBox(height: 48),
+
+            // 主结果卡片
             _MainResultCard(data: data),
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
+
+            // 统计行
             _StatsRow(data: data),
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
+
+            // 日期列表
             _DateList(data: data),
-            const SizedBox(height: 36),
+            const SizedBox(height: 48),
+
+            // QR 码
             _QrSection(),
-            const SizedBox(height: 36),
-            Text(l10n.slogan, style: const TextStyle(fontSize: 18, color: _footerColor)),
-            const SizedBox(height: 8),
-            Text(l10n.analysisRange(data.dateRange), style: const TextStyle(fontSize: 16, color: Color(0xFF4B5563))),
+            const SizedBox(height: 40),
+
+            // 底部信息
+            Text(
+              l10n.slogan,
+              style: const TextStyle(fontSize: 22, color: _footerColor),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              l10n.analysisRange(data.dateRange),
+              style: const TextStyle(fontSize: 18, color: Color(0xFF4B5563)),
+            ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -68,9 +86,9 @@ class _MainResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 32),
+      padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 40),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
         gradient: const LinearGradient(
           colors: [Color(0x667C5CFF), Color(0x404DA3FF)],
           begin: Alignment.topLeft,
@@ -79,24 +97,28 @@ class _MainResultCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // 班组名
           Text(
             '${data.teamAName} × ${data.teamBName}',
-            style: const TextStyle(fontSize: 18, color: ShareCardLayout._textSecondary),
+            style: const TextStyle(fontSize: 26, color: ShareCardLayout._textSecondary),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          // 大日期
           Text(
             data.nextCommonRestDate,
-            style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: ShareCardLayout._textPrimary),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            data.nextCommonRestWeekday,
-            style: const TextStyle(fontSize: 22, color: ShareCardLayout._textSecondary),
+            style: const TextStyle(fontSize: 64, fontWeight: FontWeight.bold, color: ShareCardLayout._textPrimary),
           ),
           const SizedBox(height: 12),
+          // 星期
+          Text(
+            data.nextCommonRestWeekday,
+            style: const TextStyle(fontSize: 30, color: ShareCardLayout._textSecondary),
+          ),
+          const SizedBox(height: 20),
+          // 倒计时
           Text(
             context.l10n.daysUntil(data.daysUntilNext),
-            style: const TextStyle(fontSize: 20, color: ShareCardLayout._accentGold),
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: ShareCardLayout._accentGold),
           ),
         ],
       ),
@@ -115,7 +137,7 @@ class _StatsRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(child: _StatCard(title: l10n.next30days, count: data.countIn30Days)),
-        const SizedBox(width: 16),
+        const SizedBox(width: 20),
         Expanded(child: _StatCard(title: l10n.next60days, count: data.countIn60Days)),
       ],
     );
@@ -130,19 +152,19 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24),
+      padding: const EdgeInsets.symmetric(vertical: 32),
       decoration: BoxDecoration(
         color: ShareCardLayout._statCardBg,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
           Text(
             context.l10n.countTimes(count),
-            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: ShareCardLayout._textPrimary),
+            style: const TextStyle(fontSize: 44, fontWeight: FontWeight.bold, color: ShareCardLayout._textPrimary),
           ),
-          const SizedBox(height: 4),
-          Text(title, style: const TextStyle(fontSize: 16, color: ShareCardLayout._textSecondary)),
+          const SizedBox(height: 8),
+          Text(title, style: const TextStyle(fontSize: 22, color: ShareCardLayout._textSecondary)),
         ],
       ),
     );
@@ -160,26 +182,50 @@ class _DateList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 标题
         Text(
           context.l10n.commonRestDaysList(items.length),
-          style: const TextStyle(fontSize: 20, color: ShareCardLayout._textSecondary),
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: ShareCardLayout._textSecondary),
         ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 24,
-          runSpacing: 12,
-          children: items.map((item) {
-            return SizedBox(
-              width: (ShareCardLayout._cardWidth - ShareCardLayout._padding * 2 - 24) / 2,
-              child: Row(
-                children: [
-                  const Text('•', style: TextStyle(fontSize: 18, color: ShareCardLayout._dateItemColor)),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(item, style: const TextStyle(fontSize: 18, color: ShareCardLayout._dateItemColor))),
-                ],
-              ),
-            );
-          }).toList(),
+        const SizedBox(height: 20),
+        // 2 列布局
+        ...List.generate((items.length + 1) ~/ 2, (row) {
+          final left = items[row * 2];
+          final right = row * 2 + 1 < items.length ? items[row * 2 + 1] : null;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              children: [
+                Expanded(child: _DateItem(text: left)),
+                const SizedBox(width: 24),
+                Expanded(child: right != null ? _DateItem(text: right) : const SizedBox()),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _DateItem extends StatelessWidget {
+  final String text;
+  const _DateItem({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Text(
+          '•',
+          style: TextStyle(fontSize: 24, color: ShareCardLayout._accentGold, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 24, color: ShareCardLayout._dateItemColor),
+          ),
         ),
       ],
     );
@@ -195,20 +241,20 @@ class _QrSection extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: QrImageView(
             data: shareQrUrl,
             version: QrVersions.auto,
-            size: 200,
+            size: 240,
             backgroundColor: Colors.white,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Text(
           context.l10n.scanToDownload,
-          style: const TextStyle(fontSize: 16, color: ShareCardLayout._textMuted),
+          style: const TextStyle(fontSize: 20, color: ShareCardLayout._textMuted),
         ),
       ],
     );

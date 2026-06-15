@@ -1,0 +1,10 @@
+{
+  "src": [
+    "pages/Index",
+    "pages/LeaveOptimizer",
+    "pages/ColleagueMode",
+    "pages/SalaryPredictor",
+    "pages/AlarmSettings",
+    "pages/ShiftRule"
+  ]
+}

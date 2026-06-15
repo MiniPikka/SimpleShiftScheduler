@@ -1,0 +1,18 @@
+{
+  "modelVersion": "5.0.0",
+  "dependencies": {
+    "@ohos/hvigor-ohos-plugin": "5.0.0"
+  },
+  "execution": {
+    "daemon": true,
+    "incremental": true,
+    "parallel": true
+  },
+  "logging": {
+    "level": "info"
+  },
+  "pluginRepository": {
+    "registry": "https://repo.harmonyos.com/npm/",
+    "plugins": {}
+  }
+}
