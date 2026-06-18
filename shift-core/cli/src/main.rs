@@ -1336,6 +1336,13 @@ fn cmd_config() {
         .join("banban");
     let config_path = config_dir.join("config.toml");
 
+    // Generate cycle array from the canonical algorithm crate — never drifts.
+    let cycle_elems: Vec<String> = default_shift_cycle()
+        .iter()
+        .map(|s| format!("\"{}\"", s.label()))
+        .collect();
+    let cycle_str = cycle_elems.join(",");
+
     let sample = r#"# 班伴 · ShiftMate 配置文件
 # 修改后运行 banban install 重新生成 systemd 定时器
 
@@ -1343,7 +1350,7 @@ fn cmd_config() {
 # 排班周期：每天一个标签，写几个就几天
 # 支持中文：早 中 休 夜 学
 # 支持英文：morning afternoon rest night study
-cycle = ["早","早","中","中","休","夜","休","休","早","早","中","中","休","夜","休","休","休","早","早","中","休","夜","夜","休","休","休","早","中","中","休","夜","夜","休","休","学","学","学","学","学","休","休"]
+cycle = [__CYCLE__]
 
 # 周期起始日（第 1 天是哪天）
 reference_date = "2025-12-15"
@@ -1368,7 +1375,7 @@ waybar_afternoon = "☀️ 中"
 waybar_rest = "🌿 休"
 waybar_night = "🌙 夜"
 waybar_study = "📚 学"
-"#;
+"#.replace("__CYCLE__", &cycle_str);
 
     if config_path.exists() {
         println!("Config file already exists: {}", config_path.display());
