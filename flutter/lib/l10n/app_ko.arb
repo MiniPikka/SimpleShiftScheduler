@@ -170,5 +170,10 @@
   "@analysisRange": {"placeholders": {"range": {}}},
   "@countTimes": {"placeholders": {"count": {}}},
 
-  "versionInfo": "교대 도우미 CP v1.0.0"
+  "versionInfo": "교대 도우미 CP v1.0.0",
+
+  "handoverLabel": "인수자: ",
+  "handoverWorkingSuffix": "휴식 중 — 귀하의 근무 종료 후 인수합니다",
+  "handoverRestingSuffix": "{shiftLabel} 근무 중",
+  "@handoverRestingSuffix": {"placeholders": {"shiftLabel": {}}}
 }

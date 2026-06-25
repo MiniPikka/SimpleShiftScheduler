@@ -64,3 +64,19 @@ export function getShiftInfo(
 export function isWorkDay(shiftType: ShiftType): boolean {
   return shiftType === ShiftType.MORNING || shiftType === ShiftType.AFTERNOON || shiftType === ShiftType.NIGHT
 }
+
+export function isRestDay(shiftType: ShiftType): boolean {
+  return shiftType === ShiftType.REST || shiftType === ShiftType.STUDY
+}
+
+/// The team that takes over your shift when your rotation block ends.
+///
+/// In a 6-team rotation, the successor of team N is team N+1 (with wraparound):
+/// Team 1 → Team 2, Team 2 → Team 3, ..., Team 6 → Team 1.
+///
+/// Key property: the successor's status is always the *opposite* of yours.
+/// You are working → successor is resting (waiting to take your place).
+/// You are resting → successor is working (currently covering for you).
+export function successorTeamId(teamId: number): number {
+  return (teamId % TOTAL_TEAMS) + 1
+}

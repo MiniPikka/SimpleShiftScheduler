@@ -173,5 +173,10 @@
   "@analysisRange": {"placeholders": {"range": {}}},
   "@countTimes": {"placeholders": {"count": {}}},
 
-  "versionInfo": "倒班助手 CP v1.0.0"
+  "versionInfo": "倒班助手 CP v1.0.0",
+
+  "handoverLabel": "接班人：",
+  "handoverWorkingSuffix": "休息中，等你的班次结束后接班",
+  "handoverRestingSuffix": "正在上{shiftLabel}班",
+  "@handoverRestingSuffix": {"placeholders": {"shiftLabel": {}}}
 }

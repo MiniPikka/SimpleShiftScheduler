@@ -7,6 +7,28 @@
 - **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（17 commands）+ TUI。算法唯一来源，Flutter 通过 FFI 调用。228 tests，v0.1.4 已发布到 crates.io。
 - **Phase 4（新建）**：HarmonyOS 原生版 — ArkTS + ArkUI (Stage Model)。纯 ArkTS 实现全部算法（不依赖 Rust FFI），目标上架华为应用商店。25 个 .ets 文件，约 2700 行代码。
 
+## 0.1 开发环境
+
+### 主机环境
+- **OS**: Arch Linux
+- **LLM API**: DeepSeek / MiMo 双配置可切换（`~/switch-llm.sh`）
+- **Shell**: bash + oh-my-bash + starship
+
+### HarmonyOS 开发环境（KVM/QEMU 虚拟机）
+- **VM**: `harmony-dev` — 4GB RAM, 4 CPU, 100GB disk, Q35, Spice display
+- **Guest OS**: Windows 10 22H2
+- **IDE**: DevEco Studio 5.0+（需在 VM 内安装）
+- **网络**: NAT (192.168.122.0/24)
+- **管理**: `virt-manager` 或 `virsh` 命令行
+
+```bash
+# 常用命令
+virsh start harmony-dev        # 启动 VM
+virsh shutdown harmony-dev     # 优雅关机
+virt-viewer harmony-dev        # 打开控制台
+virt-manager                   # 图形管理界面
+```
+
 ---
 
 # Part A：CP（Cross Platform）版架构

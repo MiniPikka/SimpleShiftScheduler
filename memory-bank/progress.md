@@ -1,3 +1,76 @@
+## 2026-06-23：KVM/QEMU Windows VM + LLM API 双配置
+
+### KVM/QEMU Windows 虚拟机配置 ✅
+
+**背景**：HarmonyOS 开发需要 DevEco Studio（仅 Windows/macOS），用户在 Arch Linux 上通过 KVM/QEMU 虚拟机解决。
+
+**安装的软件包**：
+
+| 包 | 用途 |
+|----|------|
+| `qemu-full` | 完整 QEMU 虚拟化 |
+| `virt-manager` | 图形化虚拟机管理 |
+| `libvirt` | 虚拟化 API |
+| `edk2-ovmf` | UEFI 固件 |
+| `dnsmasq` | NAT 网络 DHCP |
+| `virt-viewer` | 轻量级 VM 控制台 |
+
+**虚拟机配置**：
+
+| 配置项 | 值 |
+|--------|-----|
+| 名称 | `harmony-dev` |
+| 内存 | 4GB（8GB 导致 15GB 宿主机 OOM） |
+| CPU | 4 核 |
+| 磁盘 | 100GB (qcow2) |
+| 机器类型 | Q35 |
+| 显示 | Spice (127.0.0.1:5900) |
+| 网络 | NAT (192.168.122.0/24) |
+| ISO | `Win10_22H2_Chinese_Simplified_x64v1.iso` (5.7GB) |
+
+**关键发现**：
+- `bridge-utils` 包已从 Arch 移除，桥接支持内置在 `iproute2` 中
+- VirtIO 驱动从 fedorapeople.org 下载极慢（无国内 CDN 镜像）
+- Windows ISO 需要浏览器交互下载（命令行获取 CDN 链接会 403）
+- `sudo -A` 配合 `SUDO_ASKPASS=/tmp/askpass.sh`（zenity 弹密码框），重启后需重建
+
+**VM 管理命令**：
+
+```bash
+virsh start harmony-dev        # 启动
+virsh shutdown harmony-dev     # 优雅关机
+virsh destroy harmony-dev      # 强制关闭
+virt-viewer harmony-dev        # 打开控制台
+virt-manager                   # 图形管理界面
+```
+
+### LLM API 双配置可切换 ✅
+
+**需求**：在 DeepSeek 和 MiMo（小米）两个 LLM API 之间灵活切换。
+
+**配置方案**：
+
+| API | 端点 | 模型 |
+|-----|------|------|
+| DeepSeek | `https://api.deepseek.com/anthropic` | `deepseek-v4-pro[1m]` |
+| MiMo | `https://token-plan-sgp.xiaomimimo.com/anthropic` | `mimo-v2.5-pro` |
+
+**切换脚本**：`~/switch-llm.sh`
+
+```bash
+source ~/switch-llm.sh deepseek  # 切换到 DeepSeek
+source ~/switch-llm.sh mimo      # 切换到 MiMo
+source ~/switch-llm.sh status    # 查看当前状态
+```
+
+**关键发现**：
+- MiMo API 可直连，无需本地代理（mimo-proxy）—— Claude Code 能容忍 `/v1/models` 端点 404
+- 配置存储在 `~/.bashrc.llm-current`，`.bashrc` 自动加载
+- MiMo 代理（localhost:18923）保留备用但不再必需
+- `~/.bashrc` 启用了 `noclobber`，覆盖文件需用 `>|` 而非 `>`
+
+---
+
 ## 2026-06-06：Flutter Bug 修复 + 工具链全面升级
 
 ### Bug 修复：提醒设置加载失败 ✅

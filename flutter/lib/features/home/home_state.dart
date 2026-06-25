@@ -16,6 +16,8 @@ class HomeState {
   final int monthTotalDays;
   final int consecutiveWorkDays;
   final String? alarmTime;
+  final int successorTeamId;
+  final ShiftType successorShiftType;
 
   const HomeState({
     this.shiftType = ShiftType.NIGHT,
@@ -26,6 +28,8 @@ class HomeState {
     this.monthTotalDays = 23,
     this.consecutiveWorkDays = 4,
     this.alarmTime,
+    this.successorTeamId = 2,
+    this.successorShiftType = ShiftType.REST,
   });
 
   HomeState copyWith({
@@ -37,6 +41,8 @@ class HomeState {
     int? monthTotalDays,
     int? consecutiveWorkDays,
     String? alarmTime,
+    int? successorTeamId,
+    ShiftType? successorShiftType,
   }) {
     return HomeState(
       shiftType: shiftType ?? this.shiftType,
@@ -47,6 +53,8 @@ class HomeState {
       monthTotalDays: monthTotalDays ?? this.monthTotalDays,
       consecutiveWorkDays: consecutiveWorkDays ?? this.consecutiveWorkDays,
       alarmTime: alarmTime ?? this.alarmTime,
+      successorTeamId: successorTeamId ?? this.successorTeamId,
+      successorShiftType: successorShiftType ?? this.successorShiftType,
     );
   }
 }
@@ -136,6 +144,16 @@ class HomeNotifier extends Notifier<HomeState> {
     final alarmTimeOfShift = alarmSettings?.alarms[shiftInfo.shiftType];
     final alarmTimeStr = alarmTimeOfShift?.serialize();
 
+    // 接班人：rotation 中的后继班组，其当前班次与我总是相反
+    final succId = teamId % Team.totalTeams + 1;
+    final succOffset = teamPhaseOffsetFor(succId, customCycle: cycle);
+    final succShift = getShiftTypeForDate(
+      now,
+      teamPhaseOffset: succOffset,
+      customCycle: cycle,
+      referenceDate: refDate,
+    );
+
     state = state.copyWith(
       shiftType: shiftInfo.shiftType,
       dayOfCycle: shiftInfo.dayOfCycle,
@@ -145,6 +163,8 @@ class HomeNotifier extends Notifier<HomeState> {
       monthTotalDays: monthDays,
       consecutiveWorkDays: consecWork,
       alarmTime: alarmTimeStr,
+      successorTeamId: succId,
+      successorShiftType: succShift,
     );
   }
 

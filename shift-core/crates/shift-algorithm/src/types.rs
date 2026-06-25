@@ -196,6 +196,28 @@ pub fn team_name(id: u32) -> String {
     format!("{}值", prefix)
 }
 
+/// The team that takes over your shift when your rotation block ends.
+///
+/// In a 6-team rotation, the successor of team N is team N+1 (with wraparound):
+/// - Team 1 → Team 2, Team 2 → Team 3, ..., Team 6 → Team 1
+///
+/// **Key property**: the successor's status is always the *opposite* of yours:
+/// - You are **working** → successor is **resting** (waiting to take your place)
+/// - You are **resting** → successor is **working** (currently covering for you)
+///
+/// ```rust
+/// use shift_algorithm::successor_team_id;
+///
+/// assert_eq!(successor_team_id(1, 6), 2);
+/// assert_eq!(successor_team_id(6, 6), 1);
+/// assert_eq!(successor_team_id(3, 6), 4);
+/// ```
+pub fn successor_team_id(team_id: u32, total_teams: u32) -> u32 {
+    assert!(total_teams >= 1, "total_teams must be >= 1");
+    assert!(team_id >= 1, "team_id must be >= 1");
+    (team_id % total_teams) + 1
+}
+
 impl ShiftCycleConfig {
     /// Create a new config, validating that `cycle.len() == cycle_length`.
     ///
@@ -206,6 +228,21 @@ impl ShiftCycleConfig {
         assert!(cycle_length >= 1, "cycle must be non-empty");
         assert!(total_teams >= 1, "total_teams must be >= 1");
         Self { cycle, cycle_length, reference_date, total_teams }
+    }
+
+    /// The team that takes over your shift when your rotation block ends.
+    ///
+    /// Convenience wrapper around [`successor_team_id`] using `self.total_teams`.
+    ///
+    /// ```rust
+    /// use shift_algorithm::cycle::default_config;
+    ///
+    /// let config = default_config();
+    /// assert_eq!(config.successor_of(1), 2);
+    /// assert_eq!(config.successor_of(6), 1);
+    /// ```
+    pub fn successor_of(&self, team_id: u32) -> u32 {
+        successor_team_id(team_id, self.total_teams)
     }
 
     /// Team phase offset in days.

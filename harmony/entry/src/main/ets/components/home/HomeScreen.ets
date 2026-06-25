@@ -1,7 +1,7 @@
 import { ThemeColors } from '../../theme/ThemeColors'
 import { ShiftType, TEAM_NAMES, SHIFT_SHORT_LABELS, SHIFT_LABELS, WEEKDAY_LABELS } from '../../constants/ShiftConstants'
 import { HomeState } from '../../models/ShiftModels'
-import { getShiftTypeForDate, formatDate } from '../../algorithms/ShiftCalculator'
+import { getShiftTypeForDate, formatDate, successorTeamId, isWorkDay } from '../../algorithms/ShiftCalculator'
 import { consecutiveWorkDays, daysUntilNextRest, countWorkDaysInMonth, getMonthlyStats } from '../../algorithms/ShiftMetrics'
 import { loadDefaultTeam, loadAlarmSettings, loadShiftCycle, loadReferenceDate } from '../../storage/SettingsStorage'
 import { HeroCard } from './HeroCard'
@@ -23,7 +23,9 @@ export struct HomeScreen {
     teamName: '一值',
     dateStr: '',
     greeting: '早上好',
-    tomorrowShiftType: ShiftType.MORNING
+    tomorrowShiftType: ShiftType.MORNING,
+    successorTeamId: 2,
+    successorShiftType: ShiftType.REST
   }
   @State selectedTeam: number = 1
 
@@ -67,6 +69,10 @@ export struct HomeScreen {
     const phase = (teamId - 1) * Math.floor(cycle.length / 6)
     const dayOfCycle = ((offset + phase) % cycle.length + cycle.length) % cycle.length + 1
 
+    // 接班人：rotation 中的后继班组
+    const succId = successorTeamId(teamId)
+    const succShift = getShiftTypeForDate(today, succId, cycle, refDate)
+
     const y = today.getFullYear()
     const m = today.getMonth() + 1
     const d = today.getDate()
@@ -83,7 +89,9 @@ export struct HomeScreen {
       teamName: TEAM_NAMES[teamId - 1],
       dateStr: `${y}年${m}月${d}日 星期${wd}`,
       greeting: greeting,
-      tomorrowShiftType: tomorrowType
+      tomorrowShiftType: tomorrowType,
+      successorTeamId: succId,
+      successorShiftType: succShift
     }
   }
 
@@ -120,6 +128,33 @@ export struct HomeScreen {
             monthlyTotalDays: this.homeState.monthlyTotalDays,
             consecutiveDays: this.homeState.consecutiveWorkDays
           })
+
+          // 接班人信息卡
+          Row() {
+            Text(this.homeState.shiftType === ShiftType.MORNING ||
+                 this.homeState.shiftType === ShiftType.AFTERNOON ||
+                 this.homeState.shiftType === ShiftType.NIGHT
+              ? '🔄' : '🤝')
+              .fontSize(16)
+            Text() {
+              Span('接班人：')
+                .fontColor(ThemeColors.TEXT_SECONDARY)
+              Span(TEAM_NAMES[this.homeState.successorTeamId - 1])
+                .fontColor(ThemeColors.ACCENT_GOLD)
+                .fontWeight(FontWeight.Bold)
+              Span(this.homeState.shiftType === ShiftType.MORNING ||
+                   this.homeState.shiftType === ShiftType.AFTERNOON ||
+                   this.homeState.shiftType === ShiftType.NIGHT
+                ? ' · 休息中，等你的班次结束后接班'
+                : ` · 正在上${SHIFT_SHORT_LABELS[this.homeState.successorShiftType]}班`)
+                .fontColor(ThemeColors.TEXT_SECONDARY)
+            }
+            .fontSize(13)
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+          .borderRadius(20)
+          .backgroundColor(ThemeColors.CARD_SURFACE)
 
           ToolsRow({
             onLeaveTap: () => { router.pushUrl({ url: 'pages/LeaveOptimizer' }) },
