@@ -6,7 +6,8 @@
 banban today          →  🟣 夜班 · 一值 · 第 33/42 天 · 明天休息
 banban leave -m 3     →  🏖️  请 2 天 → 连休 15 天 (中秋+国庆桥接)
 banban export --ics   →  生成 ICS 日历文件，导入 Thunderbird
-banban waybar         →  {"text":"🌙 夜","class":"night","tooltip":"..."}  Waybar JSON
+banban waybar         →  Waybar JSON（含周预览、交接班、统计 tooltip）
+banban waybar-popup   →  终端弹窗，KDE 风格完整详情
 banban tui            →  全屏终端界面，btop/lazygit 风格
 banban serve          →  HTTP API 服务器 (localhost:11451)
 ```
@@ -62,7 +63,8 @@ banban install                  # 安装 systemd 每日定时提醒
 | 全屏 TUI | `banban tui` | ✅ | — | — | — | — |
 | 桌面通知 | `banban notify` | — | — | — | — | — |
 | systemd 定时器 | `banban install` | — | — | — | — | — |
-| Waybar 状态栏 | `banban waybar` | — | — | — | — | — |
+| 交接班（找谁接/被谁接） | `banban today` | ✅ | ✅ | ✅ | — | ✅ |
+| Waybar 状态栏 | `banban waybar` | — | — | — | — | ✅ |
 | 桌面 Widget | — | — | ✅ | — | — | ✅ |
 
 ## Desktop Widgets
@@ -101,18 +103,24 @@ Add to `~/.config/waybar/config.jsonc`:
 "custom/banban": {
     "exec": "banban -l zh waybar",
     "interval": 3600,
-    "return-type": "json"
+    "return-type": "json",
+    "tooltip": true,
+    "on-click": "scripts/banban-waybar-popup.sh"
 }
 ```
+
+Tooltip shows: shift + team + date, stats (cycle/day/rest/consecutive), handover, 7-day week preview.
+
+Click pops up a floating terminal with full detail view (KDE Plasmoid style). The popup script auto-detects `foot > alacritty > kitty > xterm`.
 
 Style with CSS (`~/.config/waybar/style.css`):
 
 ```css
-#custom-banban.morning { color: #FFB347; }
-#custom-banban.afternoon { color: #4DA3FF; }
-#custom-banban.rest { color: #35D07F; }
-#custom-banban.night { color: #7C5CFF; }
-#custom-banban.study { color: #F2D94E; }
+#custom-banban.morning { background: #fab387; color: #1e1e2e; }
+#custom-banban.afternoon { background: #89b4fa; color: #1e1e2e; }
+#custom-banban.rest { background: #a6e3a1; color: #1e1e2e; }
+#custom-banban.night { background: #cba6f7; color: #1e1e2e; }
+#custom-banban.study { background: #f9e2af; color: #1e1e2e; }
 ```
 
 ## Architecture
@@ -171,11 +179,11 @@ SimpleShiftScheduler/
 
 | Component | Tests |
 |-----------|-------|
-| shift-core (Rust) | 109 |
+| shift-core (Rust) | 128 |
 | Flutter FFI bridge | 9 |
 | Flutter (Dart) | 110 |
 | Android (reference) | 148 |
-| **Total** | **376** |
+| **Total** | **395** |
 
 ```bash
 cd shift-core && cargo test        # Rust
@@ -187,6 +195,23 @@ cd flutter && flutter test         # Flutter
 ```bash
 cd shift-core
 cargo doc --no-deps --open
+```
+
+## Testing
+
+```bash
+# ── Rust ──
+cd shift-core && cargo test && cargo clippy --all-targets
+
+# ── Flutter ──
+cd flutter && flutter analyze && flutter test
+
+# ── Manual smoke tests ──
+cargo run --bin banban -- -l zh -t 6 today    # 交接班信息应正确
+cargo run --bin banban -- -l zh tui           # TUI 今日视图含交接班
+cargo run --bin banban -- -l zh -t 6 serve &  # HTTP API
+curl localhost:11451/shift | jq .predecessor_team
+kill %1
 ```
 
 ## License

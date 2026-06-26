@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "CLI + TUI for rotating shift schedules. Check today's shift, plan leave, find common rest days, export ICS calendar files, desktop notifications, systemd timer, shell completions, local HTTP API, DBus daemon. Configurable via ~/.config/banban/config.toml — define your own cycle: 17 commands. --lang zh for Chinese."
+description = "CLI + TUI for rotating shift schedules. Check today's shift (with handover: who you take over from / who takes over from you), plan leave with holiday bridge, find common rest days with colleagues, export ICS calendar files, desktop notifications, systemd timer, shell completions (bash/zsh/fish), local HTTP API (7 endpoints), DBus daemon, Waybar JSON output with rich tooltip and terminal popup. Configurable via ~/.config/banban/config.toml — define your own cycle. 18 commands. --lang zh for Chinese."
 
 [[bin]]
 name = "banban"
