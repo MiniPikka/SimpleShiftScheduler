@@ -206,6 +206,17 @@ class BanbanIndicator extends PanelMenu.Button {
         statsItem.setSensitive(false);
         menu.addMenuItem(statsItem);
 
+        // ── Handover row ──
+        if (this._shiftData.predecessor_team_id > 0) {
+            const hoText = '← 接' + this._shiftData.predecessor_team +
+                '(' + this._shiftData.predecessor_shift_label_zh + ')' +
+                '  ·  ' + this._shiftData.successor_team +
+                '(' + this._shiftData.successor_shift_label_zh + ')接我的班 →';
+            const hoItem = new PopupMenu.PopupMenuItem(hoText);
+            hoItem.setSensitive(false);
+            menu.addMenuItem(hoItem);
+        }
+
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
         // ── Week preview section ──

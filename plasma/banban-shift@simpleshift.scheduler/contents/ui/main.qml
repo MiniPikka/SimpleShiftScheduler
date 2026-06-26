@@ -316,6 +316,38 @@ PlasmoidItem {
                     Item { Layout.fillWidth: true }
                 }
 
+                // ── Handover card ──
+                Rectangle {
+                    visible: shiftData && shiftData.predecessor_team_id > 0
+                    Layout.fillWidth: true
+                    Layout.topMargin: Kirigami.Units.smallSpacing
+                    Layout.leftMargin: Kirigami.Units.gridUnit * 2
+                    Layout.rightMargin: Kirigami.Units.gridUnit * 2
+                    radius: Kirigami.Units.gridUnit
+                    color: Kirigami.Theme.backgroundColor
+                    height: handoverCol.implicitHeight + Kirigami.Units.gridUnit
+                    RowLayout {
+                        id: handoverCol
+                        anchors.centerIn: parent
+                        spacing: Kirigami.Units.smallSpacing
+                        Item { Layout.fillWidth: true }
+                        PlasmaComponents3.Label {
+                            text: shiftData ? "← 接" + shiftData.predecessor_team + "(" + shiftData.predecessor_shift_label_zh + ")" : ""
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.8
+                            color: Kirigami.Theme.textColor
+                            opacity: 0.8
+                        }
+                        Item { Layout.fillWidth: true }
+                        PlasmaComponents3.Label {
+                            text: shiftData ? shiftData.successor_team + "(" + shiftData.successor_shift_label_zh + ")接我的班 →" : ""
+                            font.pixelSize: Kirigami.Theme.defaultFont.pixelSize * 0.8
+                            color: Kirigami.Theme.textColor
+                            opacity: 0.8
+                        }
+                        Item { Layout.fillWidth: true }
+                    }
+                }
+
                 // ── Separator ──
                 Kirigami.Separator {
                     Layout.fillWidth: true

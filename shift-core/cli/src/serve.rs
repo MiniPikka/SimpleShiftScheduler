@@ -45,6 +45,16 @@ struct ShiftResponse {
     total_days: u32,
     days_until_rest: u32,
     consecutive_work_days: u32,
+    /// The team whose shift this team takes over from (0 = rest day, no handover).
+    predecessor_team_id: u32,
+    predecessor_team: String,
+    predecessor_shift_label_zh: String,
+    predecessor_shift_label: String,
+    /// The team that takes over from this team (0 = rest day).
+    successor_team_id: u32,
+    successor_team: String,
+    successor_shift_label_zh: String,
+    successor_shift_label: String,
 }
 
 #[derive(Serialize)]
@@ -152,6 +162,16 @@ async fn shift_for_date(
     let info = get_shift_info(date, &state.cycle_config, state.offset);
     let until_rest = days_until_next_rest(date, &state.cycle_config, state.offset);
     let consecutive = consecutive_work_days(date, &state.cycle_config, state.offset);
+    let handover = state.cycle_config.shift_handover(date, state.team);
+
+    let (pred_id, pred_team, pred_zh, pred_en, succ_id, succ_team, succ_zh, succ_en) = if let Some((p, s)) = handover {
+        let pred_info = get_shift_info(date, &state.cycle_config, state.cycle_config.team_phase_offset(p));
+        let succ_info = get_shift_info(date, &state.cycle_config, state.cycle_config.team_phase_offset(s));
+        (p, team_label(p), shift_label_zh(pred_info.shift_type).to_string(), shift_label(pred_info.shift_type).to_string(),
+         s, team_label(s), shift_label_zh(succ_info.shift_type).to_string(), shift_label(succ_info.shift_type).to_string())
+    } else {
+        (0, String::new(), String::new(), String::new(), 0, String::new(), String::new(), String::new())
+    };
 
     Ok(Json(ShiftResponse {
         date: date_str,
@@ -163,6 +183,14 @@ async fn shift_for_date(
         total_days: state.cycle_config.cycle_length,
         days_until_rest: until_rest,
         consecutive_work_days: consecutive,
+        predecessor_team_id: pred_id,
+        predecessor_team: pred_team,
+        predecessor_shift_label_zh: pred_zh,
+        predecessor_shift_label: pred_en,
+        successor_team_id: succ_id,
+        successor_team: succ_team,
+        successor_shift_label_zh: succ_zh,
+        successor_shift_label: succ_en,
     }))
 }
 

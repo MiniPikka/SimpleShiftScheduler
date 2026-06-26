@@ -1,7 +1,7 @@
 import { ThemeColors } from '../../theme/ThemeColors'
 import { ShiftType, TEAM_NAMES, SHIFT_SHORT_LABELS, SHIFT_LABELS, WEEKDAY_LABELS } from '../../constants/ShiftConstants'
 import { HomeState } from '../../models/ShiftModels'
-import { getShiftTypeForDate, formatDate, successorTeamId, predecessorTeamId, isWorkDay } from '../../algorithms/ShiftCalculator'
+import { getShiftTypeForDate, formatDate, shiftHandover, isWorkDay } from '../../algorithms/ShiftCalculator'
 import { consecutiveWorkDays, daysUntilNextRest, countWorkDaysInMonth, getMonthlyStats } from '../../algorithms/ShiftMetrics'
 import { loadDefaultTeam, loadAlarmSettings, loadShiftCycle, loadReferenceDate } from '../../storage/SettingsStorage'
 import { HeroCard } from './HeroCard'
@@ -71,12 +71,12 @@ export struct HomeScreen {
     const phase = (teamId - 1) * Math.floor(cycle.length / 6)
     const dayOfCycle = ((offset + phase) % cycle.length + cycle.length) % cycle.length + 1
 
-    // 交接班：前序（你接谁的班）+ 后继（谁接你的班）
-    const predId = predecessorTeamId(teamId)
-    const predShift = getShiftTypeForDate(today, predId, cycle, refDate)
-
-    const succId = successorTeamId(teamId)
-    const succShift = getShiftTypeForDate(today, succId, cycle, refDate)
+    // 交接班：基于班次类型（夜→早→中→夜）
+    const handover = shiftHandover(today, teamId, cycle, refDate)
+    const predId = handover ? handover[0] : 0
+    const predShift = handover ? getShiftTypeForDate(today, predId, cycle, refDate) : ShiftType.REST
+    const succId = handover ? handover[1] : 0
+    const succShift = handover ? getShiftTypeForDate(today, succId, cycle, refDate) : ShiftType.REST
 
     const y = today.getFullYear()
     const m = today.getMonth() + 1

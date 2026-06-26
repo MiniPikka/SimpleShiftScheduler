@@ -309,6 +309,12 @@ struct TodayOutput {
     total_days: u32,
     days_until_rest: u32,
     consecutive_work_days: u32,
+    predecessor_team_id: u32,
+    predecessor_team: String,
+    predecessor_shift: String,
+    successor_team_id: u32,
+    successor_team: String,
+    successor_shift: String,
 }
 
 #[derive(Serialize)]
@@ -522,7 +528,17 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
     let info = get_shift_info(today, config, offset);
     let rest = days_until_next_rest(today, config, offset);
     let consec = consecutive_work_days(today, config, offset);
+    let handover = config.shift_handover(today, team);
     let lang = cli.lang.as_str();
+
+    let (pred_id, pred_team, pred_shift, succ_id, succ_team, succ_shift) = if let Some((p, s)) = handover {
+        let pred_info = get_shift_info(today, config, config.team_phase_offset(p));
+        let succ_info = get_shift_info(today, config, config.team_phase_offset(s));
+        (p, team_lbl(p, lang), full_lbl(pred_info.shift_type, lang).to_string(),
+         s, team_lbl(s, lang), full_lbl(succ_info.shift_type, lang).to_string())
+    } else {
+        (0, String::new(), String::new(), 0, String::new(), String::new())
+    };
 
     if cli.json {
         let out = TodayOutput {
@@ -534,6 +550,12 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
             total_days: config.cycle_length,
             days_until_rest: rest,
             consecutive_work_days: consec,
+            predecessor_team_id: pred_id,
+            predecessor_team: pred_team,
+            predecessor_shift: pred_shift,
+            successor_team_id: succ_id,
+            successor_team: succ_team,
+            successor_shift: succ_shift,
         };
         println!("{}", serde_json::to_string_pretty(&out).unwrap());
     } else {
@@ -558,12 +580,18 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
             rest_msg,
         );
         println!(
-            "  {} {} · {} {}",
+            "  {} {} · {}",
             if lang == "zh" { "连续上班".dimmed() } else { "Work streak".dimmed() },
             format!("{}d", consec).bold(),
             today.format("%Y-%m-%d %A").to_string().dimmed(),
-            "".dimmed(),
         );
+        if handover.is_some() {
+            let pred_lbl = if lang == "zh" { format!("接{}({})", team_lbl(pred_id, lang), pred_shift) }
+                else { format!("take over {}({})", team_lbl(pred_id, lang), pred_shift) };
+            let succ_lbl = if lang == "zh" { format!("{}({})接我的班", succ_team, succ_shift) }
+                else { format!("{}({}) closing", succ_team, succ_shift) };
+            println!("  ← {}  ·  {} →", pred_lbl, succ_lbl);
+        }
     }
 }
 

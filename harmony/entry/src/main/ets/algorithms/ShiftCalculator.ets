@@ -89,3 +89,34 @@ export function successorTeamId(teamId: number): number {
 export function predecessorTeamId(teamId: number): number {
   return (teamId + TOTAL_TEAMS - 2) % TOTAL_TEAMS + 1
 }
+
+/// Find which team you take over from and which team takes over from you,
+/// based on shift types (夜 → 早 → 中 → 夜), NOT team numbering.
+/// Returns [predecessorTeamId, successorTeamId] or null if you're not working.
+export function shiftHandover(
+  date: Date,
+  teamId: number,
+  customCycle: ShiftType[] = DEFAULT_SHIFT_CYCLE,
+  referenceDateStr: string = DEFAULT_REFERENCE_DATE
+): [number, number] | null {
+  const myShift = getShiftTypeForDate(date, teamId, customCycle, referenceDateStr)
+  if (isRestDay(myShift)) return null
+
+  // 交接顺序：夜 → 早 → 中 → 夜
+  let predShift: ShiftType, succShift: ShiftType
+  if (myShift === ShiftType.MORNING) { predShift = ShiftType.NIGHT; succShift = ShiftType.AFTERNOON }
+  else if (myShift === ShiftType.AFTERNOON) { predShift = ShiftType.MORNING; succShift = ShiftType.NIGHT }
+  else { predShift = ShiftType.AFTERNOON; succShift = ShiftType.MORNING } // NIGHT
+
+  let predTeam = 0, succTeam = 0
+  for (let t = 1; t <= TOTAL_TEAMS; t++) {
+    if (t === teamId) continue
+    const shift = getShiftTypeForDate(date, t, customCycle, referenceDateStr)
+    if (shift === predShift) predTeam = t
+    if (shift === succShift) succTeam = t
+    if (predTeam > 0 && succTeam > 0) break
+  }
+
+  if (predTeam > 0 && succTeam > 0) return [predTeam, succTeam]
+  return null
+}

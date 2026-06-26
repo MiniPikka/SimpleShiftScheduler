@@ -181,6 +181,7 @@ fn draw_today(f: &mut Frame, area: Rect, app: &App) {
     let info = get_shift_info(app.today, &app.config, app.offset);
     let rest = days_until_next_rest(app.today, &app.config, app.offset);
     let consec = consecutive_work_days(app.today, &app.config, app.offset);
+    let handover = app.config.shift_handover(app.today, app.team_id);
 
     let color = shift_tui_color(info.shift_type);
     let rest_text = if info.shift_type.is_rest() {
@@ -219,15 +220,29 @@ fn draw_today(f: &mut Frame, area: Rect, app: &App) {
         .ratio(progress);
     f.render_widget(gauge, chunks[1]);
 
-    // Stats row
+    // Stats row + handover
     let streak_label = if app.is_zh() { "连续上班" } else { "Work streak" };
-    let stats = Line::from(vec![
+    let mut stats_text = vec![
         Span::raw("  "),
         Span::styled(rest_text, Style::default().fg(if info.shift_type.is_rest() { Color::Green } else { Color::White })),
         Span::raw("  │  "),
         Span::raw(format!("{} {}d", streak_label, consec)),
-    ]);
-    f.render_widget(Paragraph::new(stats), chunks[2]);
+    ];
+    if let Some((pred, succ)) = handover {
+        let pred_info = get_shift_info(app.today, &app.config, app.config.team_phase_offset(pred));
+        let succ_info = get_shift_info(app.today, &app.config, app.config.team_phase_offset(succ));
+        let handover_line = if app.is_zh() {
+            format!("\n  ← 接{}({})  ·  {}({})接我的班 →",
+                app.team_str(pred), app.lbl(pred_info.shift_type),
+                app.team_str(succ), app.lbl(succ_info.shift_type))
+        } else {
+            format!("\n  ← take over {}({})  ·  {}({}) closing →",
+                app.team_str(pred), app.lbl(pred_info.shift_type),
+                app.team_str(succ), app.lbl(succ_info.shift_type))
+        };
+        stats_text.push(Span::raw(handover_line));
+    }
+    f.render_widget(Paragraph::new(Line::from(stats_text)), chunks[2]);
 
     if h <= 20 { return; }
 
