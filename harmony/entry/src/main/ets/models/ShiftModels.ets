@@ -76,6 +76,8 @@ export interface HomeState {
   dateStr: string
   greeting: string
   tomorrowShiftType: ShiftType
+  predecessorTeamId: number
+  predecessorShiftType: ShiftType
   successorTeamId: number
   successorShiftType: ShiftType
 }

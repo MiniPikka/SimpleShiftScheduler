@@ -69,14 +69,23 @@ export function isRestDay(shiftType: ShiftType): boolean {
   return shiftType === ShiftType.REST || shiftType === ShiftType.STUDY
 }
 
-/// The team that takes over your shift when your rotation block ends.
+/// The team that follows yours in the circular rotation order.
 ///
 /// In a 6-team rotation, the successor of team N is team N+1 (with wraparound):
 /// Team 1 → Team 2, Team 2 → Team 3, ..., Team 6 → Team 1.
 ///
-/// Key property: the successor's status is always the *opposite* of yours.
-/// You are working → successor is resting (waiting to take your place).
-/// You are resting → successor is working (currently covering for you).
+/// Note: this reflects the circular team numbering, not a guarantee about
+/// shift status. Whether the successor is working or resting on a given day
+/// depends on the cycle position and is not always opposite.
 export function successorTeamId(teamId: number): number {
   return (teamId % TOTAL_TEAMS) + 1
+}
+
+/// The team that yours follows in the circular rotation order.
+///
+/// The predecessor of team N is the team whose shift your team takes over.
+/// In a 6-team rotation, the predecessor of team N is team N-1 (with wraparound):
+/// Team 1 ← Team 6, Team 2 ← Team 1, ..., Team 6 ← Team 5.
+export function predecessorTeamId(teamId: number): number {
+  return (teamId + TOTAL_TEAMS - 2) % TOTAL_TEAMS + 1
 }

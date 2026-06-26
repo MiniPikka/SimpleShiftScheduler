@@ -927,6 +927,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'倒班助手 CP v1.0.0'**
   String get versionInfo;
+
+  /// No description provided for @shiftRelayPredecessor.
+  ///
+  /// In zh, this message translates to:
+  /// **'接{team}的班'**
+  String shiftRelayPredecessor(Object team);
+
+  /// No description provided for @shiftRelaySuccessor.
+  ///
+  /// In zh, this message translates to:
+  /// **'{team}接我的班'**
+  String shiftRelaySuccessor(Object team);
+
+  /// No description provided for @shiftRelayStatus.
+  ///
+  /// In zh, this message translates to:
+  /// **'今天{shift}班'**
+  String shiftRelayStatus(Object shift);
 }
 
 class _AppLocalizationsDelegate

@@ -474,4 +474,19 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get versionInfo => '교대 도우미 CP v1.0.0';
+
+  @override
+  String shiftRelayPredecessor(Object team) {
+    return '$team의 근무 인수';
+  }
+
+  @override
+  String shiftRelaySuccessor(Object team) {
+    return '$team에 근무 인계';
+  }
+
+  @override
+  String shiftRelayStatus(Object shift) {
+    return '오늘 $shift';
+  }
 }

@@ -7,6 +7,8 @@ import '../../core/theme/shapes.dart';
 import '../../core/utils/l10n.dart';
 import '../../core/services/share_service.dart';
 import '../../domain/algorithms/colleague_mode.dart';
+import '../../domain/algorithms/shift_calculator.dart';
+import '../../domain/models/shift_type.dart';
 import '../../domain/models/common_rest_result.dart';
 import '../home/home_state.dart';
 import 'share_card_data.dart';
@@ -116,6 +118,17 @@ class _ColleagueModeScreenState extends ConsumerState<ColleagueModeScreen> {
               ),
             ]),
             const SizedBox(height: 16),
+            // 交接班信息
+            _ShiftRelayRow(
+              teamAId: _teamAId,
+              teamBId: _teamBId,
+              cycle: cycle,
+              refDate: refDate,
+              l10n: l10n,
+              theme: theme,
+            ),
+            const SizedBox(height: 16),
+            // 共同休息
             if (_teamAId == _teamBId)
               Card(
                 child: Padding(
@@ -342,6 +355,104 @@ class _StatCard extends StatelessWidget {
           ),
           Text(label, style: Theme.of(context).textTheme.bodySmall),
         ]),
+      ),
+    );
+  }
+}
+
+/// 交接班信息行 — 显示两个班组今天各自的班次和交接关系
+class _ShiftRelayRow extends StatelessWidget {
+  final int teamAId, teamBId;
+  final List<ShiftType>? cycle;
+  final DateTime? refDate;
+  final dynamic l10n;
+  final ThemeData theme;
+
+  const _ShiftRelayRow({
+    required this.teamAId,
+    required this.teamBId,
+    required this.cycle,
+    required this.refDate,
+    required this.l10n,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+
+    final infoA = _buildTeamInfo(teamAId, now);
+    final infoB = _buildTeamInfo(teamBId, now);
+
+    return Row(children: [
+      Expanded(child: infoA),
+      const SizedBox(width: 12),
+      Expanded(child: infoB),
+    ]);
+  }
+
+  Widget _buildTeamInfo(int teamId, DateTime now) {
+    final shift = getShiftTypeForDate(
+      now,
+      teamPhaseOffset: teamPhaseOffsetFor(teamId, customCycle: cycle),
+      customCycle: cycle,
+      referenceDate: refDate,
+    );
+    final teamName = localizedTeamName(teamId, l10n);
+    final shiftLabel = localizedShiftLabel(shift, l10n);
+
+    final handover = findShiftHandover(
+      date: now,
+      teamId: teamId,
+      customCycle: cycle,
+      referenceDate: refDate,
+    );
+    final predName = handover != null
+        ? localizedTeamName(handover.$1, l10n)
+        : null;
+    final succName = handover != null
+        ? localizedTeamName(handover.$2, l10n)
+        : null;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Container(
+                width: 8, height: 8,
+                decoration: BoxDecoration(
+                  color: shiftColor(shift),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(teamName, style: theme.textTheme.labelLarge),
+              const Spacer(),
+              Text(shiftLabel,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: shiftColor(shift),
+                    fontWeight: FontWeight.bold,
+                  )),
+            ]),
+            const SizedBox(height: 6),
+            if (handover != null) ...[
+              Text('← ${l10n.shiftRelayPredecessor(predName)}',
+                  style: theme.textTheme.bodySmall),
+              Text('${l10n.shiftRelaySuccessor(succName)} →',
+                  style: theme.textTheme.bodySmall),
+            ] else
+              Text('休息',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  )),
+          ],
+        ),
       ),
     );
   }

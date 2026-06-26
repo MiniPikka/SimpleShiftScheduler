@@ -474,4 +474,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get versionInfo => '倒班助手 CP v1.0.0';
+
+  @override
+  String shiftRelayPredecessor(Object team) {
+    return '接$team的班';
+  }
+
+  @override
+  String shiftRelaySuccessor(Object team) {
+    return '$team接我的班';
+  }
+
+  @override
+  String shiftRelayStatus(Object shift) {
+    return '今天$shift班';
+  }
 }

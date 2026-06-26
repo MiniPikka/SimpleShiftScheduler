@@ -196,14 +196,14 @@ pub fn team_name(id: u32) -> String {
     format!("{}值", prefix)
 }
 
-/// The team that takes over your shift when your rotation block ends.
+/// The team that follows yours in the circular rotation order.
 ///
 /// In a 6-team rotation, the successor of team N is team N+1 (with wraparound):
 /// - Team 1 → Team 2, Team 2 → Team 3, ..., Team 6 → Team 1
 ///
-/// **Key property**: the successor's status is always the *opposite* of yours:
-/// - You are **working** → successor is **resting** (waiting to take your place)
-/// - You are **resting** → successor is **working** (currently covering for you)
+/// **Note**: this reflects the circular **team numbering**, not a guarantee about
+/// shift status. Whether the successor is working or resting on a given day
+/// depends on the cycle position and is not always opposite.
 ///
 /// ```rust
 /// use shift_algorithm::successor_team_id;
@@ -211,11 +211,34 @@ pub fn team_name(id: u32) -> String {
 /// assert_eq!(successor_team_id(1, 6), 2);
 /// assert_eq!(successor_team_id(6, 6), 1);
 /// assert_eq!(successor_team_id(3, 6), 4);
+/// assert_eq!(successor_team_id(1, 1), 1); // single-team: wraps to self
 /// ```
 pub fn successor_team_id(team_id: u32, total_teams: u32) -> u32 {
     assert!(total_teams >= 1, "total_teams must be >= 1");
     assert!(team_id >= 1, "team_id must be >= 1");
     (team_id % total_teams) + 1
+}
+
+/// The team that yours follows in the circular rotation order.
+///
+/// The **predecessor** of team N is the team whose shift your team takes over.
+/// In a 6-team rotation, the predecessor of team N is team N-1 (with wraparound):
+/// - Team 1 ← Team 6, Team 2 ← Team 1, ..., Team 6 ← Team 5
+///
+/// Formula: `(team_id + total_teams - 2) % total_teams + 1`
+///
+/// ```rust
+/// use shift_algorithm::predecessor_team_id;
+///
+/// assert_eq!(predecessor_team_id(1, 6), 6); // Team 1 takes over from Team 6
+/// assert_eq!(predecessor_team_id(2, 6), 1); // Team 2 takes over from Team 1
+/// assert_eq!(predecessor_team_id(3, 6), 2);
+/// assert_eq!(predecessor_team_id(1, 1), 1); // single-team: wraps to self
+/// ```
+pub fn predecessor_team_id(team_id: u32, total_teams: u32) -> u32 {
+    assert!(total_teams >= 1, "total_teams must be >= 1");
+    assert!(team_id >= 1, "team_id must be >= 1");
+    (team_id + total_teams - 2) % total_teams + 1
 }
 
 impl ShiftCycleConfig {
@@ -230,7 +253,7 @@ impl ShiftCycleConfig {
         Self { cycle, cycle_length, reference_date, total_teams }
     }
 
-    /// The team that takes over your shift when your rotation block ends.
+    /// The team that follows yours in the circular rotation order.
     ///
     /// Convenience wrapper around [`successor_team_id`] using `self.total_teams`.
     ///
@@ -243,6 +266,23 @@ impl ShiftCycleConfig {
     /// ```
     pub fn successor_of(&self, team_id: u32) -> u32 {
         successor_team_id(team_id, self.total_teams)
+    }
+
+    /// The team that yours follows in the circular rotation order.
+    ///
+    /// The predecessor is the team whose shift your team takes over.
+    /// Convenience wrapper around [`predecessor_team_id`] using `self.total_teams`.
+    ///
+    /// ```rust
+    /// use shift_algorithm::cycle::default_config;
+    ///
+    /// let config = default_config();
+    /// assert_eq!(config.predecessor_of(1), 6); // Team 1 takes over from Team 6
+    /// assert_eq!(config.predecessor_of(2), 1); // Team 2 takes over from Team 1
+    /// assert_eq!(config.predecessor_of(6), 5);
+    /// ```
+    pub fn predecessor_of(&self, team_id: u32) -> u32 {
+        predecessor_team_id(team_id, self.total_teams)
     }
 
     /// Team phase offset in days.
@@ -266,5 +306,170 @@ impl ShiftCycleConfig {
     /// ```
     pub fn team_phase_offset(&self, team_id: u32) -> u32 {
         (team_id - 1) * (self.cycle_length / self.total_teams)
+    }
+
+    /// Find which team you take over from and which team takes over from you.
+    ///
+    /// Shift handover happens **within a single day** between different shift types:
+    /// - 夜 → 早 → 中 → 夜 (cyclical)
+    /// - If you are on 休 or 学, there is no handover (you're not working).
+    ///
+    /// Returns `(predecessor_team_id, successor_team_id)` — the teams whose shifts
+    /// you take over from and who takes over from you, respectively.
+    ///
+    /// ```rust
+    /// use shift_algorithm::cycle::default_config;
+    /// use chrono::NaiveDate;
+    ///
+    /// let config = default_config();
+    /// let date = NaiveDate::from_ymd_opt(2026, 6, 26).unwrap();
+    ///
+    /// // If team 1 is working 早班 today, predecessor should be the team on 夜班,
+    /// // successor should be the team on 中班.
+    /// if let Some((pred, succ)) = config.shift_handover(date, 1) {
+    ///     println!("Take over from team {}, hand over to team {}", pred, succ);
+    /// }
+    /// ```
+    pub fn shift_handover(
+        &self,
+        date: chrono::NaiveDate,
+        team_id: u32,
+    ) -> Option<(u32, u32)> {
+        use crate::calculator::get_shift_type_for_date;
+
+        let my_shift = get_shift_type_for_date(date, self, self.team_phase_offset(team_id));
+        if my_shift.is_rest() {
+            return None; // not working, no handover
+        }
+
+        // Shift handover order: 夜 → 早 → 中 → 夜
+        let (pred_shift, succ_shift) = match my_shift {
+            ShiftType::Morning => (ShiftType::Night, ShiftType::Afternoon),
+            ShiftType::Afternoon => (ShiftType::Morning, ShiftType::Night),
+            ShiftType::Night => (ShiftType::Afternoon, ShiftType::Morning),
+            _ => unreachable!(), // is_rest() already handled
+        };
+
+        // Scan all teams to find who is on pred_shift / succ_shift today
+        let mut pred_team: Option<u32> = None;
+        let mut succ_team: Option<u32> = None;
+
+        for t in 1..=self.total_teams {
+            if t == team_id {
+                continue;
+            }
+            let shift = get_shift_type_for_date(date, self, self.team_phase_offset(t));
+            if shift == pred_shift {
+                pred_team = Some(t);
+            }
+            if shift == succ_shift {
+                succ_team = Some(t);
+            }
+            if pred_team.is_some() && succ_team.is_some() {
+                break;
+            }
+        }
+
+        match (pred_team, succ_team) {
+            (Some(p), Some(s)) => Some((p, s)),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cycle::default_config;
+
+    // ── successor_team_id ──
+
+    #[test]
+    fn successor_team_1_is_2() {
+        assert_eq!(successor_team_id(1, 6), 2);
+    }
+
+    #[test]
+    fn successor_team_6_wraps_to_1() {
+        assert_eq!(successor_team_id(6, 6), 1);
+    }
+
+    #[test]
+    fn successor_team_3_is_4() {
+        assert_eq!(successor_team_id(3, 6), 4);
+    }
+
+    #[test]
+    fn successor_single_team_wraps_to_self() {
+        assert_eq!(successor_team_id(1, 1), 1);
+    }
+
+    // ── predecessor_team_id ──
+
+    #[test]
+    fn predecessor_team_1_is_6() {
+        assert_eq!(predecessor_team_id(1, 6), 6);
+    }
+
+    #[test]
+    fn predecessor_team_2_is_1() {
+        assert_eq!(predecessor_team_id(2, 6), 1);
+    }
+
+    #[test]
+    fn predecessor_team_6_is_5() {
+        assert_eq!(predecessor_team_id(6, 6), 5);
+    }
+
+    #[test]
+    fn predecessor_team_3_is_2() {
+        assert_eq!(predecessor_team_id(3, 6), 2);
+    }
+
+    #[test]
+    fn predecessor_single_team_wraps_to_self() {
+        assert_eq!(predecessor_team_id(1, 1), 1);
+    }
+
+    // ── ShiftCycleConfig methods ──
+
+    #[test]
+    fn config_successor_of() {
+        let config = default_config();
+        assert_eq!(config.successor_of(1), 2);
+        assert_eq!(config.successor_of(6), 1);
+    }
+
+    #[test]
+    fn config_predecessor_of() {
+        let config = default_config();
+        assert_eq!(config.predecessor_of(1), 6);
+        assert_eq!(config.predecessor_of(2), 1);
+    }
+
+    // ── completeness ──
+
+    #[test]
+    fn all_successors_are_unique() {
+        let mut succs: Vec<u32> = (1..=6).map(|t| successor_team_id(t, 6)).collect();
+        succs.sort();
+        assert_eq!(succs, vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn all_predecessors_are_unique() {
+        let mut preds: Vec<u32> = (1..=6).map(|t| predecessor_team_id(t, 6)).collect();
+        preds.sort();
+        assert_eq!(preds, vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn pred_succ_cycle() {
+        // predecessor(successor(team)) == team
+        for t in 1..=6 {
+            let succ = successor_team_id(t, 6);
+            assert_eq!(predecessor_team_id(succ, 6), t,
+                "predecessor(successor({})) should be {}", t, t);
+        }
     }
 }

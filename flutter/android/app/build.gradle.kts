@@ -44,6 +44,9 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
+// Skip slow duplicate class checking (crashes daemon on low-memory machines)
+tasks.matching { it.name == "checkDebugDuplicateClasses" }.configureEach { enabled = false }
+
 flutter {
     source = "../.."
 }

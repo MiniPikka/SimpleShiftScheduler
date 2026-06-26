@@ -175,6 +175,7 @@ impl Default for Config {
                   banban colleague 1 3      Common rest days: team 1 vs 3\n  \
                   banban export --ics       Export ICS calendar file\n  \
                   banban waybar             Waybar status bar output\n  \
+                  banban waybar-popup       Waybar on-click popup (pipe to foot)\n  \
                   banban tui                Full-screen terminal UI\n  \
                   banban notify             Desktop notification\n  \
                   banban install            Install systemd daily timer\n  \
@@ -259,6 +260,9 @@ enum Commands {
     ///   "custom/banban": {"exec": "banban -l zh waybar", "interval": 3600, "return-type": "json"}
     /// CSS: #custom-banban.morning { color: #FFB347; }
     Waybar,
+    /// Rich popup display for Waybar on-click — full details like KDE plasmoid popup.
+    /// Pipe to a floating terminal: foot -- banban waybar-popup
+    WaybarPopup,
     /// Export ICS calendar file for Thunderbird/Nextcloud/Google Calendar.
     /// One event per day, ~365 events per year.
     Export {
@@ -487,6 +491,7 @@ fn main() {
         Commands::Leave { max_days } => cmd_leave(&cli, today, &cycle_config, offset, max_days),
         Commands::Colleague { team_a, team_b } => cmd_colleague(&cli, today, &cycle_config, team_a, team_b),
         Commands::Waybar => cmd_waybar(today, &cycle_config, offset, team_id, &cli.lang, &config.display),
+        Commands::WaybarPopup => cmd_waybar_popup(today, &cycle_config, offset, team_id, &cli.lang),
         Commands::Export { ics: _, output, open } => cmd_export(today, &cycle_config, offset, team_id, output, open),
         Commands::Notify => cmd_notify(today, &cycle_config, offset, team_id),
         Commands::Install => cmd_install(),
@@ -1043,24 +1048,84 @@ fn cmd_colleague(
 fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u32, lang: &str, display: &DisplaySection) {
     let info = get_shift_info(today, config, offset);
     let rest = days_until_next_rest(today, config, offset);
+    let consec = consecutive_work_days(today, config, offset);
+    let handover = config.shift_handover(today, team);
 
     let class = format!("{:?}", info.shift_type).to_lowercase();
     let text = waybar_text(info.shift_type, lang, display);
-    let rest_text = if info.shift_type.is_rest() {
-        if lang == "zh" { "今日休息".to_string() } else { "Rest day 🎉".to_string() }
-    } else if rest == 0 {
-        if lang == "zh" { "明天休息".to_string() } else { "Rest tomorrow".to_string() }
+    let is_zh = lang == "zh";
+
+    // ── tooltip: multi-line rich info ──
+
+    // Line 1: shift + team + date
+    let date_str = if is_zh {
+        let wd = match today.weekday() {
+            chrono::Weekday::Mon => "一", chrono::Weekday::Tue => "二",
+            chrono::Weekday::Wed => "三", chrono::Weekday::Thu => "四",
+            chrono::Weekday::Fri => "五", chrono::Weekday::Sat => "六", chrono::Weekday::Sun => "日",
+        };
+        format!("{}月{}日 周{}", today.month(), today.day(), wd)
     } else {
-        if lang == "zh" { format!("距休 {} 天", rest) } else { format!("{}d until rest", rest) }
+        today.format("%b %d %a").to_string()
     };
-    let tooltip = format!(
-        "{} · {} · Day {}/{} · {}",
-        full_lbl(info.shift_type, lang),
-        team_lbl(team, lang),
-        info.day_of_cycle,
-        config.cycle_length,
-        rest_text,
-    );
+    let header = format!("{} · {}    {}", full_lbl(info.shift_type, lang), team_lbl(team, lang), date_str);
+
+    // Line 2: stats
+    let rest_text = if info.shift_type.is_rest() {
+        if is_zh { "今日休息".to_string() } else { "Rest day".to_string() }
+    } else if rest == 0 {
+        if is_zh { "明天休息".to_string() } else { "Rest tomorrow".to_string() }
+    } else {
+        if is_zh { format!("距休 {} 天", rest) } else { format!("{}d until rest", rest) }
+    };
+    let consec_text = if is_zh {
+        format!("连续上班 {} 天", consec)
+    } else {
+        format!("consecutive {}d", consec)
+    };
+    let cycle_text = format!("Day {}/{}", info.day_of_cycle, config.cycle_length);
+    let stats = format!("{} · {} · {}", cycle_text, rest_text, consec_text);
+
+    // Line 3: handover
+    let handover_text = if let Some((pred, succ)) = handover {
+        let pred_shift = get_shift_info(today, config, config.team_phase_offset(pred)).shift_type;
+        let succ_shift = get_shift_info(today, config, config.team_phase_offset(succ)).shift_type;
+        if is_zh {
+            format!("← 接{}({}) · {}({})接我的班 →", team_lbl(pred, lang), pred_shift.label(), team_lbl(succ, lang), succ_shift.label())
+        } else {
+            format!("← take over {}({}) · {}({}) closing →", team_lbl(pred, lang), pred_shift.label_en(), team_lbl(succ, lang), succ_shift.label_en())
+        }
+    } else {
+        if is_zh { "今日休息 · 无交接".to_string() } else { "Rest day · no handover".to_string() }
+    };
+
+    // Lines 4+: 7-day week preview
+    let week_title = if is_zh { "\n本周排班:" } else { "\nThis week:" };
+    let mut week_lines: Vec<String> = Vec::new();
+    for d in 1..=7 {
+        let date = today + chrono::Duration::days(d - 1);
+        let day_info = get_shift_info(date, config, offset);
+        let marker = if d == 1 { if is_zh { " ◀ 今天" } else { " ◀ today" } } else { "" };
+        let wd = if is_zh {
+            match date.weekday() {
+                chrono::Weekday::Mon => "一", chrono::Weekday::Tue => "二",
+                chrono::Weekday::Wed => "三", chrono::Weekday::Thu => "四",
+                chrono::Weekday::Fri => "五", chrono::Weekday::Sat => "六", chrono::Weekday::Sun => "日",
+            }
+        } else {
+            "" // English: just use date
+        };
+        let emoji = waybar_emoji(day_info.shift_type);
+        let shift_ch = day_info.shift_type.label();
+        if is_zh {
+            week_lines.push(format!("{}/{} {} {} {}{}", date.month(), date.day(), wd, emoji, shift_ch, marker));
+        } else {
+            week_lines.push(format!("{}/{}/{} {} {}{}", date.month(), date.day(), date.year() % 100, emoji, day_info.shift_type.label_en(), marker));
+        }
+    }
+    let week = week_lines.join("\n");
+
+    let tooltip = format!("{}\n{}\n{}\n{}\n{}", header, stats, handover_text, week_title, week);
 
     let out = WaybarOutput {
         text,
@@ -1068,6 +1133,117 @@ fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
         tooltip,
     };
     println!("{}", serde_json::to_string(&out).unwrap());
+}
+
+/// Emoji for shift type — matching KDE plasmoid style.
+fn waybar_emoji(st: ShiftType) -> &'static str {
+    match st {
+        ShiftType::Morning => "🟠",
+        ShiftType::Afternoon => "🔵",
+        ShiftType::Rest => "🟢",
+        ShiftType::Night => "🟣",
+        ShiftType::Study => "🟡",
+    }
+}
+
+/// Full popup display for Waybar on-click — ANSI-colored, KDE plasmoid style.
+fn cmd_waybar_popup(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u32, lang: &str) {
+    let info = get_shift_info(today, config, offset);
+    let rest = days_until_next_rest(today, config, offset);
+    let consec = consecutive_work_days(today, config, offset);
+    let handover = config.shift_handover(today, team);
+    let is_zh = lang == "zh";
+
+    let emoji = waybar_emoji(info.shift_type);
+    let shift_lbl = full_lbl(info.shift_type, lang);
+    let team_lbl_str = team_lbl(team, lang);
+
+    // Date
+    let date_str = if is_zh {
+        let wd = match today.weekday() {
+            chrono::Weekday::Mon => "周一", chrono::Weekday::Tue => "周二",
+            chrono::Weekday::Wed => "周三", chrono::Weekday::Thu => "周四",
+            chrono::Weekday::Fri => "周五", chrono::Weekday::Sat => "周六", chrono::Weekday::Sun => "周日",
+        };
+        format!("{}月{}日 {}", today.month(), today.day(), wd)
+    } else {
+        today.format("%B %d, %A").to_string()
+    };
+
+    // ── Layout ──
+    let w = 42; // width
+
+    println!();
+    // Hero section
+    println!("{:^w$}", emoji, w = w);
+    println!("{:^w$}", shift_lbl.bold(), w = w + shift_lbl.chars().count() * 2); // bold adds extra width
+    println!("{:^w$}", format!("{} · Day {}/{}", team_lbl_str, info.day_of_cycle, config.cycle_length));
+    println!("{:^w$}", date_str);
+    println!();
+
+    // Stats row
+    let rest_text = if info.shift_type.is_rest() {
+        if is_zh { "今日休息".to_string() } else { "Rest day".to_string() }
+    } else if rest == 0 {
+        if is_zh { "明天休息".to_string() } else { "Rest tomorrow".to_string() }
+    } else {
+        if is_zh { format!("距休 {} 天", rest) } else { format!("{}d until rest", rest) }
+    };
+    let consec_text = if is_zh { format!("连续上班 {} 天", consec) } else { format!("consecutive {}d", consec) };
+    let pct = info.day_of_cycle * 100 / config.cycle_length;
+    let pct_text = if is_zh { format!("周期进度 {}%", pct) } else { format!("progress {}%", pct) };
+    println!("{:^14} {:^14} {:^14}", rest_text, consec_text, pct_text);
+    println!();
+
+    // Handover
+    if let Some((pred, succ)) = handover {
+        let pred_info = get_shift_info(today, config, config.team_phase_offset(pred));
+        let succ_info = get_shift_info(today, config, config.team_phase_offset(succ));
+        let pred_emoji = waybar_emoji(pred_info.shift_type);
+        let succ_emoji = waybar_emoji(succ_info.shift_type);
+        if is_zh {
+            println!("{} ← 接{}({})  ·  {}({})接我的班 → {}",
+                pred_emoji, team_lbl(pred, lang), pred_info.shift_type.label(),
+                team_lbl(succ, lang), succ_info.shift_type.label(), succ_emoji);
+        } else {
+            println!("{} ← take over {}({})  ·  {}({}) closing → {}",
+                pred_emoji, team_lbl(pred, lang), pred_info.shift_type.label_en(),
+                team_lbl(succ, lang), succ_info.shift_type.label_en(), succ_emoji);
+        }
+    } else {
+        if is_zh { println!("休息日 · 无交接") } else { println!("Rest day · no handover") };
+    }
+    println!();
+
+    // Week preview
+    let week_title = if is_zh { "── 本周排班 ──" } else { "── This Week ──" };
+    println!("{:^w$}", week_title);
+    println!();
+
+    for d in 1..=7 {
+        let date = today + chrono::Duration::days(d - 1);
+        let day_info = get_shift_info(date, config, offset);
+        let e = waybar_emoji(day_info.shift_type);
+        let s = if is_zh { day_info.shift_type.label().to_string() } else { day_info.shift_type.label_en().to_string() };
+        let marker = if d == 1 { if is_zh { " ◀ 今天" } else { " ◀ today" } } else { "" };
+        if is_zh {
+            let wd = match date.weekday() {
+                chrono::Weekday::Mon => "一", chrono::Weekday::Tue => "二",
+                chrono::Weekday::Wed => "三", chrono::Weekday::Thu => "四",
+                chrono::Weekday::Fri => "五", chrono::Weekday::Sat => "六", chrono::Weekday::Sun => "日",
+            };
+            println!("  {}/{} 周{}  {} {}{}", date.month(), date.day(), wd, e, s, marker);
+        } else {
+            let wd = date.format("%a").to_string();
+            println!("  {}/{} {}  {} {}{}", date.month(), date.day(), wd, e, s, marker);
+        }
+    }
+    println!();
+
+    // Footer
+    let update_text = if is_zh { "刷新: 每小时自动 / 点击手动" } else { "Refresh: hourly auto / click manual" };
+    println!("{:^w$}", update_text.dimmed());
+    println!();
 }
 
 /// Waybar display text: custom config > language default.

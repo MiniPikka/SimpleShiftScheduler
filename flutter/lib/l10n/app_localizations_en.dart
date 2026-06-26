@@ -477,4 +477,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get versionInfo => 'Shift Mate CP v1.0.0';
+
+  @override
+  String shiftRelayPredecessor(Object team) {
+    return 'Close of $team';
+  }
+
+  @override
+  String shiftRelaySuccessor(Object team) {
+    return '$team closing you';
+  }
+
+  @override
+  String shiftRelayStatus(Object shift) {
+    return '$shift today';
+  }
 }

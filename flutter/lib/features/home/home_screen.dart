@@ -102,11 +102,13 @@ class HomeScreen extends ConsumerWidget {
             consecutiveStatus: consecLabel, monthlyWorkLabel: l10n.monthlyWork, consecutiveWorkLabel: l10n.consecutiveWork,
           )),
           const SizedBox(height: CpSpacing.lg),
-          _StaggeredItem(delayMs: 240, child: _HandoverCard(
-            isWorking: state.shiftType.isWork,
-            successorTeamName: localizedTeamName(state.successorTeamId, l10n),
-            successorShiftLabel: localizedShiftLabel(state.successorShiftType, l10n),
-          )),
+          if (state.predecessorTeamId > 0)
+            _StaggeredItem(delayMs: 240, child: _ShiftRelayCard(
+              predTeamName: localizedTeamName(state.predecessorTeamId, l10n),
+              predShiftLabel: localizedShiftLabel(state.predecessorShiftType, l10n),
+              succTeamName: localizedTeamName(state.successorTeamId, l10n),
+              succShiftLabel: localizedShiftLabel(state.successorShiftType, l10n),
+            )),
           const SizedBox(height: CpSpacing.lg),
           _StaggeredItem(delayMs: 320, child: ToolsRow(
             onLeaveOptimizer: () => context.push('/leave-optimizer'),
@@ -191,28 +193,24 @@ class _StaggeredItemState extends State<_StaggeredItem> with SingleTickerProvide
   }
 }
 
-/// 接班人信息卡 — 显示 rotation 中后继班组的当前状态
-class _HandoverCard extends StatelessWidget {
-  final bool isWorking;
-  final String successorTeamName;
-  final String successorShiftLabel;
+/// 交接班信息卡 — 显示前序班组（你接谁的班）和后继班组（谁接你的班）
+class _ShiftRelayCard extends StatelessWidget {
+  final String predTeamName;
+  final String predShiftLabel;
+  final String succTeamName;
+  final String succShiftLabel;
 
-  const _HandoverCard({
-    required this.isWorking,
-    required this.successorTeamName,
-    required this.successorShiftLabel,
+  const _ShiftRelayCard({
+    required this.predTeamName,
+    required this.predShiftLabel,
+    required this.succTeamName,
+    required this.succShiftLabel,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    // 你在休息 → 接班人正在上班（替你 hold rotation）
-    // 你在上班 → 接班人在休息（等你 block 结束后来接）
-    final statusText = isWorking
-        ? l10n.handoverWorkingSuffix
-        : l10n.handoverRestingSuffix(successorShiftLabel);
-    final icon = isWorking ? Icons.hotel : Icons.sync_alt;
 
     return Card(
       elevation: 0,
@@ -222,34 +220,79 @@ class _HandoverCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+            Icon(Icons.sync_alt, size: 20,
+                color: theme.colorScheme.onSurfaceVariant),
             const SizedBox(width: 12),
             Expanded(
-              child: RichText(
-                text: TextSpan(
-                  style: theme.textTheme.bodyMedium,
-                  children: [
-                    TextSpan(
-                      text: l10n.handoverLabel,
-                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                    TextSpan(
-                      text: successorTeamName,
-                      style: TextStyle(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    TextSpan(
-                      text: ' · $statusText',
-                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                  ],
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _RelayLine(
+                    arrow: '←',
+                    teamName: predTeamName,
+                    action: l10n.shiftRelayPredecessor(predTeamName),
+                    shiftLabel: predShiftLabel,
+                    theme: theme,
+                    l10n: l10n,
+                  ),
+                  const SizedBox(height: 4),
+                  _RelayLine(
+                    arrow: '→',
+                    teamName: succTeamName,
+                    action: l10n.shiftRelaySuccessor(succTeamName),
+                    shiftLabel: succShiftLabel,
+                    theme: theme,
+                    l10n: l10n,
+                  ),
+                ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RelayLine extends StatelessWidget {
+  final String arrow;
+  final String teamName;
+  final String action;
+  final String shiftLabel;
+  final ThemeData theme;
+  final dynamic l10n;
+
+  const _RelayLine({
+    required this.arrow,
+    required this.teamName,
+    required this.action,
+    required this.shiftLabel,
+    required this.theme,
+    required this.l10n,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return RichText(
+      text: TextSpan(
+        style: theme.textTheme.bodySmall,
+        children: [
+          TextSpan(
+            text: '$arrow ',
+            style: TextStyle(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          TextSpan(
+            text: action,
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          TextSpan(
+            text: ' · ${l10n.shiftRelayStatus(shiftLabel)}',
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
       ),
     );
   }

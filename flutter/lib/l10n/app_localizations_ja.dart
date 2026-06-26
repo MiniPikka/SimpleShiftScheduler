@@ -474,4 +474,19 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get versionInfo => '倒班アシスト CP v1.0.0';
+
+  @override
+  String shiftRelayPredecessor(Object team) {
+    return '$teamの引継ぎ';
+  }
+
+  @override
+  String shiftRelaySuccessor(Object team) {
+    return '$teamに引継ぎ';
+  }
+
+  @override
+  String shiftRelayStatus(Object shift) {
+    return '今日$shift';
+  }
 }

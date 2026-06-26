@@ -175,8 +175,10 @@
 
   "versionInfo": "倒班助手 CP v1.0.0",
 
-  "handoverLabel": "接班人：",
-  "handoverWorkingSuffix": "休息中，等你的班次结束后接班",
-  "handoverRestingSuffix": "正在上{shiftLabel}班",
-  "@handoverRestingSuffix": {"placeholders": {"shiftLabel": {}}}
+  "shiftRelayPredecessor": "接{team}的班",
+  "@shiftRelayPredecessor": {"placeholders": {"team": {}}},
+  "shiftRelaySuccessor": "{team}接我的班",
+  "@shiftRelaySuccessor": {"placeholders": {"team": {}}},
+  "shiftRelayStatus": "今天{shift}班",
+  "@shiftRelayStatus": {"placeholders": {"shift": {}}}
 }

@@ -172,8 +172,10 @@
 
   "versionInfo": "Shift Mate CP v1.0.0",
 
-  "handoverLabel": "Handover: ",
-  "handoverWorkingSuffix": "Resting — will take over when your shift ends",
-  "handoverRestingSuffix": "Currently on {shiftLabel} shift",
-  "@handoverRestingSuffix": {"placeholders": {"shiftLabel": {}}}
+  "shiftRelayPredecessor": "Close of {team}",
+  "@shiftRelayPredecessor": {"placeholders": {"team": {}}},
+  "shiftRelaySuccessor": "{team} closing you",
+  "@shiftRelaySuccessor": {"placeholders": {"team": {}}},
+  "shiftRelayStatus": "{shift} today",
+  "@shiftRelayStatus": {"placeholders": {"shift": {}}}
 }

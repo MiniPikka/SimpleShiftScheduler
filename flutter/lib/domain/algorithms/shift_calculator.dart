@@ -95,6 +95,72 @@ int teamPhaseOffsetFor(int teamId, {List<ShiftType>? customCycle}) {
   return (teamId - 1) * step;
 }
 
+/// 计算当天交接班关系 — 基于班次类型而非班组编号。
+///
+/// 同一天内不同班次类型之间的交接顺序：夜 → 早 → 中 → 夜
+/// - 如果你是早班：你接夜班的班，中班接你的班
+/// - 如果你是中班：你接早班的班，夜班接你的班
+/// - 如果你是夜班：你接中班的班，早班接你的班
+/// - 如果你是休/学：不上班，没有交接
+///
+/// 返回 `(前序班组ID, 后继班组ID)` 或 `null`（休息/学习日）。
+(int, int)? findShiftHandover({
+  required DateTime date,
+  required int teamId,
+  List<ShiftType>? customCycle,
+  DateTime? referenceDate,
+}) {
+  final phaseOffset = teamPhaseOffsetFor(teamId, customCycle: customCycle);
+  final myShift = getShiftTypeForDate(date,
+      teamPhaseOffset: phaseOffset,
+      customCycle: customCycle,
+      referenceDate: referenceDate);
+
+  if (myShift.isRest) return null; // 不上班，不交接
+
+  // 交接顺序：夜 → 早 → 中 → 夜
+  final predShift = switch (myShift) {
+    ShiftType.MORNING => ShiftType.NIGHT,
+    ShiftType.AFTERNOON => ShiftType.MORNING,
+    ShiftType.NIGHT => ShiftType.AFTERNOON,
+    _ => throw StateError('unreachable'),
+  };
+  final succShift = switch (myShift) {
+    ShiftType.MORNING => ShiftType.AFTERNOON,
+    ShiftType.AFTERNOON => ShiftType.NIGHT,
+    ShiftType.NIGHT => ShiftType.MORNING,
+    _ => throw StateError('unreachable'),
+  };
+
+  // 遍历所有班组，找到今天上前序/后继班次类型的班组
+  int? predTeam, succTeam;
+  for (var t = 1; t <= Team.totalTeams; t++) {
+    if (t == teamId) continue;
+    final offset = teamPhaseOffsetFor(t, customCycle: customCycle);
+    final shift = getShiftTypeForDate(date,
+        teamPhaseOffset: offset,
+        customCycle: customCycle,
+        referenceDate: referenceDate);
+    if (shift == predShift) predTeam = t;
+    if (shift == succShift) succTeam = t;
+    if (predTeam != null && succTeam != null) break;
+  }
+
+  if (predTeam != null && succTeam != null) {
+    return (predTeam, succTeam);
+  }
+  return null;
+}
+
+/// 循环顺序中当前班组的后继班组 — 对应 Rust successor_team_id()。
+int successorTeamId(int teamId, [int totalTeams = Team.totalTeams]) {
+  return (teamId % totalTeams) + 1;
+}
+
+/// 循环顺序中当前班组的前序班组 — 对应 Rust predecessor_team_id()。
+int predecessorTeamId(int teamId, [int totalTeams = Team.totalTeams]) {
+  return (teamId + totalTeams - 2) % totalTeams + 1;
+}
 
 ShiftType parseShiftType(String s) {
   switch (s) {

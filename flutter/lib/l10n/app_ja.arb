@@ -172,8 +172,10 @@
 
   "versionInfo": "倒班アシスト CP v1.0.0",
 
-  "handoverLabel": "引継ぎ：",
-  "handoverWorkingSuffix": "休息中 — あなたの勤務終了後に引き継ぎます",
-  "handoverRestingSuffix": "{shiftLabel}勤務中",
-  "@handoverRestingSuffix": {"placeholders": {"shiftLabel": {}}}
+  "shiftRelayPredecessor": "{team}の引継ぎ",
+  "@shiftRelayPredecessor": {"placeholders": {"team": {}}},
+  "shiftRelaySuccessor": "{team}に引継ぎ",
+  "@shiftRelaySuccessor": {"placeholders": {"team": {}}},
+  "shiftRelayStatus": "今日{shift}",
+  "@shiftRelayStatus": {"placeholders": {"shift": {}}}
 }

@@ -16,6 +16,8 @@ class HomeState {
   final int monthTotalDays;
   final int consecutiveWorkDays;
   final String? alarmTime;
+  final int predecessorTeamId;
+  final ShiftType predecessorShiftType;
   final int successorTeamId;
   final ShiftType successorShiftType;
 
@@ -28,6 +30,8 @@ class HomeState {
     this.monthTotalDays = 23,
     this.consecutiveWorkDays = 4,
     this.alarmTime,
+    this.predecessorTeamId = 6,
+    this.predecessorShiftType = ShiftType.REST,
     this.successorTeamId = 2,
     this.successorShiftType = ShiftType.REST,
   });
@@ -41,6 +45,8 @@ class HomeState {
     int? monthTotalDays,
     int? consecutiveWorkDays,
     String? alarmTime,
+    int? predecessorTeamId,
+    ShiftType? predecessorShiftType,
     int? successorTeamId,
     ShiftType? successorShiftType,
   }) {
@@ -53,6 +59,8 @@ class HomeState {
       monthTotalDays: monthTotalDays ?? this.monthTotalDays,
       consecutiveWorkDays: consecutiveWorkDays ?? this.consecutiveWorkDays,
       alarmTime: alarmTime ?? this.alarmTime,
+      predecessorTeamId: predecessorTeamId ?? this.predecessorTeamId,
+      predecessorShiftType: predecessorShiftType ?? this.predecessorShiftType,
       successorTeamId: successorTeamId ?? this.successorTeamId,
       successorShiftType: successorShiftType ?? this.successorShiftType,
     );
@@ -144,12 +152,10 @@ class HomeNotifier extends Notifier<HomeState> {
     final alarmTimeOfShift = alarmSettings?.alarms[shiftInfo.shiftType];
     final alarmTimeStr = alarmTimeOfShift?.serialize();
 
-    // 接班人：rotation 中的后继班组，其当前班次与我总是相反
-    final succId = teamId % Team.totalTeams + 1;
-    final succOffset = teamPhaseOffsetFor(succId, customCycle: cycle);
-    final succShift = getShiftTypeForDate(
-      now,
-      teamPhaseOffset: succOffset,
+    // 交接班：基于班次类型，找今天哪个班组上前序/后继班次
+    final handover = findShiftHandover(
+      date: now,
+      teamId: teamId,
       customCycle: cycle,
       referenceDate: refDate,
     );
@@ -163,8 +169,20 @@ class HomeNotifier extends Notifier<HomeState> {
       monthTotalDays: monthDays,
       consecutiveWorkDays: consecWork,
       alarmTime: alarmTimeStr,
-      successorTeamId: succId,
-      successorShiftType: succShift,
+      predecessorTeamId: handover?.$1 ?? 0,
+      predecessorShiftType: handover != null
+          ? getShiftTypeForDate(now,
+              teamPhaseOffset: teamPhaseOffsetFor(handover.$1, customCycle: cycle),
+              customCycle: cycle,
+              referenceDate: refDate)
+          : ShiftType.REST,
+      successorTeamId: handover?.$2 ?? 0,
+      successorShiftType: handover != null
+          ? getShiftTypeForDate(now,
+              teamPhaseOffset: teamPhaseOffsetFor(handover.$2, customCycle: cycle),
+              customCycle: cycle,
+              referenceDate: refDate)
+          : ShiftType.REST,
     );
   }
 

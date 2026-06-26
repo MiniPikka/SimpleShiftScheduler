@@ -1,7 +1,7 @@
 import { ThemeColors } from '../../theme/ThemeColors'
 import { ShiftType, TEAM_NAMES, SHIFT_SHORT_LABELS, SHIFT_LABELS, WEEKDAY_LABELS } from '../../constants/ShiftConstants'
 import { HomeState } from '../../models/ShiftModels'
-import { getShiftTypeForDate, formatDate, successorTeamId, isWorkDay } from '../../algorithms/ShiftCalculator'
+import { getShiftTypeForDate, formatDate, successorTeamId, predecessorTeamId, isWorkDay } from '../../algorithms/ShiftCalculator'
 import { consecutiveWorkDays, daysUntilNextRest, countWorkDaysInMonth, getMonthlyStats } from '../../algorithms/ShiftMetrics'
 import { loadDefaultTeam, loadAlarmSettings, loadShiftCycle, loadReferenceDate } from '../../storage/SettingsStorage'
 import { HeroCard } from './HeroCard'
@@ -24,6 +24,8 @@ export struct HomeScreen {
     dateStr: '',
     greeting: '早上好',
     tomorrowShiftType: ShiftType.MORNING,
+    predecessorTeamId: 6,
+    predecessorShiftType: ShiftType.REST,
     successorTeamId: 2,
     successorShiftType: ShiftType.REST
   }
@@ -69,7 +71,10 @@ export struct HomeScreen {
     const phase = (teamId - 1) * Math.floor(cycle.length / 6)
     const dayOfCycle = ((offset + phase) % cycle.length + cycle.length) % cycle.length + 1
 
-    // 接班人：rotation 中的后继班组
+    // 交接班：前序（你接谁的班）+ 后继（谁接你的班）
+    const predId = predecessorTeamId(teamId)
+    const predShift = getShiftTypeForDate(today, predId, cycle, refDate)
+
     const succId = successorTeamId(teamId)
     const succShift = getShiftTypeForDate(today, succId, cycle, refDate)
 
@@ -90,6 +95,8 @@ export struct HomeScreen {
       dateStr: `${y}年${m}月${d}日 星期${wd}`,
       greeting: greeting,
       tomorrowShiftType: tomorrowType,
+      predecessorTeamId: predId,
+      predecessorShiftType: predShift,
       successorTeamId: succId,
       successorShiftType: succShift
     }
@@ -129,27 +136,27 @@ export struct HomeScreen {
             consecutiveDays: this.homeState.consecutiveWorkDays
           })
 
-          // 接班人信息卡
+          // 交接班信息卡
           Row() {
-            Text(this.homeState.shiftType === ShiftType.MORNING ||
-                 this.homeState.shiftType === ShiftType.AFTERNOON ||
-                 this.homeState.shiftType === ShiftType.NIGHT
-              ? '🔄' : '🤝')
+            Text('🔄')
               .fontSize(16)
-            Text() {
-              Span('接班人：')
-                .fontColor(ThemeColors.TEXT_SECONDARY)
-              Span(TEAM_NAMES[this.homeState.successorTeamId - 1])
-                .fontColor(ThemeColors.ACCENT_GOLD)
-                .fontWeight(FontWeight.Bold)
-              Span(this.homeState.shiftType === ShiftType.MORNING ||
-                   this.homeState.shiftType === ShiftType.AFTERNOON ||
-                   this.homeState.shiftType === ShiftType.NIGHT
-                ? ' · 休息中，等你的班次结束后接班'
-                : ` · 正在上${SHIFT_SHORT_LABELS[this.homeState.successorShiftType]}班`)
-                .fontColor(ThemeColors.TEXT_SECONDARY)
+            Column() {
+              Text() {
+                Span(`← 接${TEAM_NAMES[this.homeState.predecessorTeamId - 1]}的班`)
+                  .fontColor(ThemeColors.TEXT_SECONDARY)
+                Span(` · 正在上${SHIFT_SHORT_LABELS[this.homeState.predecessorShiftType]}班`)
+                  .fontColor(ThemeColors.TEXT_SECONDARY)
+              }
+              .fontSize(13)
+              Text() {
+                Span(`${TEAM_NAMES[this.homeState.successorTeamId - 1]}接我的班 →`)
+                  .fontColor(ThemeColors.TEXT_SECONDARY)
+                Span(` · 正在上${SHIFT_SHORT_LABELS[this.homeState.successorShiftType]}班`)
+                  .fontColor(ThemeColors.TEXT_SECONDARY)
+              }
+              .fontSize(13)
             }
-            .fontSize(13)
+            .margin({ left: 12 })
           }
           .width('100%')
           .padding({ left: 16, right: 16, top: 12, bottom: 12 })
