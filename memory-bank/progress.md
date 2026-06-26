@@ -1,3 +1,35 @@
+## 2026-06-26：交接班算法修正 + Waybar 升级 + 同事模式增强
+
+### 交接班算法修正（Rust / Flutter / HarmonyOS 三端）✅
+
+**根因**：之前的 `successor_team_id` / `predecessor_team_id` 按班组编号 ±1 计算，与实际交接班完全无关。真实交接班是同一天内不同班次类型之间的：夜 → 早 → 中 → 夜。
+
+**修正**：
+- Rust：新增 `ShiftCycleConfig::shift_handover(date, team_id)` — 遍历所有班组，找到今天上前序/后继班次类型的班组
+- Flutter：新增 `findShiftHandover()` 函数，首页 `_ShiftRelayCard` 双向显示（← 接X值的班(夜) · Y值接我的班(中) →），休/学日隐藏卡片
+- 同事模式新增 `_ShiftRelayRow`，并排显示双方班次和交接关系
+- i18n：`shiftRelayStatus` 从"正在上X班"改为"今天X班"
+- 14 新 Rust 测试 + 全部 128 tests pass
+
+### Waybar 升级（对齐 KDE Plasmoid）✅
+
+**之前**：`banban waybar` 输出 3 字段 JSON，tooltip 仅 1 行。
+
+**现在**：
+- Tooltip 丰富为 6 行：班次+团队+日期 / 统计（周期+距休+连续上班）/ 交接班信息 / 7 天周预览
+- 新增 `banban waybar-popup` 命令 —— ANSI 彩色终端弹窗，KDE 风格布局
+- 新增 `scripts/banban-waybar-popup.sh` —— foot→alacritty→kitty→xterm 终端降级链
+- 用户 Waybar 配置已安装（`~/.config/waybar/config.jsonc` + `style.css`），Catppuccin 配色
+- Waybar 功能与 KDE Plasmoid 完全对齐（除了 KDE 原生弹窗 vs 终端弹窗的技术差异）
+
+### Android 构建环境搭建 ✅
+
+从零搭建完整构建链：JDK 21、Android SDK（platform-tools、build-tools 34、platform 34-35、NDK 28、CMake）、Flutter 3.44.0。Gradle 镜像（阿里云/腾讯云优先）、Kotlin 2.2.20、禁用 `checkDebugDuplicateClasses`。首次构建 44s，后续 9s。
+
+### CLI 命令总数: 17 → 18 (新增 waybar-popup)
+
+---
+
 ## 2026-06-23：KVM/QEMU Windows VM + LLM API 双配置
 
 ### KVM/QEMU Windows 虚拟机配置 ✅

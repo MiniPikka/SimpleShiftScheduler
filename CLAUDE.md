@@ -147,7 +147,7 @@ lib/domain/bridge/
 - **KDE Plasmoid**：XMLHttpRequest → `banban serve` HTTP API（localhost:11451），零 subprocess
 - **GNOME Extension**：Gio.Subprocess → `banban --json` CLI（GNOME 无 Plasma 的 PATH/参数问题）
 - **轻量**：QML ~290 行 / JS ~250 行，无框架依赖，纯原生平台 API
-- **共享约定**：emoji 映射（🟠早 🔵中 🟢休 🟣夜 🟡学）、刷新周期（GNOME 60s / Plasma 5min）
+- **共享约定**：emoji 映射（🟠早 🔵中 🟢休 🟣夜 🟡学）、刷新周期（GNOME 60s / Plasma 5min / Waybar 60min 用户配置）
 
 ### KDE Plasma 6 Plasmoid
 
@@ -168,6 +168,28 @@ gnome-extensions enable banban-shift@simpleshift.scheduler
 journalctl -f -o cat /usr/bin/gnome-shell | grep banban  # 调试日志
 ./package.sh                                        # 打包 .zip 用于 GNOME Extensions 提交
 ```
+
+### Waybar 模块（Sway / Hyprland / niri）
+
+```bash
+banban waybar                  # JSON 输出：text + class + 富 tooltip（含周预览、交接班、统计）
+banban waybar-popup            # ANSI 终端弹窗，KDE 风格完整详情（用于 on-click 展开）
+```
+
+Waybar 配置示例（`~/.config/waybar/config.jsonc`）：
+```jsonc
+"custom/banban": {
+    "exec": "banban -l zh waybar",
+    "return-type": "json",
+    "interval": 3600,
+    "tooltip": true,
+    "on-click": "scripts/banban-waybar-popup.sh"
+}
+```
+
+CSS class 控制颜色：`#custom-banban.morning` / `.afternoon` / `.rest` / `.night` / `.study`
+
+弹出脚本 `scripts/banban-waybar-popup.sh` 自动检测终端（foot → alacritty → kitty → xterm）。
 
 ### 商店打包
 
