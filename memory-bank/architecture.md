@@ -5,7 +5,7 @@
 - **Phase 1（已完成）**：Android 原生版 — Kotlin + Jetpack Compose + MVVM。148 tests，不再活跃开发。算法已验证。
 - **Phase 2（已完成）**：Flutter 移动端 — Riverpod + GoRouter + dart:ffi → Rust。110 tests，Android/iOS 双平台。
 - **Phase 3（活跃开发）**：Rust shift-core — 6 crates + banban CLI（17 commands）+ TUI。算法唯一来源，Flutter 通过 FFI 调用。228 tests，v0.1.4 已发布到 crates.io。
-- **Phase 4（新建）**：HarmonyOS 原生版 — ArkTS + ArkUI (Stage Model)。纯 ArkTS 实现全部算法（不依赖 Rust FFI），目标上架华为应用商店。25 个 .ets 文件，约 2700 行代码。
+- **Phase 4（算法验证完成，待 DevEco 构建验证）**：HarmonyOS 原生版 — ArkTS + ArkUI (Stage Model)。纯 ArkTS 实现全部算法（不依赖 Rust FFI），目标上架华为应用商店。25 个 .ets 文件，约 2800 行代码。2026-06-28 通过 185 个 Node.js 交叉验证测试确认算法与 Rust 完全一致（修复了 4 文件 6 类 bug），hypium 单元测试已编写待 DevEco 运行。
 
 ## 0.1 开发环境
 

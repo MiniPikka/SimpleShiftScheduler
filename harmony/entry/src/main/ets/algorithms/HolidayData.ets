@@ -4,80 +4,54 @@ export interface HolidayInfo {
   isHoliday: boolean
 }
 
-const HOLIDAYS_2026: HolidayInfo[] = [
-  { date: '2026-01-01', name: '元旦', isHoliday: true },
-  { date: '2026-01-02', name: '元旦', isHoliday: true },
-  { date: '2026-01-03', name: '元旦', isHoliday: true },
-  { date: '2026-01-04', name: '元旦调休', isHoliday: false },
-  { date: '2026-02-17', name: '春节', isHoliday: true },
-  { date: '2026-02-18', name: '春节', isHoliday: true },
-  { date: '2026-02-19', name: '春节', isHoliday: true },
-  { date: '2026-02-20', name: '春节', isHoliday: true },
-  { date: '2026-02-21', name: '春节', isHoliday: true },
-  { date: '2026-02-22', name: '春节', isHoliday: true },
-  { date: '2026-02-23', name: '春节', isHoliday: true },
-  { date: '2026-02-14', name: '春节调休', isHoliday: false },
-  { date: '2026-02-28', name: '春节调休', isHoliday: false },
-  { date: '2026-04-05', name: '清明节', isHoliday: true },
-  { date: '2026-04-06', name: '清明节', isHoliday: true },
-  { date: '2026-04-07', name: '清明节', isHoliday: true },
-  { date: '2026-05-01', name: '劳动节', isHoliday: true },
-  { date: '2026-05-02', name: '劳动节', isHoliday: true },
-  { date: '2026-05-03', name: '劳动节', isHoliday: true },
-  { date: '2026-05-04', name: '劳动节', isHoliday: true },
-  { date: '2026-05-05', name: '劳动节', isHoliday: true },
-  { date: '2026-04-26', name: '劳动节调休', isHoliday: false },
-  { date: '2026-06-19', name: '端午节', isHoliday: true },
-  { date: '2026-06-20', name: '端午节', isHoliday: true },
-  { date: '2026-06-21', name: '端午节', isHoliday: true },
-  { date: '2026-10-01', name: '国庆节', isHoliday: true },
-  { date: '2026-10-02', name: '国庆节', isHoliday: true },
-  { date: '2026-10-03', name: '国庆节', isHoliday: true },
-  { date: '2026-10-04', name: '国庆节', isHoliday: true },
-  { date: '2026-10-05', name: '国庆节', isHoliday: true },
-  { date: '2026-10-06', name: '国庆节', isHoliday: true },
-  { date: '2026-10-07', name: '国庆节', isHoliday: true },
-  { date: '2026-09-27', name: '国庆节调休', isHoliday: false },
-  { date: '2026-10-10', name: '国庆节调休', isHoliday: false },
-  { date: '2026-10-08', name: '中秋节', isHoliday: true },
-  { date: '2026-10-09', name: '中秋节', isHoliday: true }
-]
+const holidayMap: Map<string, HolidayInfo> = new Map<string, HolidayInfo>()
 
-const HOLIDAYS_2027: HolidayInfo[] = [
-  { date: '2027-01-01', name: '元旦', isHoliday: true },
-  { date: '2027-01-02', name: '元旦', isHoliday: true },
-  { date: '2027-01-03', name: '元旦', isHoliday: true },
-  { date: '2027-02-06', name: '春节', isHoliday: true },
-  { date: '2027-02-07', name: '春节', isHoliday: true },
-  { date: '2027-02-08', name: '春节', isHoliday: true },
-  { date: '2027-02-09', name: '春节', isHoliday: true },
-  { date: '2027-02-10', name: '春节', isHoliday: true },
-  { date: '2027-02-11', name: '春节', isHoliday: true },
-  { date: '2027-02-12', name: '春节', isHoliday: true },
-  { date: '2027-04-05', name: '清明节', isHoliday: true },
-  { date: '2027-04-06', name: '清明节', isHoliday: true },
-  { date: '2027-05-01', name: '劳动节', isHoliday: true },
-  { date: '2027-05-02', name: '劳动节', isHoliday: true },
-  { date: '2027-05-03', name: '劳动节', isHoliday: true },
-  { date: '2027-06-09', name: '端午节', isHoliday: true },
-  { date: '2027-06-10', name: '端午节', isHoliday: true },
-  { date: '2027-10-01', name: '国庆节', isHoliday: true },
-  { date: '2027-10-02', name: '国庆节', isHoliday: true },
-  { date: '2027-10-03', name: '国庆节', isHoliday: true },
-  { date: '2027-10-04', name: '国庆节', isHoliday: true },
-  { date: '2027-10-05', name: '国庆节', isHoliday: true },
-  { date: '2027-10-06', name: '国庆节', isHoliday: true },
-  { date: '2027-10-07', name: '国庆节', isHoliday: true }
-]
+function add(date: string, name: string, isHoliday: boolean): void {
+  holidayMap.set(date, { date, name, isHoliday })
+}
 
-const ALL_HOLIDAYS: HolidayInfo[] = [...HOLIDAYS_2026, ...HOLIDAYS_2027]
+function addRange(start: string, days: number, name: string, isHoliday: boolean): void {
+  const d = new Date(start + 'T00:00:00')
+  for (let i = 0; i < days; i++) {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    add(`${y}-${m}-${day}`, name, isHoliday)
+    d.setDate(d.getDate() + 1)
+  }
+}
+
+// ═══════════════════════════════════════════
+// 2026 Official Holidays (国办发明电〔2025〕)
+// ═══════════════════════════════════════════
+add('2026-01-01', '元旦', true)
+addRange('2026-02-15', 7, '春节', true)
+add('2026-02-14', '春节调休', false)
+add('2026-02-28', '春节调休', false)
+add('2026-04-05', '清明节', true)
+add('2026-04-06', '清明节', true)
+addRange('2026-05-01', 5, '劳动节', true)
+add('2026-05-09', '劳动节调休', false)
+addRange('2026-06-19', 3, '端午节', true)
+addRange('2026-09-25', 3, '中秋节', true)
+addRange('2026-10-01', 7, '国庆节', true)
+add('2026-09-27', '国庆节调休', false)
+add('2026-10-10', '国庆节调休', false)
+
+// ═══════════════════════════════════════════
+// 2027 Estimated (based on lunar calendar, pending official confirmation)
+// ═══════════════════════════════════════════
+addRange('2027-01-01', 3, '元旦[待确认]', true)
+addRange('2027-02-05', 7, '春节[待确认]', true)
+add('2027-01-31', '春节调休[待确认]', false)
+add('2027-02-13', '春节调休[待确认]', false)
+add('2027-04-05', '清明节[待确认]', true)
+addRange('2027-05-01', 5, '劳动节[待确认]', true)
+add('2027-05-08', '劳动节调休[待确认]', false)
 
 export class HolidayData {
   static getHolidayInfo(dateStr: string): HolidayInfo | null {
-    for (const h of ALL_HOLIDAYS) {
-      if (h.date === dateStr) return h
-    }
-    return null
+    return holidayMap.get(dateStr) ?? null
   }
 
   static isHoliday(dateStr: string): boolean {

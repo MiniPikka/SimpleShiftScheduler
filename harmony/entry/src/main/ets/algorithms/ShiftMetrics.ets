@@ -99,12 +99,13 @@ export function daysUntilNextRest(
   referenceDateStr: string = DEFAULT_REFERENCE_DATE
 ): number {
   const d = new Date(today)
-  for (let i = 1; i <= 42; i++) {
-    d.setDate(d.getDate() + 1)
+  d.setDate(d.getDate() + 1)
+  for (let i = 0; i < 10000; i++) {
     const st = getShiftTypeForDate(d, teamId, customCycle, referenceDateStr)
     if (!isWorkDay(st)) {
       return i
     }
+    d.setDate(d.getDate() + 1)
   }
   return -1
 }

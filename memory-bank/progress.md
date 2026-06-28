@@ -1,3 +1,32 @@
+## 2026-06-28：HarmonyOS 算法交叉验证 + 6类Bug修复
+
+### HarmonyOS ArkTS 算法 ↔ Rust 交叉验证 ✅
+
+**方法**：HarmonyOS 的 7 个算法文件均为纯 TypeScript（无 @State/@Component/@kit 平台依赖），可在 Node.js + tsx 中运行。通过 `banban serve` HTTP API 和 `banban --json` CLI 生成 Rust 真值，与 HarmonyOS ArkTS 算法输出逐字段对比。验证脚本 `scripts/verify-harmony.sh` 可重复运行，185 个测试用例覆盖 8 个维度。
+
+**验证维度（185 tests）**：getShiftInfo（8日期×4字段）、shiftHandover（4日期×2字段）、多Team今天（6 team×3字段）、月历生成（4月×team×3维度）、月度统计（3月×team×5班次）、拼假策略（Top10×8字段）、同事模式（3配对×4字段）、节假日数据（5日期）。
+
+### 修复 6 类 Bug（4 文件）
+
+| 文件 | Bug | 修复 |
+|------|-----|------|
+| `ShiftMetrics.ets` | `daysUntilNextRest` off-by-one（比 Rust 多1） | 改 count 模式：从 `return i`(i≥1) 改为 count 从0递增，对齐 Rust 语义（明天休息=0） |
+| `LeaveOptimizer.ets` | leaveLen 从1开始（应从2）、restBefore/restAfter 缺周末判断、score 未归一化、holiday 权重错(1应2)、slice(0,10) 丢策略、efficiency/score 多余 round | 完全重写对齐 Rust `find_best_leave_plans`：预计算 restBefore/restAfter 用 isOff、minLeaveDays=2、score 归一化（max_efficiency/max_break/max_family_bonus）、holiday*2、返回全部、排序加 break_start tiebreaker |
+| `ColleagueMode.ets` | countIn30/60 off-by-one（`i<=30` 应 `i<30`）、next_date 排除今天（`i>0` 条件导致今天共同休息时返回错误日期） | `i<30`/`i<60` 对齐 Rust `diff<30`；去掉 `i>0` 条件，`nextDate` 包含今天 |
+| `HolidayData.ets` | 2026 中秋10月8日(应9月25日)、春节2月17日(应2月15日)、元旦3天(应1天)、清明3天(应2天)、劳动节调休4月26日(应5月9日)、2027 多处错 | 重写对齐 Rust `holiday-engine` 2026/2027 数据；数据结构从数组改 Map（确保调休覆盖节假日的 HashMap 行为） |
+
+### hypium 单元测试
+
+新增 `harmony/entry/src/test/Algorithm.test.ets` + `List.test.ets`，覆盖 6 个算法模块（ShiftCalculator/ShiftMetrics/CalendarGenerator/LeaveOptimizer/ColleagueMode/HolidayData），约 30 个用例。需在 DevEco Studio 中运行（HarmonyOS 运行时）。
+
+### 后续待办
+
+- 恢复 VM 环境（libvirtd 当前 inactive，harmony-dev VM 配置不存在）→ 安装 DevEco Studio 5.0+
+- 在 DevEco 中构建 HarmonyOS 项目，验证编译和 UI
+- 模拟器/真机运行验证
+
+---
+
 ## 2026-06-26：交接班算法修正 + Waybar 升级 + 同事模式增强
 
 ### 交接班算法修正（Rust / Flutter / HarmonyOS 三端）✅

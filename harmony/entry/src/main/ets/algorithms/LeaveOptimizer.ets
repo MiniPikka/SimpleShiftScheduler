@@ -5,34 +5,31 @@ import { HolidayData } from './HolidayData'
 
 interface DayStatus {
   date: string
-  isRest: boolean
+  isShiftRest: boolean
   isHoliday: boolean
   isWeekend: boolean
   isAdjustedWorkDay: boolean
+  isOff: boolean
   holidayName: string
 }
 
-function getDayStatus(date: Date): DayStatus {
+function getDayStatus(date: Date, shiftType: ShiftType): DayStatus {
   const ds = formatDate(date)
   const dayOfWeek = date.getDay()
   const holiday = HolidayData.getHolidayInfo(ds)
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
   const isHoliday = holiday !== null && holiday.isHoliday
   const isAdjustedWorkDay = holiday !== null && !holiday.isHoliday
-
-  let isNaturalRest = false
-  if (isHoliday) {
-    isNaturalRest = true
-  } else if (isWeekend && !isAdjustedWorkDay) {
-    isNaturalRest = true
-  }
+  const isShiftRest = !isWorkDay(shiftType)
+  const isOff = isShiftRest || (isHoliday && !isAdjustedWorkDay) || (isWeekend && !isAdjustedWorkDay)
 
   return {
     date: ds,
-    isRest: isNaturalRest,
-    isHoliday: isHoliday,
-    isWeekend: isWeekend,
-    isAdjustedWorkDay: isAdjustedWorkDay,
+    isShiftRest,
+    isHoliday,
+    isWeekend,
+    isAdjustedWorkDay,
+    isOff,
     holidayName: holiday !== null ? holiday.name : ''
   }
 }
@@ -43,100 +40,84 @@ export function findBestLeavePlans(
   customCycle: ShiftType[] = DEFAULT_SHIFT_CYCLE,
   referenceDateStr: string = DEFAULT_REFERENCE_DATE
 ): LeaveStrategy[] {
+  if (maxLeaveDays < 1) return []
+
   const today = new Date()
   const endOfYear = new Date(today.getFullYear(), 11, 31)
-  const totalDays = daysBetween(today, endOfYear)
+  const totalDays = daysBetween(today, endOfYear) + 1
 
-  if (totalDays <= 0) return []
+  if (totalDays < 1) return []
 
-  const dayStatuses: DayStatus[] = []
-  const shiftTypes: ShiftType[] = []
-  for (let i = 0; i <= totalDays; i++) {
+  const statuses: DayStatus[] = []
+  for (let i = 0; i < totalDays; i++) {
     const d = new Date(today)
     d.setDate(d.getDate() + i)
-    dayStatuses.push(getDayStatus(d))
-    shiftTypes.push(getShiftTypeForDate(d, teamId, customCycle, referenceDateStr))
+    const st = getShiftTypeForDate(d, teamId, customCycle, referenceDateStr)
+    statuses.push(getDayStatus(d, st))
+  }
+  const n = statuses.length
+
+  const restBefore = new Array<number>(n).fill(0)
+  const restAfter = new Array<number>(n).fill(0)
+  for (let i = 1; i < n; i++) {
+    restBefore[i] = statuses[i - 1].isOff ? restBefore[i - 1] + 1 : 0
+  }
+  for (let i = n - 2; i >= 0; i--) {
+    restAfter[i] = statuses[i + 1].isOff ? restAfter[i + 1] + 1 : 0
   }
 
   const strategies: LeaveStrategy[] = []
+  const minLeaveDays = maxLeaveDays === 1 ? 1 : 2
 
-  for (let startIdx = 0; startIdx < totalDays; startIdx++) {
-    const todayShift = shiftTypes[startIdx]
-    if (!isWorkDay(todayShift)) continue
-
-    for (let leaveLen = 1; leaveLen <= maxLeaveDays && startIdx + leaveLen <= totalDays; leaveLen++) {
-      let allWorkDays = true
-      const leaveDates: string[] = []
-
-      for (let j = 0; j < leaveLen; j++) {
-        const idx = startIdx + j
-        if (idx >= dayStatuses.length) { allWorkDays = false; break }
-        const shift = shiftTypes[idx]
-        const status = dayStatuses[idx]
-
-        if (!isWorkDay(shift) || status.isHoliday || status.isAdjustedWorkDay) {
-          allWorkDays = false
-          break
-        }
-        leaveDates.push(status.date)
+  for (let leaveDays = minLeaveDays; leaveDays <= maxLeaveDays; leaveDays++) {
+    for (let startIdx = 0; startIdx <= n - leaveDays; startIdx++) {
+      let hasShiftRest = false
+      for (let j = 0; j < leaveDays; j++) {
+        if (statuses[startIdx + j].isShiftRest) { hasShiftRest = true; break }
       }
-      if (!allWorkDays) continue
+      if (hasShiftRest) continue
 
-      let restBefore = 0
-      for (let j = startIdx - 1; j >= 0; j--) {
-        if (!isWorkDay(shiftTypes[j]) || dayStatuses[j].isHoliday) {
-          restBefore++
-        } else {
-          break
-        }
-      }
+      const leftRest = restBefore[startIdx]
+      const rightRest = restAfter[startIdx + leaveDays - 1]
+      const totalBreak = leftRest + leaveDays + rightRest
+      if (totalBreak <= leaveDays) continue
 
-      let restAfter = 0
-      for (let j = startIdx + leaveLen; j < dayStatuses.length; j++) {
-        if (!isWorkDay(shiftTypes[j]) || dayStatuses[j].isHoliday) {
-          restAfter++
-        } else {
-          break
-        }
-      }
-
-      const totalBreak = restBefore + leaveLen + restAfter
-      if (totalBreak < 3) continue
+      const gapStart = startIdx - leftRest
+      const gapEnd = startIdx + leaveDays - 1 + rightRest
+      const breakStart = statuses[gapStart].date
+      const breakEnd = statuses[gapEnd].date
 
       let holidayOverlap = 0
       let weekendOverlap = 0
       const overlappingNames: string[] = []
-
-      const breakStartIdx = startIdx - restBefore
-      const breakEndIdx = startIdx + leaveLen + restAfter - 1
-      for (let j = breakStartIdx; j <= breakEndIdx && j < dayStatuses.length; j++) {
-        if (j < 0) continue
-        const st = dayStatuses[j]
-        if (st.isHoliday) {
+      for (let idx = gapStart; idx <= gapEnd; idx++) {
+        const s = statuses[idx]
+        if (s.isHoliday) {
           holidayOverlap++
-          if (st.holidayName && overlappingNames.indexOf(st.holidayName) < 0) {
-            overlappingNames.push(st.holidayName)
+          if (s.holidayName && overlappingNames.indexOf(s.holidayName) < 0) {
+            overlappingNames.push(s.holidayName)
           }
         }
-        if (st.isWeekend) weekendOverlap++
+        if (s.isWeekend && !s.isAdjustedWorkDay) weekendOverlap++
       }
 
-      const efficiency = totalBreak / leaveLen
-      const lengthScore = Math.min(totalBreak / 10, 1)
-      const familyScore = Math.min((holidayOverlap + weekendOverlap) / 5, 1)
-      const score = efficiency * 0.5 + lengthScore * 0.25 + familyScore * 0.25
+      const leaveDates: string[] = []
+      for (let j = 0; j < leaveDays; j++) {
+        leaveDates.push(statuses[startIdx + j].date)
+      }
+      const efficiency = totalBreak / leaveDays
 
       strategies.push({
-        leaveDays: leaveLen,
+        leaveDays,
         totalBreakDays: totalBreak,
-        leaveDates: leaveDates,
-        breakStart: dayStatuses[Math.max(0, breakStartIdx)].date,
-        breakEnd: dayStatuses[Math.min(breakEndIdx, dayStatuses.length - 1)].date,
-        holidayOverlap: holidayOverlap,
-        weekendOverlap: weekendOverlap,
+        leaveDates,
+        breakStart,
+        breakEnd,
+        holidayOverlap,
+        weekendOverlap,
         overlappingHolidayNames: overlappingNames,
-        efficiency: Math.round(efficiency * 10) / 10,
-        score: Math.round(score * 100) / 100
+        efficiency,
+        score: 0
       })
     }
   }
@@ -145,12 +126,28 @@ export function findBestLeavePlans(
   for (const s of strategies) {
     const key = `${s.breakStart}_${s.breakEnd}`
     const existing = deduped.get(key)
-    if (!existing || s.leaveDays < existing.leaveDays || (s.leaveDays === existing.leaveDays && s.score > existing.score)) {
+    if (!existing || s.leaveDays < existing.leaveDays) {
       deduped.set(key, s)
     }
   }
+  if (deduped.size === 0) return []
 
-  const result = Array.from(deduped.values())
-  result.sort((a, b) => b.score - a.score)
-  return result.slice(0, 10)
+  const dedupedList = Array.from(deduped.values())
+  const maxEfficiency = dedupedList.reduce((m, s) => Math.max(m, s.efficiency), 0)
+  const maxBreak = dedupedList.reduce((m, s) => Math.max(m, s.totalBreakDays), 0)
+  const maxFamilyBonus = Math.max(1, dedupedList.reduce((m, s) => Math.max(m, s.holidayOverlap * 2 + s.weekendOverlap), 0))
+
+  for (const s of dedupedList) {
+    const effScore = maxEfficiency > 0 ? s.efficiency / maxEfficiency : 0
+    const lenScore = maxBreak > 0 ? s.totalBreakDays / maxBreak : 0
+    const familyBonus = s.holidayOverlap * 2 + s.weekendOverlap
+    const famScore = familyBonus / maxFamilyBonus
+    s.score = 0.50 * effScore + 0.25 * lenScore + 0.25 * famScore
+  }
+
+  dedupedList.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score
+    return a.breakStart < b.breakStart ? -1 : a.breakStart > b.breakStart ? 1 : 0
+  })
+  return dedupedList
 }

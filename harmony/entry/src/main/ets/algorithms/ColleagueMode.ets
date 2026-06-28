@@ -26,16 +26,16 @@ export function findCommonRestDays(
     const isRestA = !isWorkDay(shiftA)
     const isRestB = !isWorkDay(shiftB)
 
-    if (isRestA && isRestB) {
-      const ds = formatDate(d)
-      commonRestDates.push(ds)
-      if (i <= 30) countIn30++
-      if (i <= 60) countIn60++
-      if (nextDate === '' && i > 0) {
-        nextDate = ds
-        daysUntilNext = i
+      if (isRestA && isRestB) {
+        const ds = formatDate(d)
+        commonRestDates.push(ds)
+        if (i < 30) countIn30++
+        if (i < 60) countIn60++
+        if (nextDate === '') {
+          nextDate = ds
+          daysUntilNext = i
+        }
       }
-    }
   }
 
   if (nextDate === '') {
