@@ -1,4 +1,4 @@
-import { ShiftType, DEFAULT_SHIFT_CYCLE, DEFAULT_CYCLE_LENGTH, DEFAULT_REFERENCE_DATE, TOTAL_TEAMS } from '../constants/ShiftConstants'
+import { ShiftType, DEFAULT_SHIFT_CYCLE, DEFAULT_REFERENCE_DATE, TOTAL_TEAMS } from '../constants/ShiftConstants'
 import { ShiftInfo } from '../models/ShiftModels'
 
 export function parseDate(dateStr: string): Date {

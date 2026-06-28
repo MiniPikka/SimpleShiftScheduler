@@ -1,5 +1,5 @@
 import { ThemeColors } from '../theme/ThemeColors'
-import { ShiftType, SHIFT_LABELS, SHIFT_SHORT_LABELS, SHIFT_COLORS, DEFAULT_SHIFT_CYCLE, DEFAULT_CYCLE_LENGTH, DEFAULT_REFERENCE_DATE, TOTAL_TEAMS, TEAM_NAMES } from '../constants/ShiftConstants'
+import { ShiftType, SHIFT_LABELS, SHIFT_SHORT_LABELS, SHIFT_COLORS, DEFAULT_SHIFT_CYCLE, DEFAULT_REFERENCE_DATE, TOTAL_TEAMS, TEAM_NAMES } from '../constants/ShiftConstants'
 import { loadShiftCycle, saveShiftCycle, loadCycleLength, saveCycleLength, loadDefaultTeam, saveDefaultTeam, loadReferenceDate, saveReferenceDate } from '../storage/SettingsStorage'
 import router from '@ohos.router'
 
@@ -39,7 +39,7 @@ struct ShiftRulePage {
     if (days === 42) {
       this.sequence = [...DEFAULT_SHIFT_CYCLE]
     } else {
-      this.sequence = new Array(days).fill(ShiftType.REST)
+      this.sequence = new Array<ShiftType>(days).fill(ShiftType.REST)
     }
     this.cycleLength = days
     this.isDirty = true

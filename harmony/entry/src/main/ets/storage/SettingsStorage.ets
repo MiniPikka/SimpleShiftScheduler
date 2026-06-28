@@ -1,5 +1,5 @@
 import { preferences } from '@kit.ArkData'
-import { ShiftType, DEFAULT_SHIFT_CYCLE, DEFAULT_CYCLE_LENGTH, DEFAULT_REFERENCE_DATE, TOTAL_TEAMS } from '../constants/ShiftConstants'
+import { ShiftType, DEFAULT_SHIFT_CYCLE, DEFAULT_CYCLE_LENGTH, DEFAULT_REFERENCE_DATE } from '../constants/ShiftConstants'
 import { AlarmSettings, AlarmTime, SalaryConfig } from '../models/ShiftModels'
 import { defaultSalaryConfig } from '../algorithms/SalaryCalculator'
 
@@ -20,7 +20,7 @@ export async function initStorage(context: Context): Promise<void> {
 export async function loadCycleLength(): Promise<number> {
   if (!prefs) return DEFAULT_CYCLE_LENGTH
   try {
-    const val = await preferences.get(prefs, KEY_CYCLE_LENGTH, DEFAULT_CYCLE_LENGTH)
+    const val = await prefs.get(KEY_CYCLE_LENGTH, DEFAULT_CYCLE_LENGTH)
     return val as number
   } catch {
     return DEFAULT_CYCLE_LENGTH
@@ -29,14 +29,14 @@ export async function loadCycleLength(): Promise<number> {
 
 export async function saveCycleLength(len: number): Promise<void> {
   if (!prefs) return
-  await preferences.put(prefs, KEY_CYCLE_LENGTH, len)
-  await preferences.flush(prefs)
+  await prefs.put(KEY_CYCLE_LENGTH, len)
+  await prefs.flush()
 }
 
 export async function loadShiftCycle(): Promise<ShiftType[]> {
   if (!prefs) return DEFAULT_SHIFT_CYCLE
   try {
-    const val = await preferences.get(prefs, KEY_SHIFT_CYCLE, '') as string
+    const val = await prefs.get(KEY_SHIFT_CYCLE, '') as string
     if (!val || val.length === 0) return DEFAULT_SHIFT_CYCLE
     return val.split(',').map(s => parseInt(s) as ShiftType)
   } catch {
@@ -46,14 +46,14 @@ export async function loadShiftCycle(): Promise<ShiftType[]> {
 
 export async function saveShiftCycle(cycle: ShiftType[]): Promise<void> {
   if (!prefs) return
-  await preferences.put(prefs, KEY_SHIFT_CYCLE, cycle.join(','))
-  await preferences.flush(prefs)
+  await prefs.put(KEY_SHIFT_CYCLE, cycle.join(','))
+  await prefs.flush()
 }
 
 export async function loadDefaultTeam(): Promise<number> {
   if (!prefs) return 1
   try {
-    const val = await preferences.get(prefs, KEY_DEFAULT_TEAM, 1)
+    const val = await prefs.get(KEY_DEFAULT_TEAM, 1)
     return val as number
   } catch {
     return 1
@@ -62,14 +62,14 @@ export async function loadDefaultTeam(): Promise<number> {
 
 export async function saveDefaultTeam(teamId: number): Promise<void> {
   if (!prefs) return
-  await preferences.put(prefs, KEY_DEFAULT_TEAM, teamId)
-  await preferences.flush(prefs)
+  await prefs.put(KEY_DEFAULT_TEAM, teamId)
+  await prefs.flush()
 }
 
 export async function loadReferenceDate(): Promise<string> {
   if (!prefs) return DEFAULT_REFERENCE_DATE
   try {
-    const val = await preferences.get(prefs, KEY_REFERENCE_DATE, DEFAULT_REFERENCE_DATE)
+    const val = await prefs.get(KEY_REFERENCE_DATE, DEFAULT_REFERENCE_DATE)
     return val as string
   } catch {
     return DEFAULT_REFERENCE_DATE
@@ -78,8 +78,8 @@ export async function loadReferenceDate(): Promise<string> {
 
 export async function saveReferenceDate(dateStr: string): Promise<void> {
   if (!prefs) return
-  await preferences.put(prefs, KEY_REFERENCE_DATE, dateStr)
-  await preferences.flush(prefs)
+  await prefs.put(KEY_REFERENCE_DATE, dateStr)
+  await prefs.flush()
 }
 
 export async function loadAlarmSettings(): Promise<AlarmSettings> {
@@ -89,7 +89,7 @@ export async function loadAlarmSettings(): Promise<AlarmSettings> {
     const key = KEY_ALARM_PREFIX + t
     if (!prefs) { alarms.set(t, null); continue }
     try {
-      const val = await preferences.get(prefs, key, '') as string
+      const val = await prefs.get(key, '') as string
       if (val && val.length > 0) {
         const parts = val.split(':')
         alarms.set(t, { hour: parseInt(parts[0]), minute: parseInt(parts[1]) })
@@ -107,17 +107,17 @@ export async function saveAlarmTime(type: ShiftType, alarm: AlarmTime | null): P
   if (!prefs) return
   const key = KEY_ALARM_PREFIX + type
   if (alarm) {
-    await preferences.put(prefs, key, `${String(alarm.hour).padStart(2, '0')}:${String(alarm.minute).padStart(2, '0')}`)
+    await prefs.put(key, `${String(alarm.hour).padStart(2, '0')}:${String(alarm.minute).padStart(2, '0')}`)
   } else {
-    await preferences.delete(prefs, key)
+    await prefs.delete(key)
   }
-  await preferences.flush(prefs)
+  await prefs.flush()
 }
 
 export async function loadSalaryConfig(): Promise<SalaryConfig> {
   if (!prefs) return defaultSalaryConfig()
   try {
-    const val = await preferences.get(prefs, KEY_SALARIES, '') as string
+    const val = await prefs.get(KEY_SALARIES, '') as string
     if (!val || val.length === 0) return defaultSalaryConfig()
     const premiums = new Map<ShiftType, number>()
     const parts = val.split(',')
@@ -137,6 +137,6 @@ export async function saveSalaryConfig(config: SalaryConfig): Promise<void> {
   config.premiums.forEach((value, key) => {
     parts.push(`${key}=${value}`)
   })
-  await preferences.put(prefs, KEY_SALARIES, parts.join(','))
-  await preferences.flush(prefs)
+  await prefs.put(KEY_SALARIES, parts.join(','))
+  await prefs.flush()
 }

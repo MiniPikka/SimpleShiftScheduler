@@ -264,7 +264,9 @@ struct SalaryPredictorPage {
         .layoutWeight(1)
         .onChange((value: string) => {
           const num = parseFloat(value) || 0
-          this.config.premiums.set(type, num)
+          const newPremiums = new Map<ShiftType, number>(this.config.premiums)
+          newPremiums.set(type, num)
+          this.config = { premiums: newPremiums }
           saveSalaryConfig(this.config)
           this.calcBreakdown()
         })

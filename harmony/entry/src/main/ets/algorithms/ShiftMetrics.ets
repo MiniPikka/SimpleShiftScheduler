@@ -1,6 +1,6 @@
 import { ShiftType, DEFAULT_SHIFT_CYCLE, DEFAULT_REFERENCE_DATE } from '../constants/ShiftConstants'
 import { MonthlyStats } from '../models/ShiftModels'
-import { getShiftTypeForDate, isWorkDay, formatDate } from './ShiftCalculator'
+import { getShiftTypeForDate, isWorkDay } from './ShiftCalculator'
 
 export function countShiftTypeInMonth(
   year: number,

@@ -1,5 +1,5 @@
 import { ThemeColors } from '../theme/ThemeColors'
-import { TEAM_NAMES, SHIFT_COLORS, WEEKDAY_LABELS, SHIFT_SHORT_LABELS, TOTAL_TEAMS } from '../constants/ShiftConstants'
+import { TEAM_NAMES, WEEKDAY_LABELS } from '../constants/ShiftConstants'
 import { CommonRestResult } from '../models/ShiftModels'
 import { findCommonRestDays } from '../algorithms/ColleagueMode'
 import { loadShiftCycle, loadReferenceDate } from '../storage/SettingsStorage'

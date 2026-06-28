@@ -11,7 +11,7 @@ export struct CalendarScreen {
   @State currentMonth: number = 1
   @State selectedTeam: number = 1
   @State calendarDays: CalendarDayInfo[] = []
-  @State monthlyCounts: Map<ShiftType, number> = new Map()
+  @State monthlyCounts: Map<ShiftType, number> = new Map<ShiftType, number>()
   @State showStats: boolean = false
 
   aboutToAppear(): void {

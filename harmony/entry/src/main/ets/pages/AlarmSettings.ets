@@ -7,7 +7,7 @@ import router from '@ohos.router'
 @Entry
 @Component
 struct AlarmSettingsPage {
-  @State settings: AlarmSettings = { alarms: new Map() }
+  @State settings: AlarmSettings = { alarms: new Map<ShiftType, AlarmTime | null>() }
   @State showPicker: boolean = false
   @State editingType: ShiftType = ShiftType.MORNING
   @State pickerHour: number = 8
@@ -44,7 +44,9 @@ struct AlarmSettingsPage {
 
   async removeAlarm(type: ShiftType): Promise<void> {
     await saveAlarmTime(type, null)
-    this.settings.alarms.set(type, null)
+    const newAlarms = new Map<ShiftType, AlarmTime | null>(this.settings.alarms)
+    newAlarms.set(type, null)
+    this.settings = { alarms: newAlarms }
   }
 
   build() {
@@ -137,7 +139,9 @@ struct AlarmSettingsPage {
                 .onClick(async () => {
                   const alarm: AlarmTime = { hour: this.pickerHour, minute: this.pickerMinute }
                   await saveAlarmTime(this.editingType, alarm)
-                  this.settings.alarms.set(this.editingType, alarm)
+                  const newAlarms = new Map<ShiftType, AlarmTime | null>(this.settings.alarms)
+                  newAlarms.set(this.editingType, alarm)
+                  this.settings = { alarms: newAlarms }
                   this.showPicker = false
                 })
             }

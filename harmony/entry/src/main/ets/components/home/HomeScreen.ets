@@ -1,8 +1,8 @@
 import { ThemeColors } from '../../theme/ThemeColors'
-import { ShiftType, TEAM_NAMES, SHIFT_SHORT_LABELS, SHIFT_LABELS, WEEKDAY_LABELS } from '../../constants/ShiftConstants'
+import { ShiftType, TEAM_NAMES, SHIFT_SHORT_LABELS, WEEKDAY_LABELS } from '../../constants/ShiftConstants'
 import { HomeState } from '../../models/ShiftModels'
-import { getShiftTypeForDate, formatDate, shiftHandover, isWorkDay } from '../../algorithms/ShiftCalculator'
-import { consecutiveWorkDays, daysUntilNextRest, countWorkDaysInMonth, getMonthlyStats } from '../../algorithms/ShiftMetrics'
+import { getShiftTypeForDate, shiftHandover } from '../../algorithms/ShiftCalculator'
+import { consecutiveWorkDays, daysUntilNextRest, countWorkDaysInMonth } from '../../algorithms/ShiftMetrics'
 import { loadDefaultTeam, loadAlarmSettings, loadShiftCycle, loadReferenceDate } from '../../storage/SettingsStorage'
 import { HeroCard } from './HeroCard'
 import { StatsRow } from './StatsRow'
@@ -136,32 +136,34 @@ export struct HomeScreen {
             consecutiveDays: this.homeState.consecutiveWorkDays
           })
 
-          // 交接班信息卡
-          Row() {
-            Text('🔄')
-              .fontSize(16)
-            Column() {
-              Text() {
-                Span(`← 接${TEAM_NAMES[this.homeState.predecessorTeamId - 1]}的班`)
-                  .fontColor(ThemeColors.TEXT_SECONDARY)
-                Span(` · 正在上${SHIFT_SHORT_LABELS[this.homeState.predecessorShiftType]}班`)
-                  .fontColor(ThemeColors.TEXT_SECONDARY)
+          // 交接班信息卡（休/学日不显示）
+          if (this.homeState.predecessorTeamId > 0 && this.homeState.successorTeamId > 0) {
+            Row() {
+              Text('🔄')
+                .fontSize(16)
+              Column() {
+                Text() {
+                  Span(`← 接${TEAM_NAMES[this.homeState.predecessorTeamId - 1]}的班`)
+                    .fontColor(ThemeColors.TEXT_SECONDARY)
+                  Span(` · 正在上${SHIFT_SHORT_LABELS[this.homeState.predecessorShiftType]}班`)
+                    .fontColor(ThemeColors.TEXT_SECONDARY)
+                }
+                .fontSize(13)
+                Text() {
+                  Span(`${TEAM_NAMES[this.homeState.successorTeamId - 1]}接我的班 →`)
+                    .fontColor(ThemeColors.TEXT_SECONDARY)
+                  Span(` · 正在上${SHIFT_SHORT_LABELS[this.homeState.successorShiftType]}班`)
+                    .fontColor(ThemeColors.TEXT_SECONDARY)
+                }
+                .fontSize(13)
               }
-              .fontSize(13)
-              Text() {
-                Span(`${TEAM_NAMES[this.homeState.successorTeamId - 1]}接我的班 →`)
-                  .fontColor(ThemeColors.TEXT_SECONDARY)
-                Span(` · 正在上${SHIFT_SHORT_LABELS[this.homeState.successorShiftType]}班`)
-                  .fontColor(ThemeColors.TEXT_SECONDARY)
-              }
-              .fontSize(13)
+              .margin({ left: 12 })
             }
-            .margin({ left: 12 })
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+            .borderRadius(20)
+            .backgroundColor(ThemeColors.CARD_SURFACE)
           }
-          .width('100%')
-          .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-          .borderRadius(20)
-          .backgroundColor(ThemeColors.CARD_SURFACE)
 
           ToolsRow({
             onLeaveTap: () => { router.pushUrl({ url: 'pages/LeaveOptimizer' }) },
