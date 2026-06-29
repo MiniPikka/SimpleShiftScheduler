@@ -1,11 +1,12 @@
 import { ThemeColors } from '../../theme/ThemeColors'
-import { TEAM_NAMES, TOTAL_TEAMS } from '../../constants/ShiftConstants'
+import { TEAM_NAMES } from '../../constants/ShiftConstants'
 import { loadDefaultTeam, saveDefaultTeam } from '../../storage/SettingsStorage'
 import router from '@ohos.router'
 
 @Component
 export struct ProfileScreen {
   @State selectedTeam: number = 1
+  private teamIds: number[] = [1, 2, 3, 4, 5, 6]
 
   aboutToAppear(): void {
     this.loadTeam()
@@ -30,13 +31,14 @@ export struct ProfileScreen {
               .fontSize(14)
               .fontColor(ThemeColors.TEXT_SECONDARY)
 
-            Row({ space: 8 }) {
-              ForEach(Array.from({ length: TOTAL_TEAMS }, (_, i) => i + 1), (teamId: number) => {
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(this.teamIds, (teamId: number) => {
                 Text(TEAM_NAMES[teamId - 1])
                   .fontSize(14)
                   .fontColor(this.selectedTeam === teamId ? Color.Black : ThemeColors.TEXT_PRIMARY)
                   .fontWeight(this.selectedTeam === teamId ? FontWeight.Medium : FontWeight.Normal)
                   .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+                  .margin({ right: 8, bottom: 8 })
                   .borderRadius(20)
                   .backgroundColor(this.selectedTeam === teamId ? ThemeColors.ACCENT_GOLD : ThemeColors.CARD_SURFACE)
                   .onClick(async () => {
@@ -46,7 +48,6 @@ export struct ProfileScreen {
               })
             }
             .width('100%')
-            .flexWrap(FlexWrap.Wrap)
           }
           .width('100%')
           .padding(20)

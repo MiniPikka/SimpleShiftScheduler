@@ -52,6 +52,25 @@ struct SalaryPredictorPage {
     return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   }
 
+  typeCount(type: ShiftType): number {
+    return this.breakdown ? this.breakdown.counts.get(type) || 0 : 0
+  }
+
+  typePremium(type: ShiftType): number {
+    return this.config.premiums.get(type) || 0
+  }
+
+  typeSubtotal(type: ShiftType): number {
+    return this.typeCount(type) * this.typePremium(type)
+  }
+
+  extraAmount(): number {
+    return simulateExtraShifts(
+      this.breakdown ? this.breakdown.total : 0,
+      this.extraDays, this.extraShiftType, this.config
+    )
+  }
+
   build() {
     Column() {
       Row() {
@@ -94,7 +113,7 @@ struct SalaryPredictorPage {
                   .fontSize(12)
                   .fontColor(ThemeColors.TEXT_TERTIARY)
                   .width('100%')
-                  .textAlign(TextAlign.Right)
+                  .textAlign(TextAlign.End)
               }
               .width('100%')
             }
@@ -146,22 +165,19 @@ struct SalaryPredictorPage {
 
               ForEach([ShiftType.MORNING, ShiftType.AFTERNOON, ShiftType.NIGHT, ShiftType.REST, ShiftType.STUDY],
                 (type: ShiftType) => {
-                  const count = this.breakdown!.counts.get(type) || 0
-                  const premium = this.config.premiums.get(type) || 0
-                  const subtotal = count * premium
                   Row() {
                     Circle({ width: 10, height: 10 })
-                      .fill(SHIFT_COLORS[type])
+                      .backgroundColor(SHIFT_COLORS[type])
                     Text(SHIFT_LABELS[type])
                       .fontSize(14)
                       .fontColor(ThemeColors.TEXT_PRIMARY)
                       .margin({ left: 8 })
                     Blank()
-                    Text(count + '次')
+                    Text(this.typeCount(type) + '次')
                       .fontSize(14)
                       .fontColor(ThemeColors.TEXT_SECONDARY)
-                    if (premium > 0) {
-                      Text(' · ¥' + this.formatMoney(subtotal))
+                    if (this.typePremium(type) > 0) {
+                      Text(' · ¥' + this.formatMoney(this.typeSubtotal(type)))
                         .fontSize(14)
                         .fontColor(ThemeColors.TEXT_PRIMARY)
                     }
@@ -222,11 +238,7 @@ struct SalaryPredictorPage {
               })
             }
 
-            const extraAmount = simulateExtraShifts(
-              this.breakdown ? this.breakdown.total : 0,
-              this.extraDays, this.extraShiftType, this.config
-            )
-            Text('津贴 +¥' + this.formatMoney(extraAmount))
+            Text('津贴 +¥' + this.formatMoney(this.extraAmount()))
               .fontSize(18)
               .fontWeight(FontWeight.Bold)
               .fontColor(ThemeColors.SHIFT_REST)

@@ -145,14 +145,14 @@ export struct HomeScreen {
                 Text() {
                   Span(`← 接${TEAM_NAMES[this.homeState.predecessorTeamId - 1]}的班`)
                     .fontColor(ThemeColors.TEXT_SECONDARY)
-                  Span(` · 正在上${SHIFT_SHORT_LABELS[this.homeState.predecessorShiftType]}班`)
+                  Span(` · 今天${SHIFT_SHORT_LABELS[this.homeState.predecessorShiftType]}班`)
                     .fontColor(ThemeColors.TEXT_SECONDARY)
                 }
                 .fontSize(13)
                 Text() {
                   Span(`${TEAM_NAMES[this.homeState.successorTeamId - 1]}接我的班 →`)
                     .fontColor(ThemeColors.TEXT_SECONDARY)
-                  Span(` · 正在上${SHIFT_SHORT_LABELS[this.homeState.successorShiftType]}班`)
+                  Span(` · 今天${SHIFT_SHORT_LABELS[this.homeState.successorShiftType]}班`)
                     .fontColor(ThemeColors.TEXT_SECONDARY)
                 }
                 .fontSize(13)

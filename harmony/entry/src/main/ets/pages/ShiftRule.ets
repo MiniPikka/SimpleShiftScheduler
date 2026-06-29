@@ -1,5 +1,5 @@
 import { ThemeColors } from '../theme/ThemeColors'
-import { ShiftType, SHIFT_LABELS, SHIFT_SHORT_LABELS, SHIFT_COLORS, DEFAULT_SHIFT_CYCLE, DEFAULT_REFERENCE_DATE, TOTAL_TEAMS, TEAM_NAMES } from '../constants/ShiftConstants'
+import { ShiftType, SHIFT_LABELS, SHIFT_SHORT_LABELS, SHIFT_COLORS, DEFAULT_SHIFT_CYCLE, DEFAULT_REFERENCE_DATE, TEAM_NAMES } from '../constants/ShiftConstants'
 import { loadShiftCycle, saveShiftCycle, loadCycleLength, saveCycleLength, loadDefaultTeam, saveDefaultTeam, loadReferenceDate, saveReferenceDate } from '../storage/SettingsStorage'
 import router from '@ohos.router'
 
@@ -11,6 +11,7 @@ struct ShiftRulePage {
   @State selectedTeam: number = 1
   @State startDate: string = DEFAULT_REFERENCE_DATE
   @State isDirty: boolean = false
+  private teamIds: number[] = [1, 2, 3, 4, 5, 6]
 
   aboutToAppear(): void {
     this.loadData()
@@ -152,20 +153,21 @@ struct ShiftRulePage {
             }
             .width('100%')
 
-            Flex({ wrap: FlexWrap.Wrap, space: { main: LengthMetrics.vp(4), cross: LengthMetrics.vp(4) } }) {
-              ForEach(this.sequence.map((type, idx) => ({ type, idx })), (item: { type: ShiftType, idx: number }) => {
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(this.sequence, (type: ShiftType, idx: number) => {
                 Row({ space: 4 }) {
-                  Text(SHIFT_SHORT_LABELS[item.type])
+                  Text(SHIFT_SHORT_LABELS[type])
                     .fontSize(12)
                     .fontColor(Color.White)
                     .padding({ left: 8, right: 8, top: 4, bottom: 4 })
                     .borderRadius(8)
-                    .backgroundColor(SHIFT_COLORS[item.type])
+                    .backgroundColor(SHIFT_COLORS[type])
                   Text('×')
                     .fontSize(11)
                     .fontColor(ThemeColors.TEXT_TERTIARY)
-                    .onClick(() => this.removeShift(item.idx))
+                    .onClick(() => this.removeShift(idx))
                 }
+                .margin({ right: 4, bottom: 4 })
               })
             }
             .width('100%')
@@ -180,19 +182,19 @@ struct ShiftRulePage {
               .fontSize(14)
               .fontColor(ThemeColors.TEXT_SECONDARY)
 
-            Row({ space: 6 }) {
-              ForEach(Array.from({ length: TOTAL_TEAMS }, (_, i) => i + 1), (teamId: number) => {
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(this.teamIds, (teamId: number) => {
                 Text(TEAM_NAMES[teamId - 1])
                   .fontSize(13)
                   .fontColor(this.selectedTeam === teamId ? Color.Black : ThemeColors.TEXT_PRIMARY)
                   .padding({ left: 14, right: 14, top: 8, bottom: 8 })
+                  .margin({ right: 6, bottom: 6 })
                   .borderRadius(16)
                   .backgroundColor(this.selectedTeam === teamId ? ThemeColors.ACCENT_GOLD : ThemeColors.CARD_SURFACE)
                   .onClick(() => { this.selectedTeam = teamId; this.isDirty = true })
               })
             }
             .width('100%')
-            .flexWrap(FlexWrap.Wrap)
           }
           .width('100%')
           .padding(20)

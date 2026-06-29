@@ -75,7 +75,7 @@ struct AlarmSettingsPage {
           (type: ShiftType) => {
             Row() {
               Circle({ width: 12, height: 12 })
-                .fill(SHIFT_COLORS[type])
+                .backgroundColor(SHIFT_COLORS[type])
               Text(SHIFT_LABELS[type])
                 .fontSize(16)
                 .fontColor(ThemeColors.TEXT_PRIMARY)

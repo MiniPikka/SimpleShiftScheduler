@@ -55,12 +55,12 @@ export class HolidayData {
   }
 
   static isHoliday(dateStr: string): boolean {
-    const info = this.getHolidayInfo(dateStr)
+    const info = HolidayData.getHolidayInfo(dateStr)
     return info !== null && info.isHoliday
   }
 
   static getHolidayName(dateStr: string): string {
-    const info = this.getHolidayInfo(dateStr)
+    const info = HolidayData.getHolidayInfo(dateStr)
     return info !== null ? info.name : ''
   }
 }

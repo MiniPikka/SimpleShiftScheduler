@@ -20,17 +20,19 @@ export async function initStorage(context: Context): Promise<void> {
 export async function loadCycleLength(): Promise<number> {
   if (!prefs) return DEFAULT_CYCLE_LENGTH
   try {
-    const val = await prefs.get(KEY_CYCLE_LENGTH, DEFAULT_CYCLE_LENGTH)
-    return val as number
-  } catch {
+    const val = await prefs.get(KEY_CYCLE_LENGTH, DEFAULT_CYCLE_LENGTH) as number
+    return typeof val === 'number' ? val : DEFAULT_CYCLE_LENGTH
+  } catch (_e) {
     return DEFAULT_CYCLE_LENGTH
   }
 }
 
 export async function saveCycleLength(len: number): Promise<void> {
   if (!prefs) return
-  await prefs.put(KEY_CYCLE_LENGTH, len)
-  await prefs.flush()
+  try {
+    await prefs.put(KEY_CYCLE_LENGTH, len)
+    await prefs.flush()
+  } catch (_e) { /* storage write failed silently */ }
 }
 
 export async function loadShiftCycle(): Promise<ShiftType[]> {
@@ -46,40 +48,46 @@ export async function loadShiftCycle(): Promise<ShiftType[]> {
 
 export async function saveShiftCycle(cycle: ShiftType[]): Promise<void> {
   if (!prefs) return
-  await prefs.put(KEY_SHIFT_CYCLE, cycle.join(','))
-  await prefs.flush()
+  try {
+    await prefs.put(KEY_SHIFT_CYCLE, cycle.join(','))
+    await prefs.flush()
+  } catch (_e) { /* storage write failed silently */ }
 }
 
 export async function loadDefaultTeam(): Promise<number> {
   if (!prefs) return 1
   try {
-    const val = await prefs.get(KEY_DEFAULT_TEAM, 1)
-    return val as number
-  } catch {
+    const val = await prefs.get(KEY_DEFAULT_TEAM, 1) as number
+    return typeof val === 'number' ? val : 1
+  } catch (_e) {
     return 1
   }
 }
 
 export async function saveDefaultTeam(teamId: number): Promise<void> {
   if (!prefs) return
-  await prefs.put(KEY_DEFAULT_TEAM, teamId)
-  await prefs.flush()
+  try {
+    await prefs.put(KEY_DEFAULT_TEAM, teamId)
+    await prefs.flush()
+  } catch (_e) { /* storage write failed silently */ }
 }
 
 export async function loadReferenceDate(): Promise<string> {
   if (!prefs) return DEFAULT_REFERENCE_DATE
   try {
-    const val = await prefs.get(KEY_REFERENCE_DATE, DEFAULT_REFERENCE_DATE)
-    return val as string
-  } catch {
+    const val = await prefs.get(KEY_REFERENCE_DATE, DEFAULT_REFERENCE_DATE) as string
+    return typeof val === 'string' && val.length > 0 ? val : DEFAULT_REFERENCE_DATE
+  } catch (_e) {
     return DEFAULT_REFERENCE_DATE
   }
 }
 
 export async function saveReferenceDate(dateStr: string): Promise<void> {
   if (!prefs) return
-  await prefs.put(KEY_REFERENCE_DATE, dateStr)
-  await prefs.flush()
+  try {
+    await prefs.put(KEY_REFERENCE_DATE, dateStr)
+    await prefs.flush()
+  } catch (_e) { /* storage write failed silently */ }
 }
 
 export async function loadAlarmSettings(): Promise<AlarmSettings> {
@@ -92,11 +100,11 @@ export async function loadAlarmSettings(): Promise<AlarmSettings> {
       const val = await prefs.get(key, '') as string
       if (val && val.length > 0) {
         const parts = val.split(':')
-        alarms.set(t, { hour: parseInt(parts[0]), minute: parseInt(parts[1]) })
+        alarms.set(t, { hour: parseInt(parts[0]) || 0, minute: parseInt(parts[1]) || 0 })
       } else {
         alarms.set(t, null)
       }
-    } catch {
+    } catch (_e) {
       alarms.set(t, null)
     }
   }
@@ -105,13 +113,15 @@ export async function loadAlarmSettings(): Promise<AlarmSettings> {
 
 export async function saveAlarmTime(type: ShiftType, alarm: AlarmTime | null): Promise<void> {
   if (!prefs) return
-  const key = KEY_ALARM_PREFIX + type
-  if (alarm) {
-    await prefs.put(key, `${String(alarm.hour).padStart(2, '0')}:${String(alarm.minute).padStart(2, '0')}`)
-  } else {
-    await prefs.delete(key)
-  }
-  await prefs.flush()
+  try {
+    const key = KEY_ALARM_PREFIX + type
+    if (alarm) {
+      await prefs.put(key, `${String(alarm.hour).padStart(2, '0')}:${String(alarm.minute).padStart(2, '0')}`)
+    } else {
+      await prefs.delete(key)
+    }
+    await prefs.flush()
+  } catch (_e) { /* storage write failed silently */ }
 }
 
 export async function loadSalaryConfig(): Promise<SalaryConfig> {
@@ -122,21 +132,27 @@ export async function loadSalaryConfig(): Promise<SalaryConfig> {
     const premiums = new Map<ShiftType, number>()
     const parts = val.split(',')
     for (const p of parts) {
-      const [key, value] = p.split('=')
-      premiums.set(parseInt(key) as ShiftType, parseFloat(value))
+      const pair = p.split('=')
+      if (pair.length >= 2) {
+        const key = parseInt(pair[0]) as ShiftType
+        const value = parseFloat(pair[1])
+        premiums.set(key, value)
+      }
     }
     return { premiums }
-  } catch {
+  } catch (_e) {
     return defaultSalaryConfig()
   }
 }
 
 export async function saveSalaryConfig(config: SalaryConfig): Promise<void> {
   if (!prefs) return
-  const parts: string[] = []
-  config.premiums.forEach((value, key) => {
-    parts.push(`${key}=${value}`)
-  })
-  await prefs.put(KEY_SALARIES, parts.join(','))
-  await prefs.flush()
+  try {
+    const parts: string[] = []
+    config.premiums.forEach((value, key) => {
+      parts.push(`${key}=${value}`)
+    })
+    await prefs.put(KEY_SALARIES, parts.join(','))
+    await prefs.flush()
+  } catch (_e) { /* storage write failed silently */ }
 }

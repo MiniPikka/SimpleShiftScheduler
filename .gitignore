@@ -22,3 +22,18 @@ flutter/.metadata
 # ── IDE & OS ──
 .idea/
 .DS_Store
+
+# ── HarmonyOS ──
+harmony/.hvigor/
+harmony/build/
+harmony/entry/build/
+harmony/entry/oh-package-lock.json5
+harmony/entry/oh_modules/
+harmony/oh-package-lock.json5
+harmony/oh_modules/
+
+# ── WorkBuddy ──
+.workbuddy/
+
+# ── Temp ──
+screenshot.jpeg
