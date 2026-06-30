@@ -1,3 +1,59 @@
+## 2026-06-30：HarmonyOS DevEco Studio 构建修复 + 双系统环境
+
+### HarmonyOS 构建错误修复 ✅
+
+在 Windows 11 + DevEco Studio 26 环境中实际编译 HarmonyOS 项目，修复了 22 个 ArkTS 编译错误（SDK 26 严格模式）。
+
+**提交 `b89fc77`**：修复鸿蒙构建错误并清理警告
+
+| 修复项 | 详情 |
+|--------|------|
+| targetSdkVersion 格式非法 (00306042) | `"1"` → `"5.0.0(12)"` |
+| AppScope 目录缺失 | 创建 `app.json5` + `string.json` + `app_icon.png` (216×216) |
+| ArkTS 编译错误 (22 个) | `Array.from`/解构/`Flex space`/`ForEach const` 等不兼容写法 |
+| Select.fontSize | → `font({ size })` (SDK 26 API 变更) |
+| TextAlign.Right | → `End` (ArkTS 对齐枚举) |
+| Circle.fill | → `backgroundColor` (SDK 兼容) |
+| SettingsStorage | 全量 try-catch 异常处理 |
+| 交接班措辞 | "正在上X班" → "今天X班" |
+| .gitignore | 排除鸿蒙构建产物 |
+
+**提交 `2da6e50`**：升级 hvigor modelVersion
+
+| 文件 | 旧 | 新 |
+|------|----|----|
+| `hvigor/hvigor-config.json5` | modelVersion 5.0.0, plugin 5.0.0 | modelVersion 6.0.0, plugin 6.26.1 |
+| `oh-package.json5` | modelVersion 5.0.0 | modelVersion 6.0.0 |
+
+### 开发环境：KVM/QEMU VM → 双系统 ✅
+
+**背景**：KVM/QEMU Windows 虚拟机网络配置困难（UFW 阻止 libvirt NAT 规则注入、virbr0 NO-CARRIER、Windows DHCP 请求被丢弃）。决定改用双系统方案。
+
+**磁盘分区调整**：
+
+| 分区 | 之前 | 之后 |
+|------|------|------|
+| nvme0n1p1 (EFI) | 1G | 1G（不变） |
+| nvme0n1p2 (Linux btrfs) | 475.9G | 176G（btrfs 缩到 175G） |
+| nvme0n1p3 (Windows NTFS) | — | 299.9G（新建） |
+
+**操作步骤**：
+1. 清理 VM 相关文件和包（~57G）：qemu-full、libvirt、virt-manager 等 159 个包 + VM 镜像
+2. `btrfs filesystem resize 175G /` 在线缩小文件系统
+3. `sfdisk` 重建 GPT 分区表，缩小分区2 + 创建分区3（Microsoft Basic Data）
+4. Ventoy U盘安装 Windows 11
+5. `bootctl install` 修复 systemd-boot 引导（Windows 可能覆盖 EFI 启动项）
+
+**恢复脚本**：`fix-boot.sh`（放在 Ventoy U盘），Arch live USB 环境中运行
+
+### 后续待办
+
+- 在 DevEco Studio 中继续构建，验证是否还有编译错误
+- 跑 hypium 测试
+- 生成 HAP 包
+
+---
+
 ## 2026-06-28：HarmonyOS 算法交叉验证 + 6类Bug修复
 
 ### HarmonyOS ArkTS 算法 ↔ Rust 交叉验证 ✅
