@@ -39,7 +39,14 @@ fn build_config(cycle_length: u32, ref_date: NaiveDate) -> ShiftCycleConfig {
         return default;
     }
     let cycle = default.cycle[..cycle_length as usize].to_vec();
-    ShiftCycleConfig { cycle_length, cycle, reference_date: ref_date, total_teams: 6 }
+    ShiftCycleConfig {
+        cycle_length,
+        cycle,
+        reference_date: ref_date,
+        total_teams: 6,
+        team_names: None,
+        customization: Default::default(),
+    }
 }
 
 fn to_json_or_error(result: Result<String, String>) -> *mut c_char {
@@ -72,7 +79,7 @@ pub unsafe extern "C" fn shift_get_shift_info(
         serde_json::json!({
             "date": info.date.format("%Y-%m-%d").to_string(),
             "shift_type": format!("{:?}", info.shift_type).to_lowercase(),
-            "shift_label": info.shift_type.full_label(),
+            "shift_label": config.shift_full_label(info.shift_type),
             "day_of_cycle": info.day_of_cycle,
             "total_days": config.cycle_length,
             "cycle_index": info.cycle_index,
@@ -98,7 +105,7 @@ pub unsafe extern "C" fn shift_get_shift_type_for_date(
         let st = get_shift_type_for_date(date, &config, config.team_phase_offset(team_id.max(1)));
         Ok(serde_json::json!({
             "shift_type": format!("{:?}", st).to_lowercase(),
-            "shift_label": st.full_label(),
+            "shift_label": config.shift_full_label(st),
         }).to_string())
     })
 }
@@ -125,7 +132,7 @@ pub unsafe extern "C" fn shift_get_shift_info_range(
             serde_json::json!({
                 "date": info.date.format("%Y-%m-%d").to_string(),
                 "shift_type": format!("{:?}", info.shift_type).to_lowercase(),
-                "shift_label": info.shift_type.full_label(),
+                "shift_label": config.shift_full_label(info.shift_type),
                 "day_of_cycle": info.day_of_cycle,
                 "total_days": config.cycle_length,
             })
