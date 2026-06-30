@@ -48,7 +48,7 @@ pub fn generate_shift_ics(
     buf.push_str(crlf);
     buf.push_str("METHOD:PUBLISH");
     buf.push_str(crlf);
-    buf.push_str(&format!("X-WR-CALNAME:班伴 · {}排班", shift_algorithm::team_name(team_id)));
+    buf.push_str(&format!("X-WR-CALNAME:班伴 · {}排班", config.team_name(team_id)));
     buf.push_str(crlf);
     buf.push_str("X-WR-CALDESC:Auto-generated shift schedule by 班伴 (ShiftMate)");
     buf.push_str(crlf);
@@ -90,7 +90,7 @@ pub fn generate_shift_ics(
         let dtstart = format!("{}T{}", cursor.format("%Y%m%d"), start_hhmm);
         let dtend = format!("{}T{}", end_date.format("%Y%m%d"), end_hhmm);
 
-        let summary = format!("{} · {}", shift_type.full_label(), shift_algorithm::team_name(team_id));
+        let summary = format!("{} · {}", config.shift_full_label(shift_type), config.team_name(team_id));
 
         let day_info = shift_algorithm::get_shift_info(cursor, config, team_phase_offset);
 
@@ -134,7 +134,7 @@ pub fn generate_shift_ics(
                 buf.push_str(crlf);
                 buf.push_str(&format!(
                     "DESCRIPTION:{}提醒",
-                    ics_escape(shift_type.full_label())
+                    ics_escape(&config.shift_full_label(shift_type))
                 ));
                 buf.push_str(crlf);
                 buf.push_str("END:VALARM");

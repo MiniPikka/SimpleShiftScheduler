@@ -125,6 +125,8 @@ impl Config {
             cycle,
             reference_date: ref_date,
             total_teams: 6,
+            team_names: None,
+            customization: Default::default(),
         }
     }
 }
@@ -454,19 +456,31 @@ fn parse_shift_label(s: &str) -> ShiftType {
     }
 }
 
-/// Short label in current language.
-fn lbl(st: ShiftType, lang: &str) -> &'static str {
-    if lang == "zh" { st.label() } else { st.label_en_padded() }
+/// Short label in current language (honors custom labels).
+fn lbl(st: ShiftType, lang: &str, config: &ShiftCycleConfig) -> String {
+    if lang == "zh" {
+        config.shift_label(st).to_string()
+    } else {
+        st.label_en_padded().to_string()
+    }
 }
 
-/// Full label in current language.
-fn full_lbl(st: ShiftType, lang: &str) -> &'static str {
-    if lang == "zh" { st.full_label() } else { st.full_label_en() }
+/// Full label in current language (honors custom labels).
+fn full_lbl(st: ShiftType, lang: &str, config: &ShiftCycleConfig) -> String {
+    if lang == "zh" {
+        config.shift_full_label(st)
+    } else {
+        st.full_label_en().to_string()
+    }
 }
 
-/// Team name in current language.
-fn team_lbl(id: u32, lang: &str) -> String {
-    if lang == "zh" { shift_algorithm::team_name(id) } else { format!("Team {}", id) }
+/// Team name in current language (honors custom names).
+fn team_lbl(id: u32, lang: &str, config: &ShiftCycleConfig) -> String {
+    if lang == "zh" {
+        config.team_name(id)
+    } else {
+        format!("Team {}", id)
+    }
 }
 
 pub(crate) fn month_name_en(m: u32) -> &'static str {
@@ -534,8 +548,8 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
     let (pred_id, pred_team, pred_shift, succ_id, succ_team, succ_shift) = if let Some((p, s)) = handover {
         let pred_info = get_shift_info(today, config, config.team_phase_offset(p));
         let succ_info = get_shift_info(today, config, config.team_phase_offset(s));
-        (p, team_lbl(p, lang), full_lbl(pred_info.shift_type, lang).to_string(),
-         s, team_lbl(s, lang), full_lbl(succ_info.shift_type, lang).to_string())
+        (p, team_lbl(p, lang, config), full_lbl(pred_info.shift_type, lang, config).to_string(),
+         s, team_lbl(s, lang, config), full_lbl(succ_info.shift_type, lang, config).to_string())
     } else {
         (0, String::new(), String::new(), 0, String::new(), String::new())
     };
@@ -544,8 +558,8 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
         let out = TodayOutput {
             date: today.format("%Y-%m-%d").to_string(),
             shift_type: format!("{:?}", info.shift_type).to_lowercase(),
-            shift_label: full_lbl(info.shift_type, lang).to_string(),
-            team: team_lbl(team, lang),
+            shift_label: full_lbl(info.shift_type, lang, config).to_string(),
+            team: team_lbl(team, lang, config),
             day_of_cycle: info.day_of_cycle,
             total_days: config.cycle_length,
             days_until_rest: rest,
@@ -573,8 +587,8 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
         println!(
             "{} {} · {} · Day {}/{} · {}",
             shift_icon(info.shift_type),
-            full_lbl(info.shift_type, lang).color(color).bold(),
-            team_lbl(team, lang).dimmed(),
+            full_lbl(info.shift_type, lang, config).color(color).bold(),
+            team_lbl(team, lang, config).dimmed(),
             info.day_of_cycle,
             config.cycle_length,
             rest_msg,
@@ -586,8 +600,8 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
             today.format("%Y-%m-%d %A").to_string().dimmed(),
         );
         if handover.is_some() {
-            let pred_lbl = if lang == "zh" { format!("接{}({})", team_lbl(pred_id, lang), pred_shift) }
-                else { format!("take over {}({})", team_lbl(pred_id, lang), pred_shift) };
+            let pred_lbl = if lang == "zh" { format!("接{}({})", team_lbl(pred_id, lang, config), pred_shift) }
+                else { format!("take over {}({})", team_lbl(pred_id, lang, config), pred_shift) };
             let succ_lbl = if lang == "zh" { format!("{}({})接我的班", succ_team, succ_shift) }
                 else { format!("{}({}) closing", succ_team, succ_shift) };
             println!("  ← {}  ·  {} →", pred_lbl, succ_lbl);
@@ -606,8 +620,8 @@ fn cmd_tomorrow(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: 
             serde_json::json!({
                 "date": tomorrow.format("%Y-%m-%d").to_string(),
                 "shift_type": format!("{:?}", info.shift_type).to_lowercase(),
-                "shift_label": full_lbl(info.shift_type, lang),
-                "team": team_lbl(team, lang),
+                "shift_label": full_lbl(info.shift_type, lang, config),
+                "team": team_lbl(team, lang, config),
                 "day_of_cycle": info.day_of_cycle,
                 "total_days": config.cycle_length,
             })
@@ -617,7 +631,7 @@ fn cmd_tomorrow(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: 
         println!(
             "{} {} · {} · 第 {}/{} 天",
             shift_icon(info.shift_type),
-            full_lbl(info.shift_type, lang).color(color).bold(),
+            full_lbl(info.shift_type, lang, config).color(color).bold(),
             tomorrow.format("%b %d %A").to_string().dimmed(),
             info.day_of_cycle,
             config.cycle_length,
@@ -687,14 +701,14 @@ fn cmd_week(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32,
                 date: date.format("%Y-%m-%d").to_string(),
                 weekday: date.format("%A").to_string(),
                 shift_type: format!("{:?}", info.shift_type).to_lowercase(),
-                shift_label: full_lbl(info.shift_type, lang).to_string(),
+                shift_label: full_lbl(info.shift_type, lang, config).to_string(),
                 day_of_cycle: info.day_of_cycle,
                 is_today: d == 0,
                 is_rest: info.shift_type.is_rest(),
             }
         }).collect();
         let out = WeekOutput {
-            team: team_lbl(team, lang),
+            team: team_lbl(team, lang, config),
             start_date: today.format("%Y-%m-%d").to_string(),
             end_date: end.format("%Y-%m-%d").to_string(),
             total_days: config.cycle_length,
@@ -705,7 +719,7 @@ fn cmd_week(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32,
         println!(
             "{} {} · {}",
             if lang == "zh" { "本周".bold() } else { "This Week".bold() },
-            team_lbl(team, lang).dimmed(),
+            team_lbl(team, lang, config).dimmed(),
             format!("{} → {}", today.format("%m/%d"), end.format("%m/%d")).dimmed(),
         );
         println!();
@@ -721,7 +735,7 @@ fn cmd_week(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32,
                 shift_icon(info.shift_type),
                 date.format("%m/%d").to_string(),
                 date.format("%a").to_string(),
-                full_lbl(info.shift_type, lang).color(color).bold(),
+                full_lbl(info.shift_type, lang, config).color(color).bold(),
                 info.day_of_cycle,
                 config.cycle_length,
                 marker.dimmed(),
@@ -762,7 +776,7 @@ fn cmd_calendar(
                 week.push(CalendarDayOutput {
                     day: date.day(),
                     shift_type: format!("{:?}", info.shift_type).to_lowercase(),
-                    shift_label: lbl(info.shift_type, lang).to_string(),
+                    shift_label: lbl(info.shift_type, lang, config).to_string(),
                     is_current_month: date.month() == month_num,
                     is_today: date == today,
                 });
@@ -772,7 +786,7 @@ fn cmd_calendar(
         let stats = build_stats(year, month_num, config, offset, total_days);
         let out = CalendarOutput {
             month: format!("{}-{:02}", year, month_num),
-            team: team_lbl(team, lang),
+            team: team_lbl(team, lang, config),
             weeks,
             stats,
         };
@@ -800,7 +814,7 @@ fn cmd_calendar(
                 let is_cur = date.month() == month_num;
                 let is_tdy = date == today;
 
-                let label = lbl(info.shift_type, lang);
+                let label = lbl(info.shift_type, lang, config);
                 let content = format!("{:2}{}", date.day(), label);
                 let cell = pad_cjk(&content, header_width);
 
@@ -870,7 +884,7 @@ fn cmd_stats(
             "{} {} · {}",
             "📊".bold(),
             if lang == "zh" { format!("{}年{}月 统计", year, month_num) } else { format!("{} {}", month_name_en(month_num), year) }.bold(),
-            team_lbl(team, lang).dimmed(),
+            team_lbl(team, lang, config).dimmed(),
         );
         println!();
         println!(
@@ -1096,7 +1110,7 @@ fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
     } else {
         today.format("%b %d %a").to_string()
     };
-    let header = format!("{} · {}    {}", full_lbl(info.shift_type, lang), team_lbl(team, lang), date_str);
+    let header = format!("{} · {}    {}", full_lbl(info.shift_type, lang, config), team_lbl(team, lang, config), date_str);
 
     // Line 2: stats
     let rest_text = if info.shift_type.is_rest() {
@@ -1119,9 +1133,9 @@ fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
         let pred_shift = get_shift_info(today, config, config.team_phase_offset(pred)).shift_type;
         let succ_shift = get_shift_info(today, config, config.team_phase_offset(succ)).shift_type;
         if is_zh {
-            format!("← 接{}({}) · {}({})接我的班 →", team_lbl(pred, lang), pred_shift.label(), team_lbl(succ, lang), succ_shift.label())
+            format!("← 接{}({}) · {}({})接我的班 →", team_lbl(pred, lang, config), config.shift_label(pred_shift), team_lbl(succ, lang, config), config.shift_label(succ_shift))
         } else {
-            format!("← take over {}({}) · {}({}) closing →", team_lbl(pred, lang), pred_shift.label_en(), team_lbl(succ, lang), succ_shift.label_en())
+            format!("← take over {}({}) · {}({}) closing →", team_lbl(pred, lang, config), pred_shift.label_en(), team_lbl(succ, lang, config), succ_shift.label_en())
         }
     } else {
         if is_zh { "今日休息 · 无交接".to_string() } else { "Rest day · no handover".to_string() }
@@ -1144,7 +1158,7 @@ fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
             "" // English: just use date
         };
         let emoji = waybar_emoji(day_info.shift_type);
-        let shift_ch = day_info.shift_type.label();
+        let shift_ch = config.shift_label(day_info.shift_type);
         if is_zh {
             week_lines.push(format!("{}/{} {} {} {}{}", date.month(), date.day(), wd, emoji, shift_ch, marker));
         } else {
@@ -1183,8 +1197,8 @@ fn cmd_waybar_popup(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, te
     let is_zh = lang == "zh";
 
     let emoji = waybar_emoji(info.shift_type);
-    let shift_lbl = full_lbl(info.shift_type, lang);
-    let team_lbl_str = team_lbl(team, lang);
+    let shift_lbl = full_lbl(info.shift_type, lang, config);
+    let team_lbl_str = team_lbl(team, lang, config);
 
     // Date
     let date_str = if is_zh {
@@ -1231,12 +1245,12 @@ fn cmd_waybar_popup(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, te
         let succ_emoji = waybar_emoji(succ_info.shift_type);
         if is_zh {
             println!("{} ← 接{}({})  ·  {}({})接我的班 → {}",
-                pred_emoji, team_lbl(pred, lang), pred_info.shift_type.label(),
-                team_lbl(succ, lang), succ_info.shift_type.label(), succ_emoji);
+                pred_emoji, team_lbl(pred, lang, config), config.shift_label(pred_info.shift_type),
+                team_lbl(succ, lang, config), config.shift_label(succ_info.shift_type), succ_emoji);
         } else {
             println!("{} ← take over {}({})  ·  {}({}) closing → {}",
-                pred_emoji, team_lbl(pred, lang), pred_info.shift_type.label_en(),
-                team_lbl(succ, lang), succ_info.shift_type.label_en(), succ_emoji);
+                pred_emoji, team_lbl(pred, lang, config), pred_info.shift_type.label_en(),
+                team_lbl(succ, lang, config), succ_info.shift_type.label_en(), succ_emoji);
         }
     } else {
         if is_zh { println!("休息日 · 无交接") } else { println!("Rest day · no handover") };
@@ -1252,7 +1266,7 @@ fn cmd_waybar_popup(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, te
         let date = today + chrono::Duration::days(d - 1);
         let day_info = get_shift_info(date, config, offset);
         let e = waybar_emoji(day_info.shift_type);
-        let s = if is_zh { day_info.shift_type.label().to_string() } else { day_info.shift_type.label_en().to_string() };
+        let s = if is_zh { config.shift_label(day_info.shift_type).to_string() } else { day_info.shift_type.label_en().to_string() };
         let marker = if d == 1 { if is_zh { " ◀ 今天" } else { " ◀ today" } } else { "" };
         if is_zh {
             let wd = match date.weekday() {
@@ -1386,7 +1400,7 @@ fn cmd_notify(today: NaiveDate, cycle_config: &ShiftCycleConfig, offset: u32, te
             }
     }
 
-    let title = format!("{} · {}", info.shift_type.full_label(), shift_algorithm::team_name(team));
+    let title = format!("{} · {}", cycle_config.shift_full_label(info.shift_type), cycle_config.team_name(team));
     let body = if info.shift_type.is_rest() {
         "今天是休息日".to_string()
     } else if rest == 0 {

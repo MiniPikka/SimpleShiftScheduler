@@ -54,16 +54,16 @@ impl App {
 
     fn is_zh(&self) -> bool { self.lang == "zh" }
 
-    fn lbl(&self, st: ShiftType) -> &'static str {
-        if self.is_zh() { st.label() } else { st.label_en() }
+    fn lbl(&self, st: ShiftType) -> String {
+        if self.is_zh() { self.config.shift_label(st).to_string() } else { st.label_en().to_string() }
     }
 
-    fn full_lbl(&self, st: ShiftType) -> &'static str {
-        if self.is_zh() { st.full_label() } else { st.full_label_en() }
+    fn full_lbl(&self, st: ShiftType) -> String {
+        if self.is_zh() { self.config.shift_full_label(st) } else { st.full_label_en().to_string() }
     }
 
     fn team_str(&self, id: u32) -> String {
-        if self.is_zh() { shift_algorithm::team_name(id) } else { format!("Team {}", id) }
+        if self.is_zh() { self.config.team_name(id) } else { format!("Team {}", id) }
     }
 }
 

@@ -265,6 +265,8 @@ mod tests {
             cycle_length: 7,
             reference_date: crate::cycle::default_reference_date(),
             total_teams: 2,
+            team_names: None,
+            customization: Default::default(),
         };
         let info = get_shift_info(config.reference_date, &config, 0);
         assert_eq!(info.day_of_cycle, 1);
@@ -340,6 +342,8 @@ mod tests {
             cycle_length: 5,
             reference_date: crate::cycle::default_reference_date(),
             total_teams: 1,
+            team_names: None,
+            customization: Default::default(),
         };
         let info = get_shift_info(config.reference_date, &config, 0);
         assert_eq!(info.shift_type, Night);

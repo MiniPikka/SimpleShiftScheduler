@@ -375,6 +375,8 @@ mod tests {
             cycle_length: 7,
             reference_date: shift_algorithm::cycle::default_reference_date(),
             total_teams: 2,
+            team_names: None,
+            customization: Default::default(),
         };
         let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let plans = find_best_leave_plans(today, 90, &config, 0, None, 5);

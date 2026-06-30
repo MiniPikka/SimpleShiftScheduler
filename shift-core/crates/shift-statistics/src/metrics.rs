@@ -212,6 +212,8 @@ mod tests {
             cycle_length: 3,
             reference_date: shift_algorithm::cycle::default_reference_date(),
             total_teams: 1,
+            team_names: None,
+            customization: Default::default(),
         };
         let date = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let c = consecutive_work_days(date, &config, 0);
@@ -226,6 +228,8 @@ mod tests {
             cycle_length: 3,
             reference_date: shift_algorithm::cycle::default_reference_date(),
             total_teams: 1,
+            team_names: None,
+            customization: Default::default(),
         };
         let date = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let d = days_until_next_rest(date, &config, 0);
@@ -240,6 +244,8 @@ mod tests {
             cycle_length: 5,
             reference_date: shift_algorithm::cycle::default_reference_date(),
             total_teams: 1,
+            team_names: None,
+            customization: Default::default(),
         };
         let date = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         assert_eq!(consecutive_work_days(date, &config, 0), 0);
@@ -253,6 +259,8 @@ mod tests {
             cycle_length: 5,
             reference_date: shift_algorithm::cycle::default_reference_date(),
             total_teams: 1,
+            team_names: None,
+            customization: Default::default(),
         };
         let work = count_work_days_in_month(2026, 5, &config, 0);
         assert_eq!(work, 0);

@@ -180,6 +180,8 @@ mod tests {
             cycle_length: 7,
             reference_date: shift_algorithm::cycle::default_reference_date(),
             total_teams: 2,
+            team_names: None,
+            customization: Default::default(),
         };
         let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let result = find_common_rest_days(1, 2, today, 10, &config);
@@ -195,6 +197,8 @@ mod tests {
             cycle_length: 7,
             reference_date: shift_algorithm::cycle::default_reference_date(),
             total_teams: 2,
+            team_names: None,
+            customization: Default::default(),
         };
         let today = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let result = find_common_rest_days(1, 2, today, 30, &config);

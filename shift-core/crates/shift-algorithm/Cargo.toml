@@ -9,3 +9,6 @@ description = "Rotating shift scheduling algorithm: calculate what shift falls o
 [dependencies]
 chrono = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

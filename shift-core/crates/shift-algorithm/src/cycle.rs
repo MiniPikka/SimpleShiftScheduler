@@ -81,6 +81,8 @@ pub fn default_config() -> crate::types::ShiftCycleConfig {
         cycle_length: DEFAULT_CYCLE_LENGTH,
         reference_date: default_reference_date(),
         total_teams: DEFAULT_TOTAL_TEAMS,
+        team_names: None,
+        customization: Default::default(),
     }
 }
 

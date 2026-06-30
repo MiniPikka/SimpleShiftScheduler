@@ -145,6 +145,32 @@ pub struct ShiftInfo {
     pub shift_type: ShiftType,
 }
 
+/// Time range for a work shift (e.g. 08:00–16:00).
+///
+/// Used for handover ordering and UI display. `crosses_midnight` is true
+/// for night shifts that end the next day (e.g. 00:00–08:00).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftTimeRange {
+    /// Start time in "HH:MM" format (e.g. "08:00").
+    pub start: String,
+    /// End time in "HH:MM" format (e.g. "16:00").
+    pub end: String,
+}
+
+/// Optional per-shift custom labels and times.
+///
+/// All fields are optional — `None` means "use built-in default".
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ShiftCustomization {
+    /// Custom label for each shift type (e.g. "白班" instead of "早班").
+    /// Keys are shift type names: "Morning", "Afternoon", "Rest", "Night", "Study".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub labels: Option<std::collections::HashMap<ShiftType, String>>,
+    /// Custom time ranges for work shifts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub times: Option<std::collections::HashMap<ShiftType, ShiftTimeRange>>,
+}
+
 /// Runtime shift cycle configuration.
 ///
 /// The default 42-day, 6-team configuration is available via
@@ -161,6 +187,8 @@ pub struct ShiftInfo {
 ///     cycle_length: 3,
 ///     reference_date: NaiveDate::from_ymd_opt(2025, 12, 15).unwrap(),
 ///     total_teams: 1,
+///     team_names: None,
+///     customization: Default::default(),
 /// };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,6 +205,14 @@ pub struct ShiftCycleConfig {
     /// Each team is offset by `cycle_length / total_teams` days.
     /// Default: 6.
     pub total_teams: u32,
+    /// Custom team names. If provided, must have length >= `total_teams`.
+    /// Index 0 = team 1's name, index 1 = team 2's name, etc.
+    /// If `None`, defaults to "一值", "二值", ... (see [`team_name`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team_names: Option<Vec<String>>,
+    /// Custom shift labels and time ranges.
+    #[serde(default)]
+    pub customization: ShiftCustomization,
 }
 
 /// Chinese team name for a team ID.
@@ -241,6 +277,19 @@ pub fn predecessor_team_id(team_id: u32, total_teams: u32) -> u32 {
     (team_id + total_teams - 2) % total_teams + 1
 }
 
+/// Parse "HH:MM" time string to minutes since midnight.
+///
+/// Returns 0 on parse failure (defensive — does not panic).
+fn parse_time_to_minutes(s: &str) -> u32 {
+    let parts: Vec<&str> = s.split(':').collect();
+    if parts.len() != 2 {
+        return 0;
+    }
+    let h: u32 = parts[0].parse().unwrap_or(0);
+    let m: u32 = parts[1].parse().unwrap_or(0);
+    h.min(23) * 60 + m.min(59)
+}
+
 impl ShiftCycleConfig {
     /// Create a new config, validating that `cycle.len() == cycle_length`.
     ///
@@ -250,7 +299,103 @@ impl ShiftCycleConfig {
         let cycle_length = cycle.len() as u32;
         assert!(cycle_length >= 1, "cycle must be non-empty");
         assert!(total_teams >= 1, "total_teams must be >= 1");
-        Self { cycle, cycle_length, reference_date, total_teams }
+        Self { cycle, cycle_length, reference_date, total_teams, team_names: None, customization: Default::default() }
+    }
+
+    /// Get the display name for a team.
+    ///
+    /// Uses custom names if provided, otherwise falls back to the default
+    /// "一值", "二值", ... naming.
+    ///
+    /// ```rust
+    /// use shift_algorithm::cycle::default_config;
+    ///
+    /// let config = default_config();
+    /// assert_eq!(config.team_name(1), "一值");
+    /// assert_eq!(config.team_name(6), "六值");
+    /// ```
+    pub fn team_name(&self, team_id: u32) -> String {
+        if let Some(names) = &self.team_names {
+            let idx = (team_id - 1) as usize;
+            if idx < names.len() {
+                return names[idx].clone();
+            }
+        }
+        team_name(team_id)
+    }
+
+    /// Get the short label for a shift type, honoring custom labels.
+    ///
+    /// ```rust
+    /// use shift_algorithm::cycle::default_config;
+    /// use shift_algorithm::ShiftType;
+    ///
+    /// let config = default_config();
+    /// assert_eq!(config.shift_label(ShiftType::Morning), "早");
+    /// ```
+    pub fn shift_label(&self, shift_type: ShiftType) -> &str {
+        if let Some(custom) = self.customization.labels.as_ref().and_then(|l| l.get(&shift_type)) {
+            return custom.as_str();
+        }
+        shift_type.label()
+    }
+
+    /// Get the full label for a shift type, honoring custom labels.
+    pub fn shift_full_label(&self, shift_type: ShiftType) -> String {
+        if let Some(custom) = self.customization.labels.as_ref().and_then(|l| l.get(&shift_type)) {
+            return custom.clone();
+        }
+        shift_type.full_label().to_string()
+    }
+
+    /// Get the time range for a shift type, if configured.
+    pub fn shift_time(&self, shift_type: ShiftType) -> Option<&ShiftTimeRange> {
+        self.customization.times.as_ref()?.get(&shift_type)
+    }
+
+    /// Determine handover order from shift start times.
+    ///
+    /// Returns (predecessor_shift, successor_shift) for the given shift.
+    /// Uses custom times if available, otherwise falls back to hardcoded order.
+    ///
+    /// **Requirement**: custom times must cover ALL three work shifts
+    /// (Morning, Afternoon, Night). Partial coverage falls back to default
+    /// to avoid incorrect ordering.
+    fn handover_shifts(&self, my_shift: ShiftType) -> (ShiftType, ShiftType) {
+        if let Some(times) = &self.customization.times {
+            let work_shifts = [ShiftType::Morning, ShiftType::Afternoon, ShiftType::Night];
+
+            // Require ALL work shifts to have time ranges
+            let all_have_times = work_shifts.iter().all(|s| times.contains_key(s));
+            if !all_have_times {
+                // Partial coverage — fall back to default
+            } else {
+                // Parse start times, sort by them
+                let mut sorted: Vec<(ShiftType, u32)> = work_shifts
+                    .iter()
+                    .map(|&s| {
+                        let tr = &times[&s];
+                        let mins = parse_time_to_minutes(&tr.start);
+                        (s, mins)
+                    })
+                    .collect();
+                sorted.sort_by_key(|(_, mins)| *mins);
+
+                if let Some(idx) = sorted.iter().position(|(s, _)| *s == my_shift) {
+                    let pred = sorted[(idx + sorted.len() - 1) % sorted.len()].0;
+                    let succ = sorted[(idx + 1) % sorted.len()].0;
+                    return (pred, succ);
+                }
+            }
+        }
+
+        // Default: 夜 → 早 → 中 → 夜
+        match my_shift {
+            ShiftType::Morning => (ShiftType::Night, ShiftType::Afternoon),
+            ShiftType::Afternoon => (ShiftType::Morning, ShiftType::Night),
+            ShiftType::Night => (ShiftType::Afternoon, ShiftType::Morning),
+            _ => unreachable!(),
+        }
     }
 
     /// The team that follows yours in the circular rotation order.
@@ -342,13 +487,7 @@ impl ShiftCycleConfig {
             return None; // not working, no handover
         }
 
-        // Shift handover order: 夜 → 早 → 中 → 夜
-        let (pred_shift, succ_shift) = match my_shift {
-            ShiftType::Morning => (ShiftType::Night, ShiftType::Afternoon),
-            ShiftType::Afternoon => (ShiftType::Morning, ShiftType::Night),
-            ShiftType::Night => (ShiftType::Afternoon, ShiftType::Morning),
-            _ => unreachable!(), // is_rest() already handled
-        };
+        let (pred_shift, succ_shift) = self.handover_shifts(my_shift);
 
         // Scan all teams to find who is on pred_shift / succ_shift today
         let mut pred_team: Option<u32> = None;
@@ -380,7 +519,7 @@ impl ShiftCycleConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cycle::default_config;
+    use crate::cycle::{default_config, default_reference_date, default_shift_cycle};
 
     // ── successor_team_id ──
 
@@ -471,5 +610,212 @@ mod tests {
             assert_eq!(predecessor_team_id(succ, 6), t,
                 "predecessor(successor({})) should be {}", t, t);
         }
+    }
+
+    // ── Custom team names ──
+
+    #[test]
+    fn custom_team_names_override_default() {
+        let config = ShiftCycleConfig {
+            cycle: default_shift_cycle(),
+            cycle_length: 42,
+            reference_date: default_reference_date(),
+            total_teams: 6,
+            team_names: Some(vec!["甲班".into(), "乙班".into(), "丙班".into(),
+                                   "丁班".into(), "戊班".into(), "己班".into()]),
+            customization: Default::default(),
+        };
+        assert_eq!(config.team_name(1), "甲班");
+        assert_eq!(config.team_name(3), "丙班");
+        assert_eq!(config.team_name(6), "己班");
+    }
+
+    #[test]
+    fn custom_team_names_fallback_for_missing() {
+        let config = ShiftCycleConfig {
+            cycle: default_shift_cycle(),
+            cycle_length: 42,
+            reference_date: default_reference_date(),
+            total_teams: 6,
+            team_names: Some(vec!["甲班".into()]),
+            customization: Default::default(),
+        };
+        assert_eq!(config.team_name(1), "甲班");
+        assert_eq!(config.team_name(2), "二值"); // fallback to default
+    }
+
+    #[test]
+    fn no_custom_team_names_uses_default() {
+        let config = default_config();
+        assert_eq!(config.team_name(1), "一值");
+        assert_eq!(config.team_name(6), "六值");
+    }
+
+    // ── Custom shift labels ──
+
+    #[test]
+    fn custom_shift_labels_override_default() {
+        let mut labels = std::collections::HashMap::new();
+        labels.insert(ShiftType::Morning, "白班".into());
+        labels.insert(ShiftType::Night, "大夜".into());
+
+        let config = ShiftCycleConfig {
+            cycle: default_shift_cycle(),
+            cycle_length: 42,
+            reference_date: default_reference_date(),
+            total_teams: 6,
+            team_names: None,
+            customization: ShiftCustomization { labels: Some(labels), times: None },
+        };
+        assert_eq!(config.shift_label(ShiftType::Morning), "白班");
+        assert_eq!(config.shift_label(ShiftType::Night), "大夜");
+        assert_eq!(config.shift_label(ShiftType::Afternoon), "中"); // fallback
+    }
+
+    #[test]
+    fn custom_shift_full_labels() {
+        let mut labels = std::collections::HashMap::new();
+        labels.insert(ShiftType::Morning, "白班".into());
+
+        let config = ShiftCycleConfig {
+            cycle: default_shift_cycle(),
+            cycle_length: 42,
+            reference_date: default_reference_date(),
+            total_teams: 6,
+            team_names: None,
+            customization: ShiftCustomization { labels: Some(labels), times: None },
+        };
+        assert_eq!(config.shift_full_label(ShiftType::Morning), "白班");
+        assert_eq!(config.shift_full_label(ShiftType::Afternoon), "中班");
+    }
+
+    // ── Custom shift times ──
+
+    #[test]
+    fn custom_shift_times() {
+        let mut times = std::collections::HashMap::new();
+        times.insert(ShiftType::Morning, ShiftTimeRange {
+            start: "07:00".into(), end: "15:00".into(),
+        });
+        times.insert(ShiftType::Afternoon, ShiftTimeRange {
+            start: "15:00".into(), end: "23:00".into(),
+        });
+        times.insert(ShiftType::Night, ShiftTimeRange {
+            start: "23:00".into(), end: "07:00".into(),
+        });
+
+        let config = ShiftCycleConfig {
+            cycle: default_shift_cycle(),
+            cycle_length: 42,
+            reference_date: default_reference_date(),
+            total_teams: 6,
+            team_names: None,
+            customization: ShiftCustomization { labels: None, times: Some(times) },
+        };
+        assert_eq!(config.shift_time(ShiftType::Morning).unwrap().start, "07:00");
+        assert_eq!(config.shift_time(ShiftType::Night).unwrap().end, "07:00");
+        assert!(config.shift_time(ShiftType::Rest).is_none());
+    }
+
+    #[test]
+    fn handover_with_custom_times_preserves_default_order() {
+        let mut times = std::collections::HashMap::new();
+        times.insert(ShiftType::Morning, ShiftTimeRange {
+            start: "08:00".into(), end: "16:00".into(),
+        });
+        times.insert(ShiftType::Afternoon, ShiftTimeRange {
+            start: "16:00".into(), end: "00:00".into(),
+        });
+        times.insert(ShiftType::Night, ShiftTimeRange {
+            start: "00:00".into(), end: "08:00".into(),
+        });
+
+        let config = ShiftCycleConfig {
+            cycle: default_shift_cycle(),
+            cycle_length: 42,
+            reference_date: default_reference_date(),
+            total_teams: 6,
+            team_names: None,
+            customization: ShiftCustomization { labels: None, times: Some(times) },
+        };
+
+        // Reference date is day 1 = Morning for team 1
+        let handover = config.shift_handover(default_reference_date(), 1);
+        assert!(handover.is_some());
+    }
+
+    #[test]
+    fn handover_with_custom_times_reorders() {
+        let mut times = std::collections::HashMap::new();
+        // Reversed: Morning starts at 16:00, Afternoon at 08:00, Night at 00:00
+        times.insert(ShiftType::Morning, ShiftTimeRange {
+            start: "16:00".into(), end: "00:00".into(),
+        });
+        times.insert(ShiftType::Afternoon, ShiftTimeRange {
+            start: "08:00".into(), end: "16:00".into(),
+        });
+        times.insert(ShiftType::Night, ShiftTimeRange {
+            start: "00:00".into(), end: "08:00".into(),
+        });
+
+        let config = ShiftCycleConfig {
+            cycle: default_shift_cycle(),
+            cycle_length: 42,
+            reference_date: default_reference_date(),
+            total_teams: 6,
+            team_names: None,
+            customization: ShiftCustomization { labels: None, times: Some(times) },
+        };
+
+        // With reversed times: Night(00:00) → Afternoon(08:00) → Morning(16:00) → Night
+        let (pred, succ) = config.handover_shifts(ShiftType::Morning);
+        assert_eq!(pred, ShiftType::Afternoon);
+        assert_eq!(succ, ShiftType::Night);
+    }
+
+    #[test]
+    fn handover_partial_times_falls_back_to_default() {
+        // Only Morning has a time — should fall back to hardcoded order
+        let mut times = std::collections::HashMap::new();
+        times.insert(ShiftType::Morning, ShiftTimeRange {
+            start: "07:00".into(), end: "15:00".into(),
+        });
+
+        let config = ShiftCycleConfig {
+            cycle: default_shift_cycle(),
+            cycle_length: 42,
+            reference_date: default_reference_date(),
+            total_teams: 6,
+            team_names: None,
+            customization: ShiftCustomization { labels: None, times: Some(times) },
+        };
+
+        // Default order: 夜 → 早 → 中 → 夜
+        let (pred, succ) = config.handover_shifts(ShiftType::Morning);
+        assert_eq!(pred, ShiftType::Night);
+        assert_eq!(succ, ShiftType::Afternoon);
+    }
+
+    #[test]
+    fn parse_time_invalid_returns_zero() {
+        assert_eq!(parse_time_to_minutes("invalid"), 0);
+        assert_eq!(parse_time_to_minutes("25:99"), 1439); // clamped to 23:59
+        assert_eq!(parse_time_to_minutes("08:30"), 510);
+        assert_eq!(parse_time_to_minutes("00:00"), 0);
+        assert_eq!(parse_time_to_minutes("23:59"), 1439);
+    }
+
+    #[test]
+    fn serde_backward_compatibility() {
+        // Old config without team_names/customization should still deserialize
+        let json = r#"{
+            "cycle": ["MORNING", "AFTERNOON", "REST"],
+            "cycle_length": 3,
+            "reference_date": "2025-12-15",
+            "total_teams": 1
+        }"#;
+        let config: ShiftCycleConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.team_name(1), "一值");
+        assert_eq!(config.shift_label(ShiftType::Morning), "早");
     }
 }
