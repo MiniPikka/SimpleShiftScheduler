@@ -36,6 +36,24 @@ cd shift-core && cargo build --release
 # Flutter
 cd flutter && flutter build apk
 
+# Flutter + Rust FFI for Android (先构建 Rust .so, 再 build apk)
+# 需要: ANDROID_HOME 已设置, cargo-ndk 已安装, Rust Android targets 已添加
+cd flutter
+# 设置环境变量（若未设置）
+export ANDROID_HOME=/home/zxl/Android/Sdk
+export PATH=$PATH:/home/zxl/flutter-sdk/flutter/bin
+# 构建 Rust 库 for Android arm64
+./build_rust_android.sh
+# 或构建全部 4 个 ABI
+./build_rust_android.sh --all
+# 构建 APK
+flutter build apk --debug
+# 或安装
+./install.sh
+
+# Flutter + Rust FFI for Linux Desktop
+cd flutter && ./build.sh
+
 # HarmonyOS (需要 DevEco Studio 26+, Windows/macOS)
 # 用 DevEco 打开 harmony/ 目录，Build → Build Hap(s)
 # hvigor modelVersion 6.0.0, plugin 6.26.1

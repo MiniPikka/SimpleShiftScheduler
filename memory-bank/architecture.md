@@ -2557,3 +2557,31 @@ Flutter Linux Desktop App **保留但不作为主力桌面入口**：
 - **跨天自动检测**：当前靠定时刷新，未来可通过 DBus `DayChanged` 信号触发即时更新
 - **Waybar 特殊样式**：已有 `banban waybar` JSON 输出，CSS class 可自定义
 - **点击 Widget 打开 Flutter App**：popup 中可添加"打开完整 App"按钮
+
+---
+
+## Session Log
+
+### 2026-07-06: Android Rust FFI 构建环境准备
+
+**目标**: 为 Flutter + Rust FFI for Android 构建 APK 并部署到手机测试 customization 功能
+
+**完成**:
+1. 添加 Rust Android 交叉编译目标: `aarch64-linux-android`, `armv7-linux-androideabi`, `x86_64-linux-android`, `i686-linux-android`
+2. 确认 `cargo-ndk` v4.1.2 已安装
+3. 补充 AGENTS.md: Flutter + Rust FFI for Android / Linux Desktop 的构建命令
+
+**阻塞**:
+- Shell 环境中 `ANDROID_HOME` 未设置，`flutter` 不在 PATH
+- 需要先设置环境变量再运行构建：
+  ```bash
+  export ANDROID_HOME=/home/zxl/Android/Sdk
+  export PATH=$PATH:/home/zxl/flutter-sdk/flutter/bin
+  ```
+- 建议固化到 `~/.bashrc` 或 `.env` 文件
+
+**Rust 编译器版本**: rustc 1.96.1 (via rustup)
+**NDK**: /home/zxl/Android/Sdk/ndk/28.2.13676358
+**Flutter SDK**: /home/zxl/flutter-sdk/flutter/
+**ADB 设备**: d4044c26 (已连接)
+**Cargo mirror**: 不使用（1.96.1 有 `non-remote-registry` bug，直接访问 crates.io 正常）
