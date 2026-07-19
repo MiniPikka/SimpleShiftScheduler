@@ -7,8 +7,9 @@
 - **Rust Core** (`shift-core/`): 算法唯一来源，6 crates + CLI + TUI + HTTP API
 - **Flutter** (`flutter/`): 移动端 + Linux Desktop，dart:ffi 调用 Rust
 - **HarmonyOS** (`harmony/`): 华为鸿蒙原生版，ArkTS + ArkUI，纯 ArkTS 算法实现。hvigor modelVersion 6.0.0，DevEco Studio 26 构建中
-- **Android** (`android/`): Kotlin + Jetpack Compose 参考实现（已归档）
 - **Desktop Widgets** (`plasma/`, `gnome/`): KDE Plasma + GNOME Shell 桌面小组件
+
+> 注：最早的 Kotlin + Jetpack Compose 原生 Android 参考实现（`android/`）已于 2026-07-19 移除，见 git 历史。
 
 ## Architecture
 
@@ -57,9 +58,6 @@ cd flutter && ./build.sh
 # HarmonyOS (需要 DevEco Studio 26+, Windows/macOS)
 # 用 DevEco 打开 harmony/ 目录，Build → Build Hap(s)
 # hvigor modelVersion 6.0.0, plugin 6.26.1
-
-# Android (archived)
-cd android && ./gradlew assembleDebug
 ```
 
 ## Important Files

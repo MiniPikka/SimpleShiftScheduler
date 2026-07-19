@@ -9,4 +9,4 @@ description = "ICS (RFC 5545) calendar export for shift schedules. Generates sta
 [dependencies]
 chrono = { workspace = true }
 serde = { workspace = true }
-shift-algorithm = { path = "../shift-algorithm", version = "0.1.0" }
+shift-algorithm = { path = "../shift-algorithm" }

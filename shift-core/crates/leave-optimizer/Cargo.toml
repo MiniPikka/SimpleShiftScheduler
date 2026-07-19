@@ -9,5 +9,5 @@ description = "Gap-merging leave strategy optimizer. Finds optimal vacation plan
 [dependencies]
 chrono = { workspace = true }
 serde = { workspace = true }
-shift-algorithm = { path = "../shift-algorithm", version = "0.1.0" }
-holiday-engine = { path = "../holiday-engine", version = "0.1.0" }
+shift-algorithm = { path = "../shift-algorithm" }
+holiday-engine = { path = "../holiday-engine" }

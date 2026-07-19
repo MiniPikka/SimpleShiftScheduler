@@ -9,4 +9,4 @@ description = "Monthly shift counts, consecutive work days tracking, rest day co
 [dependencies]
 chrono = { workspace = true }
 serde = { workspace = true }
-shift-algorithm = { path = "../shift-algorithm", version = "0.1.0" }
+shift-algorithm = { path = "../shift-algorithm" }
