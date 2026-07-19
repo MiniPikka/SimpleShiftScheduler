@@ -65,8 +65,10 @@ export default function algorithmTest() {
       const ho = shiftHandover(d, 1)
       expect(ho).assertNotNull()
       if (ho) {
-        expect(ho[0]).assertEqual(3)
-        expect(ho[1]).assertEqual(5)
+        expect(ho.predTeam).assertEqual(3)
+        expect(ho.predShift).assertEqual(ShiftType.NIGHT)
+        expect(ho.succTeam).assertEqual(5)
+        expect(ho.succShift).assertEqual(ShiftType.AFTERNOON)
       }
     })
 
@@ -74,6 +76,52 @@ export default function algorithmTest() {
       const d = new Date(2025, 11, 19)
       const ho = shiftHandover(d, 1)
       expect(ho).assertNull()
+    })
+
+    // 已对照 2026 年 7 月实际排班核实（默认周期）：
+    //   07-18: 一值夜 二值中 三值早 四值休
+    //   07-19: 一值夜 二值休 三值中 四值早
+    //   07-20: 一值休 二值夜 三值休 四值中
+    // 标记为 07-19 的夜班实际为 07-18 晚 22:00 → 07-19 早 08:00。
+
+    it('shiftHandoverNightPredFromPreviousEvening', 0, () => {
+      // 一值 7-19 夜班：7-18 22:00 上岗时接的是 7-18 中班（二值），
+      // 不是 7-19 中班（三值）
+      const ho = shiftHandover(new Date(2026, 6, 19), 1)
+      expect(ho).assertNotNull()
+      if (ho) {
+        expect(ho.predTeam).assertEqual(2)
+        expect(ho.predShift).assertEqual(ShiftType.AFTERNOON)
+        expect(ho.succTeam).assertEqual(4) // 7-19 早 08:00 四值接班
+        expect(ho.succShift).assertEqual(ShiftType.MORNING)
+      }
+    })
+
+    it('shiftHandoverAfternoonSuccIsNextDayNight', 0, () => {
+      // 三值 7-19 中班：22:00 下班时来接的是 7-20 夜班（二值），
+      // 不是 7-19 夜班（一值，早已下班回家）
+      const ho = shiftHandover(new Date(2026, 6, 19), 3)
+      expect(ho).assertNotNull()
+      if (ho) {
+        expect(ho.predTeam).assertEqual(4)
+        expect(ho.predShift).assertEqual(ShiftType.MORNING)
+        expect(ho.succTeam).assertEqual(2)
+        expect(ho.succShift).assertEqual(ShiftType.NIGHT)
+      }
+    })
+
+    it('shiftHandoverSymmetricAcrossMidnight', 0, () => {
+      // 三值 7-19 中班的后继是二值；二值 7-20 夜班的前序必须是三值
+      const hoA = shiftHandover(new Date(2026, 6, 19), 3)
+      expect(hoA).assertNotNull()
+      if (hoA) {
+        const hoB = shiftHandover(new Date(2026, 6, 20), hoA.succTeam)
+        expect(hoB).assertNotNull()
+        if (hoB) {
+          expect(hoB.predTeam).assertEqual(3)
+          expect(hoB.predShift).assertEqual(ShiftType.AFTERNOON)
+        }
+      }
     })
   })
 

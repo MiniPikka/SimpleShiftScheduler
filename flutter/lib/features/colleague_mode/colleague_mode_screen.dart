@@ -408,10 +408,10 @@ class _ShiftRelayRow extends StatelessWidget {
       referenceDate: refDate,
     );
     final predName = handover != null
-        ? localizedTeamName(handover.$1, l10n)
+        ? localizedTeamName(handover.predTeam, l10n)
         : null;
     final succName = handover != null
-        ? localizedTeamName(handover.$2, l10n)
+        ? localizedTeamName(handover.succTeam, l10n)
         : null;
 
     return Card(

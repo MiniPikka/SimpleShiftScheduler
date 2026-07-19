@@ -1,5 +1,5 @@
 import { ShiftType, DEFAULT_SHIFT_CYCLE, DEFAULT_REFERENCE_DATE, TOTAL_TEAMS } from '../constants/ShiftConstants'
-import { ShiftInfo } from '../models/ShiftModels'
+import { ShiftInfo, ShiftHandoverResult } from '../models/ShiftModels'
 
 export function parseDate(dateStr: string): Date {
   const parts = dateStr.split('-')
@@ -92,13 +92,20 @@ export function predecessorTeamId(teamId: number): number {
 
 /// Find which team you take over from and which team takes over from you,
 /// based on shift types (夜 → 早 → 中 → 夜), NOT team numbering.
-/// Returns [predecessorTeamId, successorTeamId] or null if you're not working.
+///
+/// 跨天约定（与夜班提醒一致）：班次按结束日标记。夜班（前一晚 ~22:00 上岗、
+/// 当天早上 8 点下班）的 中→夜 交接发生在前一个日历日的晚上：
+/// - 夜班的前序（中班）查 date - 1
+/// - 中班的后继（夜班）查 date + 1
+/// - 早班两次交接都在同一天内，不受影响
+///
+/// Returns ShiftHandoverResult or null if you're not working.
 export function shiftHandover(
   date: Date,
   teamId: number,
   customCycle: ShiftType[] = DEFAULT_SHIFT_CYCLE,
   referenceDateStr: string = DEFAULT_REFERENCE_DATE
-): [number, number] | null {
+): ShiftHandoverResult | null {
   const myShift = getShiftTypeForDate(date, teamId, customCycle, referenceDateStr)
   if (isRestDay(myShift)) return null
 
@@ -108,15 +115,30 @@ export function shiftHandover(
   else if (myShift === ShiftType.AFTERNOON) { predShift = ShiftType.MORNING; succShift = ShiftType.NIGHT }
   else { predShift = ShiftType.AFTERNOON; succShift = ShiftType.MORNING } // NIGHT
 
+  // 跨天修正：中→夜 交接发生在我（或后继）上岗的前一晚
+  const msPerDay = 86400000
+  const predDate = myShift === ShiftType.NIGHT ? new Date(date.getTime() - msPerDay) : date
+  const succDate = succShift === ShiftType.NIGHT ? new Date(date.getTime() + msPerDay) : date
+
   let predTeam = 0, succTeam = 0
   for (let t = 1; t <= TOTAL_TEAMS; t++) {
     if (t === teamId) continue
-    const shift = getShiftTypeForDate(date, t, customCycle, referenceDateStr)
-    if (shift === predShift) predTeam = t
-    if (shift === succShift) succTeam = t
+    if (predTeam === 0 &&
+        getShiftTypeForDate(predDate, t, customCycle, referenceDateStr) === predShift) {
+      predTeam = t
+    }
+    if (succTeam === 0 &&
+        getShiftTypeForDate(succDate, t, customCycle, referenceDateStr) === succShift) {
+      succTeam = t
+    }
     if (predTeam > 0 && succTeam > 0) break
   }
 
-  if (predTeam > 0 && succTeam > 0) return [predTeam, succTeam]
+  if (predTeam > 0 && succTeam > 0) {
+    const result: ShiftHandoverResult = {
+      predTeam: predTeam, predShift: predShift, succTeam: succTeam, succShift: succShift
+    }
+    return result
+  }
   return null
 }

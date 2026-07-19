@@ -545,11 +545,9 @@ fn cmd_today(cli: &Cli, today: NaiveDate, config: &ShiftCycleConfig, offset: u32
     let handover = config.shift_handover(today, team);
     let lang = cli.lang.as_str();
 
-    let (pred_id, pred_team, pred_shift, succ_id, succ_team, succ_shift) = if let Some((p, s)) = handover {
-        let pred_info = get_shift_info(today, config, config.team_phase_offset(p));
-        let succ_info = get_shift_info(today, config, config.team_phase_offset(s));
-        (p, team_lbl(p, lang, config), full_lbl(pred_info.shift_type, lang, config).to_string(),
-         s, team_lbl(s, lang, config), full_lbl(succ_info.shift_type, lang, config).to_string())
+    let (pred_id, pred_team, pred_shift, succ_id, succ_team, succ_shift) = if let Some(ho) = handover {
+        (ho.predecessor_team, team_lbl(ho.predecessor_team, lang, config), full_lbl(ho.predecessor_shift, lang, config).to_string(),
+         ho.successor_team, team_lbl(ho.successor_team, lang, config), full_lbl(ho.successor_shift, lang, config).to_string())
     } else {
         (0, String::new(), String::new(), 0, String::new(), String::new())
     };
@@ -1129,13 +1127,11 @@ fn cmd_waybar(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, team: u3
     let stats = format!("{} · {} · {}", cycle_text, rest_text, consec_text);
 
     // Line 3: handover
-    let handover_text = if let Some((pred, succ)) = handover {
-        let pred_shift = get_shift_info(today, config, config.team_phase_offset(pred)).shift_type;
-        let succ_shift = get_shift_info(today, config, config.team_phase_offset(succ)).shift_type;
+    let handover_text = if let Some(ho) = handover {
         if is_zh {
-            format!("← 接{}({}) · {}({})接我的班 →", team_lbl(pred, lang, config), config.shift_label(pred_shift), team_lbl(succ, lang, config), config.shift_label(succ_shift))
+            format!("← 接{}({}) · {}({})接我的班 →", team_lbl(ho.predecessor_team, lang, config), config.shift_label(ho.predecessor_shift), team_lbl(ho.successor_team, lang, config), config.shift_label(ho.successor_shift))
         } else {
-            format!("← take over {}({}) · {}({}) closing →", team_lbl(pred, lang, config), pred_shift.label_en(), team_lbl(succ, lang, config), succ_shift.label_en())
+            format!("← take over {}({}) · {}({}) closing →", team_lbl(ho.predecessor_team, lang, config), ho.predecessor_shift.label_en(), team_lbl(ho.successor_team, lang, config), ho.successor_shift.label_en())
         }
     } else {
         if is_zh { "今日休息 · 无交接".to_string() } else { "Rest day · no handover".to_string() }
@@ -1238,19 +1234,17 @@ fn cmd_waybar_popup(today: NaiveDate, config: &ShiftCycleConfig, offset: u32, te
     println!();
 
     // Handover
-    if let Some((pred, succ)) = handover {
-        let pred_info = get_shift_info(today, config, config.team_phase_offset(pred));
-        let succ_info = get_shift_info(today, config, config.team_phase_offset(succ));
-        let pred_emoji = waybar_emoji(pred_info.shift_type);
-        let succ_emoji = waybar_emoji(succ_info.shift_type);
+    if let Some(ho) = handover {
+        let pred_emoji = waybar_emoji(ho.predecessor_shift);
+        let succ_emoji = waybar_emoji(ho.successor_shift);
         if is_zh {
             println!("{} ← 接{}({})  ·  {}({})接我的班 → {}",
-                pred_emoji, team_lbl(pred, lang, config), config.shift_label(pred_info.shift_type),
-                team_lbl(succ, lang, config), config.shift_label(succ_info.shift_type), succ_emoji);
+                pred_emoji, team_lbl(ho.predecessor_team, lang, config), config.shift_label(ho.predecessor_shift),
+                team_lbl(ho.successor_team, lang, config), config.shift_label(ho.successor_shift), succ_emoji);
         } else {
             println!("{} ← take over {}({})  ·  {}({}) closing → {}",
-                pred_emoji, team_lbl(pred, lang, config), pred_info.shift_type.label_en(),
-                team_lbl(succ, lang, config), succ_info.shift_type.label_en(), succ_emoji);
+                pred_emoji, team_lbl(ho.predecessor_team, lang, config), ho.predecessor_shift.label_en(),
+                team_lbl(ho.successor_team, lang, config), ho.successor_shift.label_en(), succ_emoji);
         }
     } else {
         if is_zh { println!("休息日 · 无交接") } else { println!("Rest day · no handover") };

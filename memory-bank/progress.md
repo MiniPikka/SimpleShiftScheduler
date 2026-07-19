@@ -1,3 +1,38 @@
+## 2026-07-19：交接班跨天修正 + ICS 夜班日期修正（Rust / Flutter / HarmonyOS 三端）✅
+
+### 问题（用户实报）
+
+7-19 夜班（一值）实际 7-18 晚 22:00 上岗、7-19 早 08:00 下班。旧交接班按日历日查前序/后继，导致：
+- 夜班显示的"接三值的班（中）"错误——三值是 7-19 中班，在你下班后才上岗；实际 7-18 22:00 接的是 **7-18 中班（二值）** 的班
+- 中班显示的"一值接我的班（夜）"错误——22:00 来接的是 **7-20 夜班（二值）**；一值那时已在家休息
+- 同一个班（18 日 22:00 → 19 日 08:00）期间卡片在 0 点翻页，且 22:00–24:00 显示的是当天早上已结束的那个班的信息
+
+**根因**：班次按**结束日**标记，中→夜 交接（~22:00）跨日历日。夜班提醒 2026-05-13 已按此约定修正（提前一天提醒），交接班和 ICS 导出漏改。
+
+### 修正（约定统一为"按结束日标记"）
+
+| 端 | 变更 |
+|----|------|
+| Rust `shift-algorithm` | `shift_handover()` 跨天查找：本班跨午夜（夜班）→ 前序查 date−1；后继班跨午夜（中班的后继是夜班）→ 后继查 date+1；早班不受影响。新增 `crosses_midnight()`（自定义时间 end ≤ start 即跨午夜，否则用默认 早08–16/中16–22/夜22–08），自定义时间不跨午夜时自动退回同日查找。返回值从 `Option<(u32,u32)>` 改为 `Option<ShiftHandover>`（含交接时刻双方班次类型），根除 4 个消费方（today/waybar/waybar-popup/TUI/serve）"按今天反查对方班次"的二次错误 |
+| Rust `shift-export` | 夜班事件 DTSTART 从"标记日 22:00"改为"前一日 22:00 → 标记日 08:00"；早/中班时间对齐为 08:00–16:00 / 16:00–22:00（消除原 07–15/14–22 的重叠），VALARM start_min 同步 |
+| Flutter Dart | `findShiftHandover()` 同样跨天修正，返回 record `(predTeam, predShift, succTeam, succShift)`；`home_state.dart` 改用返回的班次类型（移除按今天反查）；`colleague_mode_screen.dart` 适配 |
+| HarmonyOS | `shiftHandover()` 同样修正，返回新接口 `ShiftHandoverResult`（ShiftModels.ets）；`HomeScreen.ets` 适配；`verify-harmony.sh` 字段访问适配 |
+
+### 验证
+
+- Rust：57 lib tests（新增 5：三班次真实日期用例 + 120 天×6 班组交接双方对称性不变量 + 非跨午夜自定义时间回退）+ 21 doctests 全过，clippy 零警告
+- shift-export：11 tests 全过（夜班事件日期断言 + 防回归断言）
+- Flutter：115 tests 全过（新增 5），analyze 零新增问题
+- HarmonyOS ↔ Rust 交叉验证：185/185 PASS（verify-harmony.sh）
+- 实测 `banban -t 1 today`（7-19 夜班）：接二值（中班）· 四值接我的班（早班）✓ 与物理交接一致
+
+### 已知遗留（未改，记录在案）
+
+- `banban notify`：夜班提醒仍在标记日 21:45 触发（物理上相当于给"次日夜班"提醒，连班时巧合正确； Flutter 端已正确提前一天）。如需对齐需改 systemd timer 语义，另行评估
+- 首页"今天"概念仍按日历日：夜班下班当天（08:00 后）和上岗当晚（22:00 后）显示的仍是标记日班次。改为"当前进行中的班"属更大产品决策，影响所有视图/小组件，未动
+
+---
+
 ## 2026-06-30：HarmonyOS DevEco Studio 构建修复 + 双系统环境
 
 ### HarmonyOS 构建错误修复 ✅

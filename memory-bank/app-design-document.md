@@ -934,7 +934,7 @@ banban export --ics --output ~/my_shift_schedule.ics
 - RRULE 压缩：42 天周期 → 6 个 VEVENT（每种不同班次+班组组合一个）
 - 时区：明确标注 Asia/Shanghai（UTC+8）
 - VALARM：使用用户配置的提醒时间，提前 N 分钟触发
-- 夜班跨日：夜班 DTSTART 为当晚，DTEND 为次日早上
+- 夜班跨日：夜班按结束日标记，DTSTART 为前一晚 22:00，DTEND 为标记日早上 08:00（与夜班提醒提前一天同一约定）
 - 节假日覆盖：法定节假日用 EXDATE 排除，调休工作日覆盖为实际班次
 
 ### C.4.2 CLI 工具

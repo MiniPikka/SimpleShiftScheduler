@@ -147,8 +147,11 @@ pub struct ShiftInfo {
 
 /// Time range for a work shift (e.g. 08:00–16:00).
 ///
-/// Used for handover ordering and UI display. `crosses_midnight` is true
-/// for night shifts that end the next day (e.g. 00:00–08:00).
+/// Used for handover ordering and UI display. A range whose end is not later
+/// than its start (e.g. night 22:00–08:00) is considered to **cross midnight
+/// backward**: it physically begins on the previous calendar evening and ends
+/// on its label date — the same convention the night-shift reminders use.
+/// See [`ShiftCycleConfig::shift_handover`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShiftTimeRange {
     /// Start time in "HH:MM" format (e.g. "08:00").
@@ -169,6 +172,24 @@ pub struct ShiftCustomization {
     /// Custom time ranges for work shifts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub times: Option<std::collections::HashMap<ShiftType, ShiftTimeRange>>,
+}
+
+/// Detailed handover for a team on a given date.
+///
+/// Returned by [`ShiftCycleConfig::shift_handover`]. The shift types describe
+/// what the other team is working **at the moment of the handover**, which for
+/// night shifts may fall on a neighboring calendar date (see
+/// [`ShiftCycleConfig::shift_handover`] for the cross-midnight convention).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShiftHandover {
+    /// The team whose shift you take over from.
+    pub predecessor_team: u32,
+    /// The shift the predecessor is working when you take over.
+    pub predecessor_shift: ShiftType,
+    /// The team that takes over from you.
+    pub successor_team: u32,
+    /// The shift the successor is working when they take over.
+    pub successor_shift: ShiftType,
 }
 
 /// Runtime shift cycle configuration.
@@ -453,14 +474,52 @@ impl ShiftCycleConfig {
         (team_id - 1) * (self.cycle_length / self.total_teams)
     }
 
+    /// Whether a shift's working hours **cross midnight backward**: it starts
+    /// on the previous calendar evening and ends on the morning of its label
+    /// date (e.g. night 22:00–08:00 labeled by the day it ends).
+    ///
+    /// This is the same convention the night-shift reminders use (a reminder
+    /// for a night shift labeled day D is sent on the evening of D−1).
+    ///
+    /// Uses the configured custom time for the shift if present, otherwise the
+    /// built-in defaults: morning 08:00–16:00, afternoon 16:00–22:00,
+    /// night 22:00–08:00. Rest/Study never cross midnight.
+    fn crosses_midnight(&self, shift: ShiftType) -> bool {
+        let (start, end) = match self.shift_time(shift) {
+            Some(tr) => (parse_time_to_minutes(&tr.start), parse_time_to_minutes(&tr.end)),
+            None => match shift {
+                ShiftType::Morning => (8 * 60, 16 * 60),
+                ShiftType::Afternoon => (16 * 60, 22 * 60),
+                ShiftType::Night => (22 * 60, 8 * 60),
+                _ => return false,
+            },
+        };
+        end <= start
+    }
+
     /// Find which team you take over from and which team takes over from you.
     ///
-    /// Shift handover happens **within a single day** between different shift types:
+    /// Shift handover happens between different shift types:
     /// - 夜 → 早 → 中 → 夜 (cyclical)
     /// - If you are on 休 or 学, there is no handover (you're not working).
     ///
-    /// Returns `(predecessor_team_id, successor_team_id)` — the teams whose shifts
-    /// you take over from and who takes over from you, respectively.
+    /// # Cross-midnight convention
+    ///
+    /// Shifts are labeled by the date they **end** on. A shift whose hours
+    /// cross midnight backward (see [`Self::crosses_midnight`], e.g. the night
+    /// shift 22:00–08:00) physically starts on the previous calendar evening.
+    /// The handover lookups account for this:
+    ///
+    /// - If **your** shift crosses midnight (night): you take over at ~22:00 on
+    ///   the *previous* calendar date, so the predecessor (中班) is looked up
+    ///   on `date − 1`.
+    /// - If your **successor's** shift crosses midnight (i.e. you are on 中班):
+    ///   they take over at ~22:00 on your date, which belongs to the night
+    ///   shift labeled `date + 1`, so the successor (夜班) is looked up there.
+    /// - 早班 handovers both fall within the same date and are unaffected.
+    ///
+    /// Returns a [`ShiftHandover`] with the teams and their shift types **at
+    /// the moment of each handover**.
     ///
     /// ```rust
     /// use shift_algorithm::cycle::default_config;
@@ -471,15 +530,16 @@ impl ShiftCycleConfig {
     ///
     /// // If team 1 is working 早班 today, predecessor should be the team on 夜班,
     /// // successor should be the team on 中班.
-    /// if let Some((pred, succ)) = config.shift_handover(date, 1) {
-    ///     println!("Take over from team {}, hand over to team {}", pred, succ);
+    /// if let Some(ho) = config.shift_handover(date, 1) {
+    ///     println!("Take over from team {}, hand over to team {}",
+    ///         ho.predecessor_team, ho.successor_team);
     /// }
     /// ```
     pub fn shift_handover(
         &self,
         date: chrono::NaiveDate,
         team_id: u32,
-    ) -> Option<(u32, u32)> {
+    ) -> Option<ShiftHandover> {
         use crate::calculator::get_shift_type_for_date;
 
         let my_shift = get_shift_type_for_date(date, self, self.team_phase_offset(team_id));
@@ -489,7 +549,22 @@ impl ShiftCycleConfig {
 
         let (pred_shift, succ_shift) = self.handover_shifts(my_shift);
 
-        // Scan all teams to find who is on pred_shift / succ_shift today
+        // Adjust for shifts that physically start on the previous evening:
+        // the handover with the predecessor happens at *my* start time,
+        // the handover with the successor at *their* start time.
+        let pred_date = if self.crosses_midnight(my_shift) {
+            date - chrono::Duration::days(1)
+        } else {
+            date
+        };
+        let succ_date = if self.crosses_midnight(succ_shift) {
+            date + chrono::Duration::days(1)
+        } else {
+            date
+        };
+
+        // Scan all teams to find who is on pred_shift / succ_shift on the
+        // relevant handover dates.
         let mut pred_team: Option<u32> = None;
         let mut succ_team: Option<u32> = None;
 
@@ -497,11 +572,15 @@ impl ShiftCycleConfig {
             if t == team_id {
                 continue;
             }
-            let shift = get_shift_type_for_date(date, self, self.team_phase_offset(t));
-            if shift == pred_shift {
+            let offset = self.team_phase_offset(t);
+            if pred_team.is_none()
+                && get_shift_type_for_date(pred_date, self, offset) == pred_shift
+            {
                 pred_team = Some(t);
             }
-            if shift == succ_shift {
+            if succ_team.is_none()
+                && get_shift_type_for_date(succ_date, self, offset) == succ_shift
+            {
                 succ_team = Some(t);
             }
             if pred_team.is_some() && succ_team.is_some() {
@@ -510,7 +589,12 @@ impl ShiftCycleConfig {
         }
 
         match (pred_team, succ_team) {
-            (Some(p), Some(s)) => Some((p, s)),
+            (Some(p), Some(s)) => Some(ShiftHandover {
+                predecessor_team: p,
+                predecessor_shift: pred_shift,
+                successor_team: s,
+                successor_shift: succ_shift,
+            }),
             _ => None,
         }
     }
@@ -803,6 +887,127 @@ mod tests {
         assert_eq!(parse_time_to_minutes("08:30"), 510);
         assert_eq!(parse_time_to_minutes("00:00"), 0);
         assert_eq!(parse_time_to_minutes("23:59"), 1439);
+    }
+
+    // ── Cross-midnight handover ──
+    //
+    // Verified against the plant schedule (July 2026, default config):
+    //   07-17: 一值休 二值中 三值早 四值休
+    //   07-18: 一值夜 二值中 三值早 四值休
+    //   07-19: 一值夜 二值休 三值中 四值早
+    //   07-20: 一值休 二值夜 三值休 四值中
+    // The night shift labeled 07-19 physically runs 07-18 22:00 → 07-19 08:00.
+
+    #[test]
+    fn night_handover_predecessor_from_previous_evening() {
+        let config = default_config();
+        // Team 1 night on 2026-07-19 starts 07-18 ~22:00, taking over from
+        // the 07-18 afternoon team (二值), NOT the 07-19 afternoon team (三值).
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 19).unwrap();
+        let ho = config.shift_handover(date, 1).unwrap();
+        assert_eq!(ho.predecessor_team, 2);
+        assert_eq!(ho.predecessor_shift, ShiftType::Afternoon);
+        // Handing over at 08:00 on 07-19 to that day's morning team (四值).
+        assert_eq!(ho.successor_team, 4);
+        assert_eq!(ho.successor_shift, ShiftType::Morning);
+    }
+
+    #[test]
+    fn afternoon_handover_successor_is_next_day_night_team() {
+        let config = default_config();
+        // Team 3 afternoon on 2026-07-19 ends ~22:00; the night team starting
+        // then is labeled 07-20 (二值), not the 07-19 night team (一值, who is
+        // already home asleep).
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 19).unwrap();
+        let ho = config.shift_handover(date, 3).unwrap();
+        assert_eq!(ho.predecessor_team, 4);
+        assert_eq!(ho.predecessor_shift, ShiftType::Morning);
+        assert_eq!(ho.successor_team, 2);
+        assert_eq!(ho.successor_shift, ShiftType::Night);
+    }
+
+    #[test]
+    fn morning_handover_stays_within_same_day() {
+        let config = default_config();
+        // Morning handovers (08:00 in, 16:00 out) never cross dates.
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 19).unwrap();
+        let ho = config.shift_handover(date, 4).unwrap();
+        assert_eq!(ho.predecessor_team, 1);
+        assert_eq!(ho.predecessor_shift, ShiftType::Night);
+        assert_eq!(ho.successor_team, 3);
+        assert_eq!(ho.successor_shift, ShiftType::Afternoon);
+    }
+
+    #[test]
+    fn handover_symmetric_across_midnight_boundary() {
+        use crate::calculator::get_shift_type_for_date;
+        let config = default_config();
+        let start = default_reference_date();
+
+        // For ~3 full cycles: the two sides of every physical handover must
+        // agree — if A hands over to B, then B must report taking over from A.
+        for day in 0..120i64 {
+            let date = start + chrono::Duration::days(day);
+            for team in 1..=config.total_teams {
+                let my = get_shift_type_for_date(date, &config, config.team_phase_offset(team));
+                let Some(ho) = config.shift_handover(date, team) else { continue };
+
+                match my {
+                    ShiftType::Afternoon => {
+                        // 中→夜 boundary at ~22:00: successor works the night
+                        // labeled date+1, and names me as predecessor.
+                        let next = date + chrono::Duration::days(1);
+                        assert_eq!(
+                            get_shift_type_for_date(next, &config, config.team_phase_offset(ho.successor_team)),
+                            ShiftType::Night,
+                            "succ of afternoon team {team} on {date} should be night on {next}"
+                        );
+                        let back = config.shift_handover(next, ho.successor_team).unwrap();
+                        assert_eq!(back.predecessor_team, team,
+                            "night team {} on {next} should take over from afternoon team {team} on {date}",
+                            ho.successor_team);
+                    }
+                    ShiftType::Night => {
+                        // 夜→早 boundary at 08:00 same date.
+                        let back = config.shift_handover(date, ho.successor_team).unwrap();
+                        assert_eq!(back.predecessor_team, team,
+                            "morning team {} on {date} should take over from night team {team}",
+                            ho.successor_team);
+                    }
+                    ShiftType::Morning => {
+                        // 早→中 boundary at 16:00 same date.
+                        let back = config.shift_handover(date, ho.successor_team).unwrap();
+                        assert_eq!(back.predecessor_team, team,
+                            "afternoon team {} on {date} should take over from morning team {team}",
+                            ho.successor_team);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn night_without_midnight_crossing_uses_same_day() {
+        // Custom night 00:00–08:00 does NOT cross midnight backward — the
+        // handover falls back to same-date lookup even when teams differ
+        // between the two dates (07-18 afternoon = 二值, 07-19 = 三值).
+        let mut times = std::collections::HashMap::new();
+        times.insert(ShiftType::Night, ShiftTimeRange {
+            start: "00:00".into(), end: "08:00".into(),
+        });
+        let config = ShiftCycleConfig {
+            cycle: default_shift_cycle(),
+            cycle_length: 42,
+            reference_date: default_reference_date(),
+            total_teams: 6,
+            team_names: None,
+            customization: ShiftCustomization { labels: None, times: Some(times) },
+        };
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 7, 19).unwrap();
+        let ho = config.shift_handover(date, 1).unwrap();
+        assert_eq!(ho.predecessor_team, 3); // same-date afternoon team
+        assert_eq!(ho.successor_team, 4);
     }
 
     #[test]

@@ -23,8 +23,10 @@ pub type AlarmConfig = HashMap<String, (u32, u32)>;
 
 /// Generate an ICS calendar file covering a date range.
 ///
-/// One VEVENT per day. Night shifts cross midnight (DTSTART 22:00 → DTEND next day 06:00).
-/// Rest/Study are all-day events. Morning/Afternoon have configurable start times.
+/// One VEVENT per day. Shifts are labeled by the date they **end** on, so a
+/// night shift labeled day D physically runs D−1 22:00 → D 08:00 (the same
+/// convention the night-shift reminders use). Morning 08:00–16:00, afternoon
+/// 16:00–22:00. Rest/Study are all-day events.
 pub fn generate_shift_ics(
     start_date: NaiveDate,
     end_date: NaiveDate,
@@ -80,14 +82,16 @@ pub fn generate_shift_ics(
     while cursor <= end_date {
         let shift_type = get_shift_type_for_date(cursor, config, team_phase_offset);
 
-        let (start_hhmm, end_hhmm, end_date) = match shift_type {
-            ShiftType::Morning => ("070000", "150000", cursor),
-            ShiftType::Afternoon => ("140000", "220000", cursor),
-            ShiftType::Night => ("220000", "060000", cursor + chrono::Duration::days(1)),
-            ShiftType::Rest | ShiftType::Study => ("000000", "235900", cursor),
+        let (start_hhmm, end_hhmm, start_date, end_date) = match shift_type {
+            ShiftType::Morning => ("080000", "160000", cursor, cursor),
+            ShiftType::Afternoon => ("160000", "220000", cursor, cursor),
+            // Night shifts start on the previous calendar evening (~22:00) and
+            // end on the morning of their label date (08:00).
+            ShiftType::Night => ("220000", "080000", cursor - chrono::Duration::days(1), cursor),
+            ShiftType::Rest | ShiftType::Study => ("000000", "235900", cursor, cursor),
         };
 
-        let dtstart = format!("{}T{}", cursor.format("%Y%m%d"), start_hhmm);
+        let dtstart = format!("{}T{}", start_date.format("%Y%m%d"), start_hhmm);
         let dtend = format!("{}T{}", end_date.format("%Y%m%d"), end_hhmm);
 
         let summary = format!("{} · {}", config.shift_full_label(shift_type), config.team_name(team_id));
@@ -118,8 +122,8 @@ pub fn generate_shift_ics(
             let key = shift_alarm_key(&shift_type);
             if let Some((hour, minute)) = alarm_cfg.get(&key) {
                 let shift_start_min = match shift_type {
-                    ShiftType::Morning => 7 * 60,
-                    ShiftType::Afternoon => 14 * 60,
+                    ShiftType::Morning => 8 * 60,
+                    ShiftType::Afternoon => 16 * 60,
                     ShiftType::Night => 22 * 60,
                     _ => 9 * 60,
                 };
@@ -219,14 +223,17 @@ mod tests {
     }
 
     #[test]
-    fn night_shift_crosses_midnight() {
+    fn night_shift_starts_previous_evening() {
         let config = default_config();
-        // 2026-05-22 is Night for team 1
+        // 2026-05-22 is Night for team 1. Night shifts are labeled by the date
+        // they END on: they physically run 05-21 22:00 → 05-22 08:00.
         let date = NaiveDate::from_ymd_opt(2026, 5, 22).unwrap();
         let ics = generate_shift_ics(date, date, &config, 0, 1, None, "Asia/Shanghai");
 
-        assert!(ics.contains("DTSTART;TZID=Asia/Shanghai:20260522T220000"));
-        assert!(ics.contains("DTEND;TZID=Asia/Shanghai:20260523T060000"));
+        assert!(ics.contains("DTSTART;TZID=Asia/Shanghai:20260521T220000"));
+        assert!(ics.contains("DTEND;TZID=Asia/Shanghai:20260522T080000"));
+        // Regression: must NOT start on the label date's evening.
+        assert!(!ics.contains("DTSTART;TZID=Asia/Shanghai:20260522T220000"));
     }
 
     #[test]
@@ -236,8 +243,8 @@ mod tests {
         let date = NaiveDate::from_ymd_opt(2025, 12, 15).unwrap();
         let ics = generate_shift_ics(date, date, &config, 0, 1, None, "Asia/Shanghai");
 
-        assert!(ics.contains("DTSTART;TZID=Asia/Shanghai:20251215T070000"));
-        assert!(ics.contains("DTEND;TZID=Asia/Shanghai:20251215T150000"));
+        assert!(ics.contains("DTSTART;TZID=Asia/Shanghai:20251215T080000"));
+        assert!(ics.contains("DTEND;TZID=Asia/Shanghai:20251215T160000"));
     }
 
     #[test]

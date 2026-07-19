@@ -71,8 +71,8 @@ async function main() {
   for (const ds of ['2025-12-15','2026-06-28','2026-01-26','2026-03-15']) {
     const r = await http(`/shift/${ds}`)
     const ho = shiftHandover(new Date(ds + 'T00:00:00'), 1)
-    check(`ho[${ds}] pred`, ho ? ho[0] : 0, r.predecessor_team_id)
-    check(`ho[${ds}] succ`, ho ? ho[1] : 0, r.successor_team_id)
+    check(`ho[${ds}] pred`, ho ? ho.predTeam : 0, r.predecessor_team_id)
+    check(`ho[${ds}] succ`, ho ? ho.succTeam : 0, r.successor_team_id)
   }
   // C. multi-team today
   for (let t = 1; t <= 6; t++) {

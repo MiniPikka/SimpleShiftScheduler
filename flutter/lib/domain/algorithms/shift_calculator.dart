@@ -95,16 +95,34 @@ int teamPhaseOffsetFor(int teamId, {List<ShiftType>? customCycle}) {
   return (teamId - 1) * step;
 }
 
-/// 计算当天交接班关系 — 基于班次类型而非班组编号。
+/// 交接班查询结果 — 班组及交接时刻对方所在的班次类型。
 ///
-/// 同一天内不同班次类型之间的交接顺序：夜 → 早 → 中 → 夜
+/// 班次类型必须取交接时刻的班次，而非查询日当天的班次：
+/// 例如 7-19 夜班（7-18 晚 22:00 上岗）的前序班组二值在 7-19 当天是休班，
+/// 但交接时他在上 7-18 的中班。
+typedef ShiftHandover = ({
+  int predTeam,
+  ShiftType predShift,
+  int succTeam,
+  ShiftType succShift,
+});
+
+/// 计算交接班关系 — 基于班次类型而非班组编号。
+///
+/// 交接顺序：夜 → 早 → 中 → 夜
 /// - 如果你是早班：你接夜班的班，中班接你的班
 /// - 如果你是中班：你接早班的班，夜班接你的班
 /// - 如果你是夜班：你接中班的班，早班接你的班
 /// - 如果你是休/学：不上班，没有交接
 ///
-/// 返回 `(前序班组ID, 后继班组ID)` 或 `null`（休息/学习日）。
-(int, int)? findShiftHandover({
+/// 跨天约定（与夜班提醒一致）：班次按结束日标记。夜班（前一晚 ~22:00 上岗、
+/// 当天早上 8 点下班）的 中→夜 交接发生在前一个日历日的晚上：
+/// - 夜班的前序（中班）查 `date - 1`
+/// - 中班的后继（夜班）查 `date + 1`
+/// - 早班两次交接都在同一天内，不受影响
+///
+/// 返回 [ShiftHandover] 或 `null`（休息/学习日）。
+ShiftHandover? findShiftHandover({
   required DateTime date,
   required int teamId,
   List<ShiftType>? customCycle,
@@ -132,22 +150,45 @@ int teamPhaseOffsetFor(int teamId, {List<ShiftType>? customCycle}) {
     _ => throw StateError('unreachable'),
   };
 
-  // 遍历所有班组，找到今天上前序/后继班次类型的班组
+  // 跨天修正：中→夜 交接发生在我（或后继）上岗的前一晚
+  final predDate = myShift == ShiftType.NIGHT
+      ? date.subtract(const Duration(days: 1))
+      : date;
+  final succDate = succShift == ShiftType.NIGHT
+      ? date.add(const Duration(days: 1))
+      : date;
+
+  // 遍历所有班组，找到交接日当天上前序/后继班次类型的班组
   int? predTeam, succTeam;
   for (var t = 1; t <= Team.totalTeams; t++) {
     if (t == teamId) continue;
     final offset = teamPhaseOffsetFor(t, customCycle: customCycle);
-    final shift = getShiftTypeForDate(date,
-        teamPhaseOffset: offset,
-        customCycle: customCycle,
-        referenceDate: referenceDate);
-    if (shift == predShift) predTeam = t;
-    if (shift == succShift) succTeam = t;
+    if (predTeam == null &&
+        getShiftTypeForDate(predDate,
+            teamPhaseOffset: offset,
+            customCycle: customCycle,
+            referenceDate: referenceDate) ==
+        predShift) {
+      predTeam = t;
+    }
+    if (succTeam == null &&
+        getShiftTypeForDate(succDate,
+            teamPhaseOffset: offset,
+            customCycle: customCycle,
+            referenceDate: referenceDate) ==
+        succShift) {
+      succTeam = t;
+    }
     if (predTeam != null && succTeam != null) break;
   }
 
   if (predTeam != null && succTeam != null) {
-    return (predTeam, succTeam);
+    return (
+      predTeam: predTeam,
+      predShift: predShift,
+      succTeam: succTeam,
+      succShift: succShift,
+    );
   }
   return null;
 }

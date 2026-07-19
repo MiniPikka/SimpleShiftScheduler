@@ -64,6 +64,19 @@ export interface CommonRestResult {
   countIn60Days: number
 }
 
+/**
+ * 交接班查询结果 — 班组及交接时刻对方所在的班次类型。
+ * 班次类型必须取交接时刻的班次，而非查询日当天的班次：
+ * 例如 7-19 夜班（7-18 晚 22:00 上岗）的前序班组二值在 7-19 当天是休班，
+ * 但交接时他在上 7-18 的中班。
+ */
+export interface ShiftHandoverResult {
+  predTeam: number
+  predShift: ShiftType
+  succTeam: number
+  succShift: ShiftType
+}
+
 export interface HomeState {
   shiftType: ShiftType
   dayOfCycle: number

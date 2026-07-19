@@ -152,7 +152,8 @@ class HomeNotifier extends Notifier<HomeState> {
     final alarmTimeOfShift = alarmSettings?.alarms[shiftInfo.shiftType];
     final alarmTimeStr = alarmTimeOfShift?.serialize();
 
-    // 交接班：基于班次类型，找今天哪个班组上前序/后继班次
+    // 交接班：基于班次类型，找交接时刻上前序/后继班次的班组
+    // （夜班跨天：前序中班查前一晚、后继逻辑详见 findShiftHandover）
     final handover = findShiftHandover(
       date: now,
       teamId: teamId,
@@ -169,20 +170,10 @@ class HomeNotifier extends Notifier<HomeState> {
       monthTotalDays: monthDays,
       consecutiveWorkDays: consecWork,
       alarmTime: alarmTimeStr,
-      predecessorTeamId: handover?.$1 ?? 0,
-      predecessorShiftType: handover != null
-          ? getShiftTypeForDate(now,
-              teamPhaseOffset: teamPhaseOffsetFor(handover.$1, customCycle: cycle),
-              customCycle: cycle,
-              referenceDate: refDate)
-          : ShiftType.REST,
-      successorTeamId: handover?.$2 ?? 0,
-      successorShiftType: handover != null
-          ? getShiftTypeForDate(now,
-              teamPhaseOffset: teamPhaseOffsetFor(handover.$2, customCycle: cycle),
-              customCycle: cycle,
-              referenceDate: refDate)
-          : ShiftType.REST,
+      predecessorTeamId: handover?.predTeam ?? 0,
+      predecessorShiftType: handover?.predShift ?? ShiftType.REST,
+      successorTeamId: handover?.succTeam ?? 0,
+      successorShiftType: handover?.succShift ?? ShiftType.REST,
     );
   }
 

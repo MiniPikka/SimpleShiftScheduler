@@ -71,12 +71,12 @@ export struct HomeScreen {
     const phase = (teamId - 1) * Math.floor(cycle.length / 6)
     const dayOfCycle = ((offset + phase) % cycle.length + cycle.length) % cycle.length + 1
 
-    // 交接班：基于班次类型（夜→早→中→夜）
+    // 交接班：基于班次类型（夜→早→中→夜），夜班跨天已修正（详见 shiftHandover）
     const handover = shiftHandover(today, teamId, cycle, refDate)
-    const predId = handover ? handover[0] : 0
-    const predShift = handover ? getShiftTypeForDate(today, predId, cycle, refDate) : ShiftType.REST
-    const succId = handover ? handover[1] : 0
-    const succShift = handover ? getShiftTypeForDate(today, succId, cycle, refDate) : ShiftType.REST
+    const predId = handover ? handover.predTeam : 0
+    const predShift = handover ? handover.predShift : ShiftType.REST
+    const succId = handover ? handover.succTeam : 0
+    const succShift = handover ? handover.succShift : ShiftType.REST
 
     const y = today.getFullYear()
     const m = today.getMonth() + 1

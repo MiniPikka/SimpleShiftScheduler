@@ -164,11 +164,9 @@ async fn shift_for_date(
     let consecutive = consecutive_work_days(date, &state.cycle_config, state.offset);
     let handover = state.cycle_config.shift_handover(date, state.team);
 
-    let (pred_id, pred_team, pred_zh, pred_en, succ_id, succ_team, succ_zh, succ_en) = if let Some((p, s)) = handover {
-        let pred_info = get_shift_info(date, &state.cycle_config, state.cycle_config.team_phase_offset(p));
-        let succ_info = get_shift_info(date, &state.cycle_config, state.cycle_config.team_phase_offset(s));
-        (p, team_label(p), shift_label_zh(pred_info.shift_type).to_string(), shift_label(pred_info.shift_type).to_string(),
-         s, team_label(s), shift_label_zh(succ_info.shift_type).to_string(), shift_label(succ_info.shift_type).to_string())
+    let (pred_id, pred_team, pred_zh, pred_en, succ_id, succ_team, succ_zh, succ_en) = if let Some(ho) = handover {
+        (ho.predecessor_team, team_label(ho.predecessor_team), shift_label_zh(ho.predecessor_shift).to_string(), shift_label(ho.predecessor_shift).to_string(),
+         ho.successor_team, team_label(ho.successor_team), shift_label_zh(ho.successor_shift).to_string(), shift_label(ho.successor_shift).to_string())
     } else {
         (0, String::new(), String::new(), String::new(), 0, String::new(), String::new(), String::new())
     };

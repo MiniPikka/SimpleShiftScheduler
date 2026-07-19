@@ -228,17 +228,15 @@ fn draw_today(f: &mut Frame, area: Rect, app: &App) {
         Span::raw("  │  "),
         Span::raw(format!("{} {}d", streak_label, consec)),
     ];
-    if let Some((pred, succ)) = handover {
-        let pred_info = get_shift_info(app.today, &app.config, app.config.team_phase_offset(pred));
-        let succ_info = get_shift_info(app.today, &app.config, app.config.team_phase_offset(succ));
+    if let Some(ho) = handover {
         let handover_line = if app.is_zh() {
             format!("\n  ← 接{}({})  ·  {}({})接我的班 →",
-                app.team_str(pred), app.lbl(pred_info.shift_type),
-                app.team_str(succ), app.lbl(succ_info.shift_type))
+                app.team_str(ho.predecessor_team), app.lbl(ho.predecessor_shift),
+                app.team_str(ho.successor_team), app.lbl(ho.successor_shift))
         } else {
             format!("\n  ← take over {}({})  ·  {}({}) closing →",
-                app.team_str(pred), app.lbl(pred_info.shift_type),
-                app.team_str(succ), app.lbl(succ_info.shift_type))
+                app.team_str(ho.predecessor_team), app.lbl(ho.predecessor_shift),
+                app.team_str(ho.successor_team), app.lbl(ho.successor_shift))
         };
         stats_text.push(Span::raw(handover_line));
     }
