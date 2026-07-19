@@ -23,6 +23,7 @@ class ShiftWidgetProvider : AppWidgetProvider() {
             val tomorrowLabel = prefs.getString("tomorrow_shift_label", "") ?: ""
             val badgeColorStr = prefs.getString("shift_badge_color", "#7C5CFF") ?: "#7C5CFF"
             val dotColorStr = prefs.getString("tomorrow_dot_color", "#7C5CFF") ?: "#7C5CFF"
+            val handoverText = prefs.getString("handover_text", "") ?: ""
             val badgeColor = try { Color.parseColor(badgeColorStr) } catch (_: Exception) { Color.parseColor("#7C5CFF") }
             val dotColor = try { Color.parseColor(dotColorStr) } catch (_: Exception) { Color.parseColor("#7C5CFF") }
 
@@ -44,7 +45,6 @@ class ShiftWidgetProvider : AppWidgetProvider() {
                         // Unconfigured state
                         setTextViewText(R.id.widget_shift_badge, "?")
                         setTextViewText(R.id.widget_team_name, "倒班助手")
-                        setTextViewText(R.id.widget_progress, "请先设置排班规则")
                         setTextViewText(R.id.widget_rest, "")
                         setTextViewText(R.id.widget_date, "")
                         setTextViewText(R.id.widget_tomorrow_label, "")
@@ -52,16 +52,15 @@ class ShiftWidgetProvider : AppWidgetProvider() {
                             setInt(R.id.widget_shift_badge, "setBackgroundColor", Color.parseColor("#4B5563"))
                         } catch (_: Exception) {}
                         setViewVisibility(R.id.widget_tomorrow, android.view.View.GONE)
+                        setViewVisibility(R.id.widget_handover, android.view.View.GONE)
                     } else {
                         setTextViewText(R.id.widget_shift_badge, shift)
-                        setTextViewText(R.id.widget_team_name, team)
-                        setTextViewText(R.id.widget_progress, "$date | $progress")
+                        setTextViewText(R.id.widget_team_name, "$team · $progress")
                         setTextViewText(R.id.widget_rest, rest)
                         setTextViewText(R.id.widget_date, date)
                         if (tomorrowLabel.isNotEmpty()) {
                             setTextViewText(R.id.widget_tomorrow_label, "明日: $tomorrowLabel")
                             setViewVisibility(R.id.widget_tomorrow, android.view.View.VISIBLE)
-                            // Set dot color via reflection (best-effort on TextView background)
                             try {
                                 setInt(R.id.widget_tomorrow_dot, "setBackgroundColor", dotColor)
                             } catch (_: Exception) {}
@@ -69,7 +68,15 @@ class ShiftWidgetProvider : AppWidgetProvider() {
                             setViewVisibility(R.id.widget_tomorrow, android.view.View.GONE)
                         }
 
-                        // Badge background color (best-effort via reflection)
+                        // Handover info
+                        if (handoverText.isNotEmpty()) {
+                            setTextViewText(R.id.widget_handover, handoverText)
+                            setViewVisibility(R.id.widget_handover, android.view.View.VISIBLE)
+                        } else {
+                            setViewVisibility(R.id.widget_handover, android.view.View.GONE)
+                        }
+
+                        // Badge background color
                         try {
                             setInt(R.id.widget_shift_badge, "setBackgroundColor", badgeColor)
                         } catch (_: Exception) {}

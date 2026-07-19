@@ -43,7 +43,7 @@ class HomeScreen extends ConsumerWidget {
         teamNameResolver: (id) => localizedTeamName(id, l10n),
         dateFormatter: (d) => l10n.monthDayWeekday(d.month, d.day, localizedWeekday(d.weekday, l10n)),
       );
-      final fp = '${wd.shiftLabel}|${wd.teamName}|${wd.dateLabel}|${wd.dayOfCycle}|${wd.totalDays}|${wd.daysUntilRest}|${wd.tomorrowShiftLabel}';
+      final fp = '${wd.shiftLabel}|${wd.teamName}|${wd.dateLabel}|${wd.dayOfCycle}|${wd.totalDays}|${wd.daysUntilRest}|${wd.tomorrowShiftLabel}|${wd.handoverText}';
       if (fp == _lastWidgetFingerprint) return;
       _lastWidgetFingerprint = fp;
       WidgetService.update(
@@ -55,6 +55,7 @@ class HomeScreen extends ConsumerWidget {
         tomorrowShiftLabel: wd.tomorrowShiftLabel,
         shiftBadgeColor: shiftColor(wd.shiftType).toHex(),
         tomorrowDotColor: shiftColor(wd.tomorrowShiftType).toHex(),
+        handoverText: wd.handoverText,
       );
     });
 

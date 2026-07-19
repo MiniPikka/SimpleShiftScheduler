@@ -34,6 +34,7 @@ class MainActivity : FlutterActivity() {
                         putString("tomorrow_shift_label", args["tomorrow_shift_label"] as? String ?: "")
                         putString("shift_badge_color", args["shift_badge_color"] as? String ?: "#7C5CFF")
                         putString("tomorrow_dot_color", args["tomorrow_dot_color"] as? String ?: "#7C5CFF")
+                        putString("handover_text", args["handover_text"] as? String ?: "")
                         apply()
                     }
                     // Notify widget to refresh

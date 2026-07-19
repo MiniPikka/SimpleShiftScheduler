@@ -20,6 +20,7 @@ class WidgetService {
     required String tomorrowShiftLabel,
     required String shiftBadgeColor,
     required String tomorrowDotColor,
+    String handoverText = '',
   }) async {
     if (!Platform.isAndroid) return;
     try {
@@ -32,6 +33,7 @@ class WidgetService {
         'tomorrow_shift_label': tomorrowShiftLabel,
         'shift_badge_color': shiftBadgeColor,
         'tomorrow_dot_color': tomorrowDotColor,
+        'handover_text': handoverText,
       });
     } catch (e) {
       debugPrint('WidgetService: update failed — $e');

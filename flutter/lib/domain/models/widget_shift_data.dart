@@ -15,6 +15,7 @@ class WidgetShiftData {
   final int daysUntilRest; // -1 = 未配置/无休班
   final String tomorrowShiftLabel; // "中"
   final ShiftType tomorrowShiftType;
+  final String handoverText; // "← 接一值(夜) · 二值(中)接我的班 →"
 
   const WidgetShiftData({
     required this.dateLabel,
@@ -26,6 +27,7 @@ class WidgetShiftData {
     required this.daysUntilRest,
     required this.tomorrowShiftLabel,
     required this.tomorrowShiftType,
+    this.handoverText = '',
   });
 
   /// 兜底数据：未配置时显示引导文案
@@ -44,7 +46,7 @@ class WidgetShiftData {
 
 /// 计算 Widget 显示数据 — 对应 Android 版 computeWidgetShiftData()
 ///
-/// 纯函数，复用 getShiftInfo() + daysUntilNextRest()。
+/// 纯函数，复用 getShiftInfo() + daysUntilNextRest() + findShiftHandover()。
 /// settings.isValid == false 时返回 WidgetShiftData.unconfigured()。
 WidgetShiftData computeWidgetShiftData({
   required DateTime today,
@@ -79,6 +81,16 @@ WidgetShiftData computeWidgetShiftData({
     referenceDate: settings.referenceDate,
   );
 
+  final handover = findShiftHandover(
+    date: today,
+    teamId: settings.defaultTeamId,
+    customCycle: settings.shiftCycle,
+    referenceDate: settings.referenceDate,
+  );
+  final handoverText = handover != null
+      ? '← 接${teamNameResolver(handover.predTeam)}(${shiftLabelResolver(handover.predShift)}) · ${teamNameResolver(handover.succTeam)}(${shiftLabelResolver(handover.succShift)})接我的班 →'
+      : '';
+
   return WidgetShiftData(
     dateLabel: dateFormatter(today),
     shiftLabel: shiftLabelResolver(todayInfo.shiftType),
@@ -89,5 +101,6 @@ WidgetShiftData computeWidgetShiftData({
     daysUntilRest: daysRest,
     tomorrowShiftLabel: shiftLabelResolver(tomorrowInfo.shiftType),
     tomorrowShiftType: tomorrowInfo.shiftType,
+    handoverText: handoverText,
   );
 }

@@ -3,118 +3,115 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/widget_background"
-    android:padding="10dp">
+    android:background="@color/widget_background">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_gravity="center_vertical">
+        android:layout_gravity="center_vertical"
+        android:padding="10dp">
 
-        <!-- Row 1: badge + team/progress + rest countdown -->
+        <!-- Left: Big shift badge -->
+        <TextView
+            android:id="@+id/widget_shift_badge"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginEnd="10dp" />
+
+        <!-- Right: all text info in a column -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-            <!-- Shift badge (colored background set in code) -->
-            <TextView
-                android:id="@+id/widget_shift_badge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#FFFFFF"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:minWidth="40dp" />
-
-            <!-- Team + progress column -->
+            <!-- Row 1: Team · progress (bold) | Rest (green, right) -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:paddingStart="10dp"
-                android:paddingEnd="8dp">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
                 <TextView
                     android:id="@+id/widget_team_name"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:textColor="@color/widget_text_primary"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:maxLines="1" />
 
                 <TextView
-                    android:id="@+id/widget_progress"
+                    android:id="@+id/widget_rest"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/widget_text_secondary"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp"
-                    android:maxLines="1" />
+                    android:textColor="@color/widget_rest_green"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:layout_marginStart="4dp" />
             </LinearLayout>
 
-            <!-- Rest countdown (right-aligned) -->
-            <TextView
-                android:id="@+id/widget_rest"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/widget_rest_green"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:maxLines="1" />
-        </LinearLayout>
-
-        <!-- Row 2: date + tomorrow preview -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="6dp"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/widget_date"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/widget_text_dim"
-                android:textSize="11sp"
-                android:maxLines="1" />
-
-            <!-- Tomorrow preview -->
+            <!-- Row 2: Date (dim) | ● 明日: x (dim) -->
             <LinearLayout
-                android:id="@+id/widget_tomorrow"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <!-- Colored dot: background color set in code -->
-                <TextView
-                    android:id="@+id/widget_tomorrow_dot"
-                    android:layout_width="6dp"
-                    android:layout_height="6dp"
-                    android:layout_marginEnd="4dp"
-                    android:background="#7C5CFF" />
+                android:gravity="center_vertical"
+                android:layout_marginTop="1dp">
 
                 <TextView
-                    android:id="@+id/widget_tomorrow_label"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/widget_date"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/widget_text_secondary"
+                    android:layout_weight="1"
+                    android:textColor="@color/widget_text_dim"
                     android:textSize="11sp"
                     android:maxLines="1" />
+
+                <LinearLayout
+                    android:id="@+id/widget_tomorrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/widget_tomorrow_dot"
+                        android:layout_width="5dp"
+                        android:layout_height="5dp"
+                        android:layout_marginEnd="3dp"
+                        android:background="#7C5CFF" />
+
+                    <TextView
+                        android:id="@+id/widget_tomorrow_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/widget_text_dim"
+                        android:textSize="11sp"
+                        android:maxLines="1" />
+                </LinearLayout>
             </LinearLayout>
+
+            <!-- Row 3: Handover (dim, hidden when empty) -->
+            <TextView
+                android:id="@+id/widget_handover"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:textColor="@color/widget_text_dim"
+                android:textSize="11sp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>
